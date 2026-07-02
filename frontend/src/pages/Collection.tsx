@@ -127,7 +127,7 @@ function Collection() {
   const GAP = 4;
   const available = gridWidth || 360;
   const fitByWidth = Math.floor((available + GAP) / (mx + GAP));
-  const cellSize = Math.max(120, Math.min(200, fitByWidth));
+  const cellSize = Math.max(140, Math.min(240, fitByWidth));
 
   const handleCellClick = (cell: Cell) => {
     if (cell.status !== 'locked' && cell.dragon_id) {
@@ -143,8 +143,8 @@ function Collection() {
             <img src={mediaUrl(c.dragon_url)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
             <div style={{
               position: 'absolute', bottom: 0, left: 0, right: 0,
-              padding: '3px 4px', background: 'rgba(21,15,26,0.78)',
-              fontSize: Math.max(11, cellSize * 0.1), color: 'var(--accent-gold-light)', textAlign: 'center',
+              padding: '4px 6px', background: 'rgba(21,15,26,0.78)',
+              fontSize: Math.max(13, cellSize * 0.12), color: 'var(--accent-gold-light)', textAlign: 'center',
               whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontWeight: 600,
             }}>
               {c.name || '⭐'}
@@ -152,48 +152,43 @@ function Collection() {
           </div>
         );
       }
-      return <span style={{ fontWeight: 700, color: 'var(--accent-gold-light)', fontSize: cellSize * 0.3 }}>{c.name?.charAt(0) || '⭐'}</span>;
+      return <span style={{ fontWeight: 700, color: 'var(--accent-gold-light)', fontSize: cellSize * 0.35 }}>{c.name?.charAt(0) || '⭐'}</span>;
     }
 
     if (c.status === 'growing') {
       return (
-        <div style={{
-          width: '100%', height: '100%', display: 'flex',
-          flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-          padding: Math.max(4, cellSize * 0.06), gap: cellSize * 0.03,
-          position: 'relative',
-        }}>
+        <div style={{ width: '100%', height: '100%', position: 'relative', overflow: 'hidden' }}>
           {c.egg_url ? (
             <img src={mediaUrl(c.egg_url)} alt="" style={{
-              width: '60%', height: '52%', objectFit: 'contain',
-              opacity: 0.85,
+              width: '100%', height: '100%', objectFit: 'cover', opacity: 0.85,
             }} />
           ) : (
-            <span style={{ fontSize: cellSize * 0.42, opacity: 0.85 }}>🥚</span>
+            <span style={{ fontSize: cellSize * 0.5, opacity: 0.85, display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%' }}>🥚</span>
           )}
           {c.egg_type && (
             <div style={{
-              position: 'absolute', bottom: 0, left: 0, right: 0,
-              padding: '3px 4px', background: 'rgba(21,15,26,0.78)',
-              fontSize: Math.max(11, cellSize * 0.1), color: 'var(--accent-gold-light)',
+              position: 'absolute', top: 0, left: 0, right: 0,
+              padding: '4px 6px', background: 'rgba(21,15,26,0.78)',
+              fontSize: Math.max(13, cellSize * 0.12), color: 'var(--accent-gold-light)',
               textAlign: 'center', fontWeight: 600,
               whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
             }}>
               {c.egg_type}
             </div>
           )}
-          <div style={{ width: '86%' }}>
-            <div style={{
-              width: '100%', height: Math.max(5, cellSize * 0.06), background: 'rgba(21,15,26,0.55)',
-              borderRadius: cellSize * 0.03, overflow: 'hidden',
-            }}>
+          <div style={{
+            position: 'absolute', bottom: 0, left: 0, right: 0,
+            padding: '4px 8px 6px',
+            background: 'linear-gradient(transparent, rgba(21,15,26,0.85) 40%)',
+          }}>
+            <div style={{ width: '100%', height: Math.max(6, cellSize * 0.07), background: 'rgba(21,15,26,0.55)', borderRadius: cellSize * 0.04, overflow: 'hidden' }}>
               <div style={{
                 height: '100%', width: `${c.progress_pct}%`,
                 background: 'linear-gradient(90deg, var(--ember), var(--fire), var(--molten))',
-                borderRadius: cellSize * 0.03, transition: 'width 0.5s',
+                borderRadius: cellSize * 0.04, transition: 'width 0.5s',
               }} />
             </div>
-            <div style={{ fontSize: Math.max(10, cellSize * 0.1), color: 'var(--accent-gold)', textAlign: 'center', marginTop: 2, fontWeight: 700 }}>
+            <div style={{ fontSize: Math.max(12, cellSize * 0.12), color: 'var(--accent-gold)', textAlign: 'center', fontWeight: 700 }}>
               {c.progress_pct}%
             </div>
           </div>
@@ -201,7 +196,7 @@ function Collection() {
       );
     }
 
-    return <span style={{ color: 'var(--text-muted)', fontSize: cellSize * 0.35 }}>?</span>;
+    return <span style={{ color: 'var(--text-muted)', fontSize: cellSize * 0.4 }}>?</span>;
   };
 
   return (
