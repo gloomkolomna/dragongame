@@ -4,8 +4,6 @@ After=dragons-api.service
 Wants=dragons-api.service
 
 [Service]
-User=dragons
-Group=dragons
 WorkingDirectory=/opt/dragons/bot
 Environment=PATH=/opt/dragons/api/venv/bin
 Environment=PYTHONPATH=/opt/dragons/api
