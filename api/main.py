@@ -34,10 +34,19 @@ IMAGES_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "ima
 
 @app.get("/api/static/images/{rest:path}")
 def serve_image(rest: str):
-    filepath = os.path.join(IMAGES_DIR, rest)
-    if not os.path.isfile(filepath):
-        raise HTTPException(status_code=404)
-    return FileResponse(filepath)
+    filepath = os.path.normpath(os.path.join(IMAGES_DIR, rest))
+    if os.path.isfile(filepath):
+        return FileResponse(filepath)
+
+    dirpart = os.path.dirname(filepath)
+    namepart = os.path.basename(filepath)
+    if os.path.isdir(dirpart):
+        low = namepart.lower()
+        for f in os.listdir(dirpart):
+            if f.lower() == low:
+                return FileResponse(os.path.join(dirpart, f))
+
+    raise HTTPException(status_code=404)
 
 
 @app.get("/api/")
