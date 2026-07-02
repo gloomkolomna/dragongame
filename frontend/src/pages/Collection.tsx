@@ -146,7 +146,7 @@ function Collection() {
               padding: '4px 6px', background: 'rgba(21,15,26,0.78)',
               fontSize: Math.max(13, cellSize * 0.12), color: 'var(--accent-gold-light)', textAlign: 'center',
               whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontWeight: 600,
-            }}>
+            }} title={c.name}>
               {c.name || '⭐'}
             </div>
           </div>
@@ -172,7 +172,7 @@ function Collection() {
               fontSize: Math.max(13, cellSize * 0.12), color: 'var(--accent-gold-light)',
               textAlign: 'center', fontWeight: 600,
               whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-            }}>
+            }} title={c.egg_type}>
               {c.egg_type}
             </div>
           )}
@@ -266,6 +266,7 @@ function Collection() {
                   key={`${c.x},${c.y}`}
                   onClick={() => handleCellClick(c)}
                   className="lair-grid-cell"
+                  title={c.name || c.egg_type || ''}
                   style={{
                     width: cellSize, height: cellSize, padding: 0,
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
