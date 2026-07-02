@@ -199,7 +199,7 @@ function Collection() {
       );
     }
 
-    return null;
+    return <span style={{ color: 'var(--text-muted)', fontSize: cellSize * 0.35 }}>?</span>;
   };
 
   return (
