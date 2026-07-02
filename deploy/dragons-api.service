@@ -3,7 +3,7 @@ Description=Dragons API (FastAPI gunicorn)
 After=network.target
 
 [Service]
-WorkingDirectory=/opt/dragons/api
+WorkingDirectory=/opt/dragons
 Environment=PATH=/opt/dragons/api/venv/bin
 ExecStart=/opt/dragons/api/venv/bin/gunicorn \
     -w 2 \

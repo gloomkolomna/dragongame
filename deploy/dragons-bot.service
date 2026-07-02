@@ -4,9 +4,9 @@ After=dragons-api.service
 Wants=dragons-api.service
 
 [Service]
-WorkingDirectory=/opt/dragons/bot
+WorkingDirectory=/opt/dragons
 Environment=PATH=/opt/dragons/api/venv/bin
-Environment=PYTHONPATH=/opt/dragons/api
+Environment=PYTHONPATH=/opt/dragons:/opt/dragons/api
 ExecStart=/opt/dragons/api/venv/bin/python -m bot.main
 Restart=always
 RestartSec=10
