@@ -10,6 +10,7 @@ class Family(Base):
     name = Column(String, nullable=False)
     description = Column(Text, default="")
     sort_order = Column(Integer, default=0)
+    color = Column(String(7), default="#9b6fc7")
 
 
 class Dragon(Base):
@@ -19,8 +20,8 @@ class Dragon(Base):
     egg_type = Column(String, default="")
     rarity = Column(Integer, nullable=False)
     steps_count = Column(Integer, nullable=False)
-    image_path = Column(String, default="")
-    silhouette_path = Column(String, default="")
+    egg_path = Column(String, default="")       # картинка ЯЙЦА
+    dragon_path = Column(String, default="")    # картинка ВЗРОСЛОГО дракона
     description = Column(Text, default="")
     is_active = Column(Boolean, default=True)
     pin_code = Column(String(4), nullable=True, unique=True)

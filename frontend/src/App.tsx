@@ -1,6 +1,7 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 
 import { VkBridgeProvider } from './context/VkBridgeContext';
+import MiniAppShell from './components/MiniAppShell';
 
 import Login from './pages/Login';
 import AdminLayout from './pages/AdminLayout';
@@ -24,8 +25,22 @@ function App() {
     <VkBridgeProvider>
       <Routes>
         {/* Mini App — публичные страницы коллекции */}
-        <Route path="/" element={<Collection />} />
-        <Route path="/dragon/:id" element={<DragonDetail />} />
+        <Route
+          path="/"
+          element={
+            <MiniAppShell>
+              <Collection />
+            </MiniAppShell>
+          }
+        />
+        <Route
+          path="/dragon/:id"
+          element={
+            <MiniAppShell>
+              <DragonDetail />
+            </MiniAppShell>
+          }
+        />
 
         {/* Admin — защищённые страницы */}
         <Route path="/admin/login" element={<Login />} />

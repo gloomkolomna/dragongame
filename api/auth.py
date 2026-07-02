@@ -15,6 +15,7 @@ from models import User
 from config import (
     SECRET_KEY, ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES,
     VK_CLIENT_ID, VK_CLIENT_SECRET, VK_REDIRECT_URI,
+    VK_APP_SECRET,
     get_allowed_vk_ids,
 )
 
@@ -165,3 +166,37 @@ async def get_current_admin(token: str = Depends(oauth2_scheme), db: Session = D
     if not is_vk_id_allowed(int(user.vk_id)):
         raise HTTPException(status_code=403, detail="Доступ запрещён")
     return user
+
+
+def verify_launch_params(query_params: dict) -> int | None:
+    """
+    Проверяет подпись launch params VK Mini App (HMAC-SHA256).
+    Возвращает vk_user_id, если подпись верна, иначе None.
+    """
+    if not VK_APP_SECRET:
+        return None
+
+    sign = query_params.get("sign")
+    if not sign:
+        return None
+
+    vk_params = {k: v for k, v in query_params.items() if k.startswith("vk_")}
+    if not vk_params:
+        return None
+
+    sorted_keys = sorted(vk_params.keys())
+    query_string = "&".join(f"{k}={vk_params[k]}" for k in sorted_keys)
+
+    import hmac
+    digest = hmac.new(
+        VK_APP_SECRET.encode("utf-8"),
+        query_string.encode("utf-8"),
+        hashlib.sha256,
+    ).digest()
+
+    computed = base64.urlsafe_b64encode(digest).rstrip(b"=").decode("utf-8")
+
+    if hmac.compare_digest(computed, sign):
+        return int(vk_params["vk_user_id"])
+
+    return None

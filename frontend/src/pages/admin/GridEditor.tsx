@@ -1,8 +1,9 @@
 import { useEffect, useState, useCallback } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import client from '../../api/client';
 
 interface Cell { id: number; cell_x: number; cell_y: number; dragon_id: number | null; }
-interface Dragon { id: number; name: string; rarity: number; family_id: number | null; }
+interface Dragon { id: number; name: string; rarity: number; family_id: number | null; egg_path: string; dragon_path: string; }
 interface Family { id: number; name: string; }
 
 function GridEditor() {
@@ -14,6 +15,14 @@ function GridEditor() {
   const [updating, setUpdating] = useState(false);
   const [cols, setCols] = useState(10);
   const [rows, setRows] = useState(5);
+  const [modalImg, setModalImg] = useState<string | null>(null);
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+
+  useEffect(() => {
+    const fid = searchParams.get('family_id');
+    if (fid) setFamilyId(Number(fid));
+  }, [searchParams]);
 
   useEffect(() => { client.get('/admin/families').then((r) => setFamilies(r.data)); }, []);
 
@@ -84,7 +93,7 @@ function GridEditor() {
         <div className="lair-header"><h2>📐 Редактор сетки</h2></div>
         <div className="lair-content">
           <div className="lair-card" style={{ maxWidth: 400, margin: '0 auto', textAlign: 'center' }}>
-            <p style={{ color: 'var(--parchment-dim)', marginBottom: 16 }}>Выберите семейство для редактирования сетки</p>
+            <p style={{ color: 'var(--parchment-dim)', marginBottom: 16 }}>Выберите семейство / союз для редактирования сетки</p>
             <select className="lair-select" value="" onChange={(e) => setFamilyId(Number(e.target.value))}>
               <option value="">— выбрать —</option>
               {families.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
@@ -160,29 +169,59 @@ function GridEditor() {
               </div>
               {unassigned.map((d) => (
                 <div key={d.id} draggable onDragStart={(e) => e.dataTransfer.setData('dragonId', String(d.id))}
-                     style={{ padding: '8px 10px', marginBottom: 4, cursor: 'grab',
+                     style={{ padding: '6px 8px', marginBottom: 4, cursor: 'grab',
                               background: 'rgba(30,20,42,0.6)', borderRadius: 8, fontSize: 13,
                               color: 'var(--parchment)', border: '1px solid var(--bronze)' }}>
-                  {d.name}
-                  <span style={{ color: 'var(--gold)', marginLeft: 6 }}>{'⭐'.repeat(d.rarity)}</span>
+                  <div style={{ fontWeight: 600, marginBottom: 2 }}>{d.name}</div>
+                  <div style={{ color: 'var(--gold)', fontSize: 11, marginBottom: 3 }}>{'⭐'.repeat(d.rarity)}</div>
+                  <div style={{ display: 'flex', gap: 2 }}>
+                    {d.egg_path && (
+                      <img src={`/dragons/api/static/images/${d.egg_path}`} alt="яйцо" onClick={() => setModalImg(`/dragons/api/static/images/${d.egg_path}`)}
+                           style={{ width: 30, height: 30, objectFit: 'cover', borderRadius: 3, cursor: 'pointer' }}
+                           onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                    )}
+                    {d.dragon_path && (
+                      <img src={`/dragons/api/static/images/${d.dragon_path}`} alt="дракон" onClick={() => setModalImg(`/dragons/api/static/images/${d.dragon_path}`)}
+                           style={{ width: 30, height: 30, objectFit: 'cover', borderRadius: 3, cursor: 'pointer' }}
+                           onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                    )}
+                  </div>
                 </div>
               ))}
               {unassigned.length === 0 && <p style={{ color: 'var(--parchment-faded)', fontSize: 12 }}>Все драконы размещены</p>}
             </div>
 
             <div style={{ flex: 1 }}>
-              <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: 3 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cols}, 250px)`, gap: 3, justifyContent: 'start' }}>
                 {cells.map((cell) => {
                   const dragon = dragons.find((d) => d.id === cell.dragon_id);
                   return (
                     <div key={cell.id} className={`lair-grid-cell ${dragon ? 'occupied' : ''}`}
+                         style={{ width: 250, minHeight: dragon ? undefined : 80 }}
                          onDragOver={(e) => e.preventDefault()}
                          onDrop={(e) => { e.preventDefault(); const id = Number(e.dataTransfer.getData('dragonId')); if (id) assignDragon(cell.id, id); }}>
                       {dragon ? (
-                        <div style={{ position: 'relative' }}>
-                          <div style={{ fontWeight: 600, fontSize: 11, lineHeight: 1.2 }}>{dragon.name}</div>
-                          <div style={{ color: 'var(--gold)', fontSize: 10 }}>{'⭐'.repeat(dragon.rarity)}</div>
-                          <button className="lair-btn lair-btn-sm lair-btn-danger" style={{ marginTop: 4, fontSize: 10 }}
+                        <div style={{ display: 'flex', flexDirection: 'column' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, marginBottom: 1 }}>
+                            <span style={{ fontWeight: 700, fontSize: 16, lineHeight: 1, cursor: 'pointer', color: 'var(--gold)' }}
+                                  onClick={() => navigate(`/admin/dragons/${dragon.id}/edit`)}
+                                  title="Редактировать дракона">
+                              {dragon.name}
+                            </span>
+                            <span style={{ color: 'var(--gold)', fontSize: 12 }}>{'⭐'.repeat(dragon.rarity)}</span>
+                          </div>
+                          {dragon.egg_path && (
+                            <img src={`/dragons/api/static/images/${dragon.egg_path}`} alt="яйцо" onClick={() => setModalImg(`/dragons/api/static/images/${dragon.egg_path}`)}
+                                 style={{ width: '100%', height: 22, objectFit: 'cover', borderRadius: 2, marginBottom: 1, cursor: 'pointer' }}
+                                 onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                          )}
+                          {dragon.dragon_path && (
+                            <img src={`/dragons/api/static/images/${dragon.dragon_path}`} alt="дракон" onClick={() => setModalImg(`/dragons/api/static/images/${dragon.dragon_path}`)}
+                                 style={{ width: '100%', height: 250, objectFit: 'contain', borderRadius: 2, marginBottom: 1, cursor: 'pointer' }}
+                                 onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                          )}
+                          <button className="lair-btn lair-btn-sm lair-btn-danger"
+                                  style={{ fontSize: 10, padding: '1px 0', lineHeight: 1 }}
                                   onClick={(e) => { e.stopPropagation(); assignDragon(cell.id, null); }}>✕</button>
                         </div>
                       ) : (
@@ -200,6 +239,15 @@ function GridEditor() {
           </div>
         )}
       </div>
+      {modalImg && (
+        <div onClick={() => setModalImg(null)}
+             style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+          <img src={modalImg} alt="" onClick={(e) => e.stopPropagation()}
+               style={{ maxWidth: '90vw', maxHeight: '90vh', objectFit: 'contain', borderRadius: 8, boxShadow: '0 0 60px rgba(153,102,255,0.3)' }} />
+          <button onClick={() => setModalImg(null)}
+                  style={{ position: 'absolute', top: 16, right: 16, background: 'none', border: 'none', color: '#fff', fontSize: 32, cursor: 'pointer', lineHeight: 1 }}>✕</button>
+        </div>
+      )}
     </>
   );
 }

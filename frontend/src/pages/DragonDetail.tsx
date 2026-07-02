@@ -1,16 +1,18 @@
 import { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useVkBridge } from '../context/VkBridgeContext';
 import client from '../api/client';
+import { mediaUrl } from '../api/media';
 
 interface Step { number: number; task: string; completed: boolean; }
-interface Dragon { is_revealed: boolean; name?: string; rarity?: number; egg_type: string; steps_count: number; description?: string; image_url?: string; user_progress: { status: string; completed_steps: number; steps: Step[] }; }
+interface Dragon { is_revealed: boolean; name?: string; rarity?: number; egg_type: string; steps_count: number; description?: string; dragon_url?: string; egg_url?: string; user_progress: { status: string; completed_steps: number; steps: Step[] }; }
 
 function DragonDetail() {
   const { id } = useParams<{ id: string }>();
   const { vkUserId, loading: bl } = useVkBridge();
   const [d, setD] = useState<Dragon | null>(null);
   const [load, setLoad] = useState(true);
+  const nav = useNavigate();
 
   useEffect(() => { if (bl || !vkUserId) return; client.get(`/dragon/${id}`, { params: { vk_id: vkUserId } }).then((r) => setD(r.data)).finally(() => setLoad(false)); }, [id, vkUserId, bl]);
 
@@ -21,13 +23,27 @@ function DragonDetail() {
 
   return (
     <div style={{ maxWidth: 500, margin: '0 auto', padding: 20 }}>
+      <button
+        onClick={() => nav(-1)}
+        className="lair-btn lair-btn-outline lair-btn-sm"
+        style={{ marginBottom: 12 }}
+      >
+        ← Назад
+      </button>
       <div className="lair-card lair-rise" style={{ textAlign: 'center', marginBottom: 16 }}>
-        <div style={{ fontSize: 40, marginBottom: 8 }}>{d.is_revealed ? '🐉' : '🥚'}</div>
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 8 }}>
+          {d.is_revealed
+            ? (d.dragon_url
+                ? <img src={`${mediaUrl(d.dragon_url)}?v=${d.rarity}`} alt="" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} style={{ maxWidth: '100%', maxHeight: 240, borderRadius: 'var(--radius-md)' }} />
+                : <span style={{ fontSize: 56 }}>🐉</span>)
+            : (d.egg_url
+                ? <img src={mediaUrl(d.egg_url)} alt="" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} style={{ maxWidth: '100%', maxHeight: 240, borderRadius: 'var(--radius-md)' }} />
+                : <span style={{ fontSize: 56 }}>🥚</span>)}
+        </div>
         <h2 style={{ margin: '0 0 4px', color: 'var(--accent-gold-light)', fontSize: 18 }}>
           {d.is_revealed ? d.name : `Яйцо: ${d.egg_type}`}
         </h2>
         {d.is_revealed && <div style={{ color: 'var(--text-secondary)', fontSize: 13, marginBottom: 12 }}>Редкость: {'⭐'.repeat(d.rarity || 1)}</div>}
-        {d.is_revealed && d.image_url && <img src={`${d.image_url}?v=${d.rarity}`} alt="" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} style={{ maxWidth: '100%', maxHeight: 240, borderRadius: 'var(--radius-md)', marginBottom: 12 }} />}
         {d.is_revealed && d.description && <p style={{ color: 'var(--text-secondary)', fontSize: 14, fontStyle: 'italic' }}>{d.description}</p>}
 
         <div style={{ marginTop: 12, background: 'var(--bg-card-hover)', borderRadius: 'var(--radius-sm)', height: 8, overflow: 'hidden' }}>

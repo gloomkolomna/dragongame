@@ -4,7 +4,7 @@ import DragonLogo from '../components/DragonLogo';
 
 const NAV_ITEMS = [
   { path: '/admin/dashboard', label: 'Дашборд', icon: '📊' },
-  { path: '/admin/families', label: 'Семейства', icon: '📂' },
+  { path: '/admin/families', label: 'Семейства / Союзы', icon: '📂' },
   { path: '/admin/dragons', label: 'Драконы', icon: '🐉' },
   { path: '/admin/grid', label: 'Сетка', icon: '📐' },
   { path: '/admin/pins', label: 'PIN-коды', icon: '🔑' },

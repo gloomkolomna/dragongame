@@ -1,4 +1,7 @@
 import json
+import os
+import logging
+from datetime import datetime
 from fastapi import APIRouter, Depends, UploadFile, File, Form, HTTPException, Query, Request
 from sqlalchemy.orm import Session
 from typing import Optional
@@ -48,12 +51,35 @@ def create_dragon_route(
     rarity: int = Form(...),
     egg_type: str = Form(""),
     description: str = Form(""),
-    family_id: Optional[int] = Form(None),
+    family_id: int = Form(...),
     image: Optional[UploadFile] = File(None),
     silhouette: Optional[UploadFile] = File(None),
+    steps: Optional[str] = Form(None),
     db: Session = Depends(get_db),
 ):
-    return create_dragon(db, name, rarity, egg_type, description, family_id, image, silhouette)
+    dragon = create_dragon(db, name, rarity, egg_type, description, family_id, image, silhouette)
+
+    if steps:
+        try:
+            steps_data = json.loads(steps)
+        except json.JSONDecodeError:
+            raise HTTPException(status_code=400, detail="Invalid steps JSON")
+        for s in steps_data:
+            db.add(DragonStep(
+                dragon_id=dragon.id,
+                step_number=s.get("step_number", 0),
+                magic_action=s.get("magic_action", ""),
+                task_description=s.get("task_description", ""),
+                hint=s.get("hint", ""),
+                keyword="\u0432\u044B\u0448\u0438\u0442\u043E",
+            ))
+        db.commit()
+        sync_steps_count(db, dragon.id)
+        logging.getLogger("uvicorn").info(f"[STEPS] Saved {len(steps_data)} steps for dragon {dragon.id}")
+    else:
+        logging.getLogger("uvicorn").info(f"[STEPS] No steps received for dragon {dragon.id}")
+
+    return dragon
 
 
 @router.put("/dragons/{dragon_id}")
@@ -235,7 +261,7 @@ def list_families(db: Session = Depends(get_db)):
     result = []
     for f in families:
         dragon_count = db.query(Dragon).filter(Dragon.family_id == f.id).count()
-        result.append({"id": f.id, "name": f.name, "description": f.description, "sort_order": f.sort_order, "dragon_count": dragon_count})
+        result.append({"id": f.id, "name": f.name, "description": f.description, "sort_order": f.sort_order, "color": f.color, "dragon_count": dragon_count})
     return result
 
 
@@ -246,7 +272,7 @@ async def create_family(request: Request, db: Session = Depends(get_db)):
         data = json.loads(raw)
     except json.JSONDecodeError:
         raise HTTPException(status_code=400, detail="Invalid JSON body")
-    fam = Family(name=data.get("name", ""), description=data.get("description", ""), sort_order=data.get("sort_order", 0))
+    fam = Family(name=data.get("name", ""), description=data.get("description", ""), sort_order=data.get("sort_order", 0), color=data.get("color", "#9b6fc7"))
     if not fam.name:
         raise HTTPException(status_code=400, detail="Name is required")
     db.add(fam)
@@ -268,6 +294,7 @@ async def update_family(family_id: int, request: Request, db: Session = Depends(
     if "name" in data: fam.name = data["name"]
     if "description" in data: fam.description = data["description"]
     if "sort_order" in data: fam.sort_order = data["sort_order"]
+    if "color" in data: fam.color = data["color"]
     db.commit()
     db.refresh(fam)
     return fam
@@ -295,14 +322,39 @@ def list_pins(dragon_id: Optional[int] = Query(None), db: Session = Depends(get_
 
 # ─── Users ───
 
+def _resolve_vk_names(vk_ids: list[int]) -> dict[int, dict]:
+    """Batch-resolve VK user names using group token. Returns {vk_id: {first_name, last_name}}."""
+    import config
+    if not config.VK_GROUP_TOKEN or not vk_ids:
+        return {}
+    try:
+        import vk_api
+        vk = vk_api.VkApi(token=config.VK_GROUP_TOKEN, api_version="5.199").get_api()
+        ids_str = ",".join(str(x) for x in vk_ids[:1000])
+        users = vk.users.get(user_ids=ids_str, fields="first_name,last_name")
+        return {
+            u["id"]: {
+                "first_name": u.get("first_name", ""),
+                "last_name": u.get("last_name", ""),
+            }
+            for u in users
+        }
+    except Exception:
+        return {}
+
+
 @router.get("/users")
 def list_users(db: Session = Depends(get_db)):
     users = db.query(User).order_by(User.registered_at.desc()).limit(200).all()
+    vk_names = _resolve_vk_names([u.vk_id for u in users])
     result = []
     for u in users:
         collected = db.query(UserDragon).filter(UserDragon.user_id == u.vk_id).count()
+        nm = vk_names.get(u.vk_id, {})
         result.append({
             "vk_id": u.vk_id,
+            "first_name": nm.get("first_name", ""),
+            "last_name": nm.get("last_name", ""),
             "state": u.state,
             "registered_at": u.registered_at,
             "pins_activated": 0,
@@ -347,9 +399,12 @@ def get_user_detail(vk_id: int, db: Session = Depends(get_db)):
         })
 
     collected_count = db.query(UserDragon).filter(UserDragon.user_id == vk_id).count()
+    vk_nm = _resolve_vk_names([vk_id]).get(vk_id, {})
 
     return {
         "vk_id": user.vk_id,
+        "first_name": vk_nm.get("first_name", ""),
+        "last_name": vk_nm.get("last_name", ""),
         "registered_at": user.registered_at,
         "pins_activated": len(pins),
         "pins": pins,
@@ -359,14 +414,237 @@ def get_user_detail(vk_id: int, db: Session = Depends(get_db)):
     }
 
 
-@router.post("/users/{vk_id}/skip-step")
-def skip_step(vk_id: int, db: Session = Depends(get_db)):
+@router.get("/users/{vk_id}/steps")
+def get_user_steps(vk_id: int, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.vk_id == vk_id).first()
     if not user or not user.current_dragon_id:
         raise HTTPException(status_code=400, detail="No active dragon")
-    user.current_step += 1
+
+    dragon = db.query(Dragon).filter(Dragon.id == user.current_dragon_id).first()
+    if not dragon:
+        raise HTTPException(status_code=400, detail="Dragon not found")
+
+    steps = db.query(DragonStep).filter(DragonStep.dragon_id == dragon.id).order_by(DragonStep.step_number).all()
+    result = []
+    for s in steps:
+        progress = db.query(UserProgress).filter(
+            UserProgress.user_id == vk_id,
+            UserProgress.dragon_id == dragon.id,
+            UserProgress.step_number == s.step_number,
+        ).first()
+        result.append({
+            "step_number": s.step_number,
+            "task_description": s.task_description,
+            "magic_action": s.magic_action,
+            "hint": s.hint,
+            "completed": progress.completed if progress else False,
+            "current": s.step_number == user.current_step,
+        })
+    return {"dragon_name": dragon.name, "total": dragon.steps_count, "current_step": user.current_step, "steps": result}
+
+
+@router.post("/users/{vk_id}/steps/{step_number}/toggle")
+def toggle_user_step(vk_id: int, step_number: int, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.vk_id == vk_id).first()
+    if not user or not user.current_dragon_id:
+        raise HTTPException(status_code=400, detail="No active dragon")
+
+    progress = db.query(UserProgress).filter(
+        UserProgress.user_id == vk_id,
+        UserProgress.dragon_id == user.current_dragon_id,
+        UserProgress.step_number == step_number,
+    ).first()
+
+    dragon = db.query(Dragon).filter(Dragon.id == user.current_dragon_id).first()
+    total = dragon.steps_count
+
+    if progress:
+        was_completed = progress.completed
+        progress.completed = not progress.completed
+        if not progress.completed:
+            progress.completed_at = ""
+    else:
+        was_completed = False
+        progress = UserProgress(
+            user_id=vk_id,
+            dragon_id=user.current_dragon_id,
+            step_number=step_number,
+            completed=True,
+            completed_at=datetime.now().strftime("%Y-%m-%dT%H:%M:%S"),
+        )
+        db.add(progress)
+
+    # Cascade: marking step N as completed → mark all < N as completed too
+    # Cascade: marking step N as incomplete → mark all > N as incomplete too
+    db.flush()
+    now_ts = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
+
+    if progress.completed and not was_completed:
+        for s in range(1, step_number):
+            existing = db.query(UserProgress).filter(
+                UserProgress.user_id == vk_id,
+                UserProgress.dragon_id == user.current_dragon_id,
+                UserProgress.step_number == s,
+            ).first()
+            if existing:
+                if not existing.completed:
+                    existing.completed = True
+                    existing.completed_at = existing.completed_at or now_ts
+            else:
+                db.add(UserProgress(
+                    user_id=vk_id, dragon_id=user.current_dragon_id, step_number=s,
+                    completed=True, completed_at=now_ts,
+                ))
+
+    elif not progress.completed and was_completed:
+        for s in range(step_number + 1, total + 1):
+            existing = db.query(UserProgress).filter(
+                UserProgress.user_id == vk_id,
+                UserProgress.dragon_id == user.current_dragon_id,
+                UserProgress.step_number == s,
+            ).first()
+            if existing and existing.completed:
+                existing.completed = False
+                existing.completed_at = ""
+
+    db.flush()
+    completed_count = db.query(UserProgress).filter(
+        UserProgress.user_id == vk_id,
+        UserProgress.dragon_id == user.current_dragon_id,
+        UserProgress.completed == True,
+    ).count()
+
+    if completed_count >= total:
+        ud = db.query(UserDragon).filter(UserDragon.user_id == vk_id, UserDragon.dragon_id == user.current_dragon_id).first()
+        if ud and not ud.completed_at:
+            ud.completed_at = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
+        user.state = "idle"
+        user.current_dragon_id = None
+        user.current_step = 0
+
+        msg = (
+            f"🎉 Поздравляю! Ты вырастил дракона!\n\n"
+            f"⭐ {dragon.name} ⭐\n"
+            f"Редкость: {'⭐' * dragon.rarity}\n"
+        )
+        if dragon.description:
+            msg += f"\n{dragon.description}\n"
+        msg += "\nЗагляни в мини-приложение, чтобы увидеть его в своей коллекции!"
+
+        attachment = ""
+        if dragon.dragon_path:
+            img_path = os.path.join(os.path.dirname(__file__), "..", "..", "images", "dragons", os.path.basename(dragon.dragon_path))
+            attachment = _upload_vk_image(os.path.abspath(img_path))
+
+        _notify_user(vk_id, msg, attachment)
+    else:
+        user.current_step = completed_count + 1
+        user.state = f"grow_step_{user.current_step}"
+        step_def = db.query(DragonStep).filter(
+            DragonStep.dragon_id == user.current_dragon_id,
+            DragonStep.step_number == user.current_step,
+        ).first()
+        steps_msg = _format_step_text(step_def, user.current_step, total)
+        header = f"🥚 {dragon.name}\n"
+        instruction = "\nПришли 2 фото (до и после) и напиши «вышито» когда выполнишь."
+        if progress.completed:
+            _notify_user(vk_id, f"{header}✅ Администратор отметил шаг {step_number} как выполненный.\n\n{steps_msg}{instruction}")
+        else:
+            _notify_user(vk_id, f"{header}↩ Администратор отменил шаг {step_number}.\n\n{steps_msg}{instruction}")
+
     db.commit()
-    return {"ok": True}
+    return {"ok": True, "completed": progress.completed, "current_step": user.current_step}
+
+
+def _notify_user(vk_id: int, message: str, attachment: str = ""):
+    """Send a notification message to user via VK bot."""
+    try:
+        import config
+        import random
+        if not config.VK_GROUP_TOKEN:
+            return
+        import vk_api
+        vk = vk_api.VkApi(token=config.VK_GROUP_TOKEN, api_version="5.199").get_api()
+        kwargs = {
+            "user_id": vk_id,
+            "message": message,
+            "random_id": random.randint(1, 2**31 - 1),
+        }
+        if attachment:
+            kwargs["attachment"] = attachment
+        vk.messages.send(**kwargs)
+    except Exception:
+        pass
+
+
+def _upload_vk_image(filepath: str) -> str:
+    """Upload local image to VK and return attachment string."""
+    import config
+    if not config.VK_GROUP_TOKEN or not filepath or not os.path.isfile(filepath):
+        return ""
+    try:
+        import importlib
+        import vk_api
+        import requests
+        vk = vk_api.VkApi(token=config.VK_GROUP_TOKEN, api_version="5.199").get_api()
+        upload_url = vk.photos.getMessagesUploadServer(peer_id=0)["upload_url"]
+        with open(filepath, "rb") as f:
+            resp = requests.post(upload_url, files={"photo": ("image.jpg", f, "image/jpeg")}).json()
+        saved = vk.photos.saveMessagesPhoto(photo=resp["photo"], server=resp["server"], hash=resp["hash"])[0]
+        return f"photo{saved['owner_id']}_{saved['id']}"
+    except Exception:
+        return ""
+
+
+def _format_step_text(step_def, step_num: int, total: int) -> str:
+    if not step_def:
+        return f"📋 Шаг {step_num} из {total}"
+    lines = [f"📋 Шаг {step_num} из {total}"]
+    if step_def.magic_action:
+        lines.append(f"✨ {step_def.magic_action}")
+    if step_def.task_description:
+        lines.append(f"📝 {step_def.task_description}")
+    if step_def.hint:
+        lines.append(f"💡 {step_def.hint}")
+    return "\n".join(lines)
+
+
+@router.post("/users/{vk_id}/skip-step")
+def skip_step(vk_id: int, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.vk_id == vk_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    if not user.current_dragon_id:
+        raise HTTPException(status_code=400, detail="No active dragon — игрок сейчас не выращивает дракона")
+
+    dragon = db.query(Dragon).filter(Dragon.id == user.current_dragon_id).first()
+    if not dragon:
+        raise HTTPException(status_code=400, detail="Dragon not found")
+
+    total = dragon.steps_count
+
+    existing = db.query(UserProgress).filter(
+        UserProgress.user_id == vk_id,
+        UserProgress.dragon_id == user.current_dragon_id,
+        UserProgress.step_number == user.current_step,
+    ).first()
+    if not existing:
+        up = UserProgress(user_id=vk_id, dragon_id=user.current_dragon_id, step_number=user.current_step, completed=True)
+        db.add(up)
+
+    if user.current_step >= total:
+        ud = db.query(UserDragon).filter(UserDragon.user_id == vk_id, UserDragon.dragon_id == dragon.id).first()
+        if ud and not ud.completed_at:
+            ud.completed_at = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
+        user.state = "idle"
+        user.current_dragon_id = None
+        user.current_step = 0
+    else:
+        user.current_step += 1
+        user.state = f"grow_step_{user.current_step}"
+
+    db.commit()
+    return {"ok": True, "new_step": user.current_step}
 
 
 @router.post("/users/{vk_id}/reset-dragon")
@@ -374,12 +652,50 @@ def reset_dragon(vk_id: int, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.vk_id == vk_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
-    if user.current_dragon_id:
-        db.query(UserProgress).filter(
-            UserProgress.user_id == vk_id, UserProgress.dragon_id == user.current_dragon_id
-        ).delete()
+    if not user.current_dragon_id:
+        raise HTTPException(status_code=400, detail="No active dragon — игрок сейчас не выращивает дракона")
+
+    dragon_name = db.query(Dragon).filter(Dragon.id == user.current_dragon_id).first().name
+    db.query(UserProgress).filter(
+        UserProgress.user_id == vk_id, UserProgress.dragon_id == user.current_dragon_id
+    ).delete()
     user.current_dragon_id = None
     user.current_step = 0
     user.state = "idle"
+    user.state_data = "{}"
     db.commit()
+    _notify_user(vk_id, f"🔄 Администратор сбросил прогресс выращивания дракона «{dragon_name}». Можешь начать заново — добавь нового дракона через PIN.")
+    return {"ok": True}
+
+
+@router.post("/users/{vk_id}/dragons/{dragon_id}/restart")
+def restart_dragon(vk_id: int, dragon_id: int, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.vk_id == vk_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    dragon = db.query(Dragon).filter(Dragon.id == dragon_id).first()
+    if not dragon:
+        raise HTTPException(status_code=404, detail="Dragon not found")
+
+    ud = db.query(UserDragon).filter(UserDragon.user_id == vk_id, UserDragon.dragon_id == dragon_id).first()
+    if not ud:
+        raise HTTPException(status_code=400, detail="У игрока нет этого дракона")
+
+    db.query(UserProgress).filter(
+        UserProgress.user_id == vk_id, UserProgress.dragon_id == dragon_id
+    ).delete()
+
+    if ud.completed_at:
+        ud.completed_at = ""
+
+    user.current_dragon_id = dragon_id
+    user.current_step = 1
+    user.state = "grow_step_1"
+    user.state_data = "{}"
+    db.commit()
+
+    total = dragon.steps_count
+    first_step = db.query(DragonStep).filter(DragonStep.dragon_id == dragon_id, DragonStep.step_number == 1).first()
+    steps_msg = _format_step_text(first_step, 1, total)
+    _notify_user(vk_id, f"🔄 Администратор возобновил выращивание дракона «{dragon.name}»!\n\n{steps_msg}\n\nПришли 2 фото (до и после) и напиши «вышито» когда выполнишь.")
     return {"ok": True}

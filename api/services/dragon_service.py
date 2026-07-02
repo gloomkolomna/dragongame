@@ -35,7 +35,7 @@ def create_dragon(
     rarity: int,
     egg_type: str,
     description: str,
-    family_id: int | None = None,
+    family_id: int,
     image: UploadFile | None = None,
     silhouette: UploadFile | None = None,
 ) -> Dragon:
@@ -50,10 +50,10 @@ def create_dragon(
 
     if image and image.filename:
         ext = _save_upload(image, IMAGES_DIR, str(dragon.id))
-        dragon.image_path = f"dragons/{dragon.id}{ext}"
+        dragon.egg_path = f"dragons/{dragon.id}{ext}"
     if silhouette and silhouette.filename:
         ext = _save_upload(silhouette, IMAGES_DIR, f"{dragon.id}_silhouette")
-        dragon.silhouette_path = f"dragons/{dragon.id}_silhouette{ext}"
+        dragon.dragon_path = f"dragons/{dragon.id}_silhouette{ext}"
 
     db.commit()
     db.refresh(dragon)
@@ -83,13 +83,13 @@ def update_dragon(
     if family_id is not None: dragon.family_id = family_id
 
     if image and image.filename:
-        _cleanup_old(IMAGES_DIR, str(dragon.id), dragon.image_path)
+        _cleanup_old(IMAGES_DIR, str(dragon.id), dragon.egg_path)
         ext = _save_upload(image, IMAGES_DIR, str(dragon.id))
-        dragon.image_path = f"dragons/{dragon.id}{ext}"
+        dragon.egg_path = f"dragons/{dragon.id}{ext}"
     if silhouette and silhouette.filename:
-        _cleanup_old(IMAGES_DIR, f"{dragon.id}_silhouette", dragon.silhouette_path)
+        _cleanup_old(IMAGES_DIR, f"{dragon.id}_silhouette", dragon.dragon_path)
         ext = _save_upload(silhouette, IMAGES_DIR, f"{dragon.id}_silhouette")
-        dragon.silhouette_path = f"dragons/{dragon.id}_silhouette{ext}"
+        dragon.dragon_path = f"dragons/{dragon.id}_silhouette{ext}"
 
     db.commit()
     db.refresh(dragon)

@@ -1,6 +1,7 @@
 param(
     [switch]$NoFrontend,
-    [switch]$NoBackend
+    [switch]$NoBackend,
+    [switch]$NoBot
 )
 
 $ErrorActionPreference = "Stop"
@@ -72,10 +73,27 @@ if (-not $NoFrontend) {
     Write-OK "Frontend (pid $($feProc.Id))"
 }
 
+if (-not $NoBot) {
+    Write-Step "Starting bot (VK longpoll)"
+
+    $venvPython = Join-Path $root "api\venv\Scripts\python.exe"
+    $apiDir = Join-Path $root "api"
+    $env:PYTHONPATH = "$root;$apiDir"
+
+    $botProc = Start-Process -FilePath $venvPython `
+        -ArgumentList "-m bot.main" `
+        -WorkingDirectory $root -NoNewWindow -PassThru
+    $procs += $botProc
+    Write-OK "Bot (pid $($botProc.Id))"
+}
+
 Write-Host ""
 Write-Host "──────────────────────────────────────────" -ForegroundColor DarkGray
-Write-Host "  API:     http://127.0.0.1:8001/api/" -ForegroundColor Green
-Write-Host "  Admin:   http://127.0.0.1:5173/dragons/admin/login" -ForegroundColor Green
+Write-Host "  API:       http://127.0.0.1:8001/api/" -ForegroundColor Green
+Write-Host "  Admin:     http://127.0.0.1:5173/dragons/admin/login" -ForegroundColor Green
+Write-Host "  Mini App:  http://127.0.0.1:5173/dragons/" -ForegroundColor Green
+Write-Host "  Деталка:   http://127.0.0.1:5173/dragons/dragon/1" -ForegroundColor Green
+if (-not $NoBot) { Write-Host "  Bot:       longpoll (check .env for VK_GROUP_TOKEN)" -ForegroundColor Green }
 Write-Host "  Press Ctrl+C to stop all" -ForegroundColor DarkGray
 Write-Host "──────────────────────────────────────────" -ForegroundColor DarkGray
 Write-Host ""

@@ -30,15 +30,13 @@ def get_collection_families(vk_id: int, db: Session = Depends(get_db)):
 def get_collection(vk_id: int, family_id: int = Query(...), db: Session = Depends(get_db)):
     grid = db.query(CollectionGrid).filter(CollectionGrid.family_id == family_id).order_by(CollectionGrid.cell_y, CollectionGrid.cell_x).all()
 
-    # Get user's completed dragons
-    completed_ids = {
-        row.dragon_id
-        for row in db.query(UserDragon.dragon_id)
-        .filter(UserDragon.user_id == vk_id)
-        .all()
-    }
+    # Все драконы пользователя: добавленные по PIN или завершённые.
+    # completed — у которых completed_at заполнен; growing — добавлены, но не выращены.
+    user_dragons = db.query(UserDragon).filter(UserDragon.user_id == vk_id).all()
+    completed_ids = {ud.dragon_id for ud in user_dragons if ud.completed_at != ""}
+    growing_ids = {ud.dragon_id for ud in user_dragons if ud.completed_at == ""}
 
-    # Get user's in-progress dragons
+    # Прогресс по завершённым шагам (максимальный завершённый номер шага на дракона)
     progress_map = {}
     progress_rows = (
         db.query(UserProgress.dragon_id, UserProgress.step_number)
@@ -48,19 +46,38 @@ def get_collection(vk_id: int, family_id: int = Query(...), db: Session = Depend
     for dragon_id, step in progress_rows:
         progress_map[dragon_id] = max(progress_map.get(dragon_id, 0), step)
 
+    # Предзагружаем драконов для ячеек, чтобы не дёргать БД в цикле
+    dragon_ids = {c.dragon_id for c in grid if c.dragon_id}
+    dragons_map = {
+        d.id: d
+        for d in db.query(Dragon).filter(Dragon.id.in_(dragon_ids)).all()
+    } if dragon_ids else {}
+
     result = []
     for cell in grid:
-        dragon = db.query(Dragon).filter(Dragon.id == cell.dragon_id).first()
+        dragon = dragons_map.get(cell.dragon_id) if cell.dragon_id else None
         status = "locked"
         progress_pct = 0
 
         if cell.dragon_id and cell.dragon_id in completed_ids:
             status = "completed"
             progress_pct = 100
-        elif cell.dragon_id and cell.dragon_id in progress_map:
+        elif cell.dragon_id and (cell.dragon_id in growing_ids or cell.dragon_id in progress_map):
+            # БАГ2: добавлен (UserDragon) или уже есть прогресс шагов -> growing, не locked
             status = "growing"
-            steps_count = dragon.steps_count if dragon else 5
-            progress_pct = min(100, round((progress_map[cell.dragon_id] / steps_count) * 100))
+            steps_count = dragon.steps_count if dragon and dragon.steps_count else 5
+            done = progress_map.get(cell.dragon_id, 0)
+            progress_pct = min(100, round((done / steps_count) * 100))
+
+        # egg_url — картинка яйца (для growing); dragon_url — взрослый дракон (для completed)
+        egg_url = (
+            f"/api/static/images/{dragon.egg_path}"
+            if status == "growing" and dragon and dragon.egg_path else None
+        )
+        dragon_url = (
+            f"/api/static/images/{dragon.dragon_path}"
+            if status == "completed" and dragon and dragon.dragon_path else None
+        )
 
         result.append({
             "x": cell.cell_x,
@@ -69,9 +86,10 @@ def get_collection(vk_id: int, family_id: int = Query(...), db: Session = Depend
             "status": status,
             "progress_pct": progress_pct,
             "name": dragon.name if status == "completed" else None,
+            "egg_type": dragon.egg_type if (status == "growing" and dragon) else None,
             "rarity": dragon.rarity if dragon else None,
-            "silhouette_url": f"/api/static/images/dragons/{cell.dragon_id}_silhouette.png" if cell.dragon_id and status != "completed" else None,
-            "image_url": f"/api/static/images/dragons/{cell.dragon_id}.png" if cell.dragon_id and status == "completed" else None,
+            "egg_url": egg_url,
+            "dragon_url": dragon_url,
         })
 
     return {
@@ -94,7 +112,7 @@ def get_dragon(
     # Check if completed
     completed = (
         db.query(UserDragon)
-        .filter(UserDragon.user_id == vk_id, UserDragon.dragon_id == dragon_id)
+        .filter(UserDragon.user_id == vk_id, UserDragon.dragon_id == dragon_id, UserDragon.completed_at != "")
         .first()
     )
 
@@ -127,16 +145,19 @@ def get_dragon(
             "completed": user_step.completed if user_step else False,
         })
 
+    revealed = bool(completed) or all_completed
     return {
-        "is_revealed": bool(completed) or all_completed,
-        "name": dragon.name if (completed or all_completed) else None,
+        "is_revealed": revealed,
+        "name": dragon.name if revealed else None,
         "rarity": dragon.rarity,
         "egg_type": dragon.egg_type,
         "steps_count": dragon.steps_count,
-        "description": dragon.description if (completed or all_completed) else None,
-        "image_url": f"/api/static/images/dragons/{dragon_id}.png" if (completed or all_completed) else None,
+        "description": dragon.description if revealed else None,
+        # взрослый дракон — только когда раскрыт; яйцо — пока не раскрыт
+        "dragon_url": f"/api/static/images/{dragon.dragon_path}" if revealed and dragon.dragon_path else None,
+        "egg_url": f"/api/static/images/{dragon.egg_path}" if not revealed and dragon.egg_path else None,
         "user_progress": {
-            "status": "completed" if bool(completed) or all_completed else ("growing" if completed_steps > 0 else "locked"),
+            "status": "completed" if revealed else ("growing" if completed_steps > 0 else "locked"),
             "completed_steps": completed_steps,
             "steps": step_info,
         },

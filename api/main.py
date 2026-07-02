@@ -1,7 +1,7 @@
 import os
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from config import FRONTEND_URL
 from db import init_db
 
@@ -25,9 +25,19 @@ app.include_router(auth_router)
 app.include_router(admin_router)
 app.include_router(collection_router)
 
-images_path = os.path.join(os.path.dirname(__file__), "..", "images")
-if os.path.isdir(images_path):
-    app.mount("/api/static/images", StaticFiles(directory=images_path), name="images")
+# Каталог изображений — корневой <repo>/images (туда же пишет services/dragon_service).
+# Раздаём через /api/static/images/{rest:path} -> <repo>/images/{rest}.
+
+
+IMAGES_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "images")
+
+
+@app.get("/api/static/images/{rest:path}")
+def serve_image(rest: str):
+    filepath = os.path.join(IMAGES_DIR, rest)
+    if not os.path.isfile(filepath):
+        raise HTTPException(status_code=404)
+    return FileResponse(filepath)
 
 
 @app.get("/api/")
