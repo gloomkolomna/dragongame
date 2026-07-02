@@ -22,11 +22,11 @@ function DragonDetail() {
   const pct = d.steps_count ? Math.round((d.user_progress.completed_steps / d.steps_count) * 100) : 0;
 
   return (
-    <div style={{ maxWidth: 500, margin: '0 auto', padding: 20 }}>
+    <div style={{ maxWidth: 640, margin: '0 auto', padding: 20 }}>
       <button
         onClick={() => nav(-1)}
         className="lair-btn lair-btn-outline lair-btn-sm"
-        style={{ marginBottom: 12 }}
+        style={{ marginBottom: 12, fontSize: 15, padding: '8px 18px' }}
       >
         ← Назад
       </button>
@@ -34,33 +34,33 @@ function DragonDetail() {
         <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 8 }}>
           {d.is_revealed
             ? (d.dragon_url
-                ? <img src={`${mediaUrl(d.dragon_url)}?v=${d.rarity}`} alt="" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} style={{ maxWidth: '100%', maxHeight: 240, borderRadius: 'var(--radius-md)' }} />
-                : <span style={{ fontSize: 56 }}>🐉</span>)
+                ? <img src={`${mediaUrl(d.dragon_url)}?v=${d.rarity}`} alt="" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} style={{ maxWidth: '100%', maxHeight: 300, borderRadius: 'var(--radius-md)' }} />
+                : <span style={{ fontSize: 64 }}>🐉</span>)
             : (d.egg_url
-                ? <img src={mediaUrl(d.egg_url)} alt="" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} style={{ maxWidth: '100%', maxHeight: 240, borderRadius: 'var(--radius-md)' }} />
-                : <span style={{ fontSize: 56 }}>🥚</span>)}
+                ? <img src={mediaUrl(d.egg_url)} alt="" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} style={{ maxWidth: '100%', maxHeight: 300, borderRadius: 'var(--radius-md)' }} />
+                : <span style={{ fontSize: 64 }}>🥚</span>)}
         </div>
-        <h2 style={{ margin: '0 0 4px', color: 'var(--accent-gold-light)', fontSize: 18 }}>
+        <h2 style={{ margin: '0 0 4px', color: 'var(--accent-gold-light)', fontSize: 22 }}>
           {d.is_revealed ? d.name : `Яйцо: ${d.egg_type}`}
         </h2>
-        {d.is_revealed && <div style={{ color: 'var(--text-secondary)', fontSize: 13, marginBottom: 12 }}>Редкость: {'⭐'.repeat(d.rarity || 1)}</div>}
-        {d.is_revealed && d.description && <p style={{ color: 'var(--text-secondary)', fontSize: 14, fontStyle: 'italic' }}>{d.description}</p>}
+        {d.is_revealed && <div style={{ color: 'var(--text-secondary)', fontSize: 15, marginBottom: 12 }}>Редкость: {'⭐'.repeat(d.rarity || 1)}</div>}
+        {d.is_revealed && d.description && <p style={{ color: 'var(--text-secondary)', fontSize: 16, fontStyle: 'italic' }}>{d.description}</p>}
 
-        <div style={{ marginTop: 12, background: 'var(--bg-card-hover)', borderRadius: 'var(--radius-sm)', height: 8, overflow: 'hidden' }}>
+        <div style={{ marginTop: 12, background: 'var(--bg-card-hover)', borderRadius: 'var(--radius-sm)', height: 10, overflow: 'hidden' }}>
           <div style={{ height: '100%', width: `${pct}%`, background: 'linear-gradient(90deg, var(--accent-gold-dark), var(--accent-gold-light))', borderRadius: 'var(--radius-sm)', transition: 'width 0.5s' }} />
         </div>
-        <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>{pct}%</div>
+        <div style={{ fontSize: 14, color: 'var(--text-muted)', marginTop: 4 }}>{pct}%</div>
       </div>
 
       <div className="lair-card">
         {d.user_progress.steps.map((s) => (
           <div key={s.number} style={{
-            padding: '10px 14px', marginBottom: 6, borderRadius: 'var(--radius-sm)',
+            padding: '12px 16px', marginBottom: 8, borderRadius: 'var(--radius-sm)',
             background: s.completed ? 'var(--success-bg)' : s.number === d.user_progress.completed_steps + 1 ? 'var(--warning-bg)' : 'var(--bg-card)',
             border: '1px solid var(--border-color)',
           }}>
             <span style={{ marginRight: 8 }}>{s.completed ? '✅' : s.number === d.user_progress.completed_steps + 1 ? '→' : '📋'}</span>
-            <span style={{ fontSize: 14, color: s.completed ? 'var(--text-secondary)' : 'var(--text-primary)' }}>
+            <span style={{ fontSize: 16, color: s.completed ? 'var(--text-secondary)' : 'var(--text-primary)' }}>
               {s.task}
             </span>
           </div>

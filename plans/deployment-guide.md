@@ -306,15 +306,11 @@ sudo systemctl stop dragons-api dragons-bot
 ```nginx
 # ===== Драконы =====
 
-# Изображения драконов отдаёт сам FastAPI через роут /api/static/images/{rest}
-# (пути в БД — "dragons/{id}.jpg", файлы в /opt/dragons/images/).
-# Отдельный location /dragons/api/static/ НЕ нужен: запросы уходят в общий
-# location /dragons/api/ ниже и проксируются на gunicorn :8001.
-# (Если добавить location static с alias — будет двойной "images/" в пути → 404.)
+location = /dragons {
+    return 301 /dragons/;
+}
 
 # FastAPI (админка + API Mini App)
-# Проксируется на gunicorn :8001, префикс /dragons/api убирается
-# → FastAPI видит /api/auth, /api/admin/... (чистые пути)
 location /dragons/api/ {
     proxy_pass http://127.0.0.1:8001/api/;
     proxy_set_header Host $host;
@@ -322,23 +318,23 @@ location /dragons/api/ {
     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
     proxy_set_header X-Forwarded-Proto $scheme;
     proxy_set_header X-Forwarded-Prefix /dragons;
-
     proxy_read_timeout 120s;
     proxy_send_timeout 120s;
     client_max_body_size 10M;
 }
 
 # SPA (React — админка + Mini App)
-# Все запросы /dragons/* не к API → index.html
 location /dragons/ {
     alias /opt/dragons/frontend/dist/;
     index index.html;
     try_files $uri $uri/ /dragons/index.html;
+}
 
-    location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff2?)$ {
-        expires 7d;
-        add_header Cache-Control "public, must-revalidate";
-    }
+# Кеширование статики SPA (не API)
+location ~* ^/dragons/(?!api/).+\.(js|css|png|jpg|jpeg|gif|ico|svg|woff2?)$ {
+    alias /opt/dragons/frontend/dist/;
+    expires 7d;
+    add_header Cache-Control "public, must-revalidate";
 }
 ```
 

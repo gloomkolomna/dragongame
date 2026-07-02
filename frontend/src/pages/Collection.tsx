@@ -127,7 +127,7 @@ function Collection() {
   const GAP = 4;
   const available = gridWidth || 360;
   const fitByWidth = Math.floor((available + GAP) / (mx + GAP));
-  const cellSize = Math.max(96, Math.min(150, fitByWidth));
+  const cellSize = Math.max(120, Math.min(200, fitByWidth));
 
   const handleCellClick = (cell: Cell) => {
     if (cell.status !== 'locked' && cell.dragon_id) {
@@ -170,13 +170,13 @@ function Collection() {
           ) : (
             <span style={{ fontSize: cellSize * 0.42, opacity: 0.85 }}>🥚</span>
           )}
-          {/* тип яйца — мелкий чёрный текст */}
           {c.egg_type && (
             <div style={{
-              fontSize: Math.max(10, cellSize * 0.095), color: '#1a1a1a', textAlign: 'center',
-              fontWeight: 600, lineHeight: 1.1,
+              position: 'absolute', bottom: 0, left: 0, right: 0,
+              padding: '3px 4px', background: 'rgba(21,15,26,0.78)',
+              fontSize: Math.max(11, cellSize * 0.1), color: 'var(--accent-gold-light)',
+              textAlign: 'center', fontWeight: 600,
               whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-              width: '100%',
             }}>
               {c.egg_type}
             </div>
@@ -232,7 +232,7 @@ function Collection() {
                 onClick={() => setSelectedFamilyId(fam.id)}
                 className={selectedFamilyId === fam.id ? 'lair-btn' : 'lair-btn lair-btn-outline'}
                 style={{
-                  flexShrink: 0, padding: '6px 16px', fontSize: 13,
+                  flexShrink: 0, padding: '8px 20px', fontSize: 15,
                   letterSpacing: 0.5, whiteSpace: 'nowrap',
                 }}
               >
@@ -251,10 +251,10 @@ function Collection() {
       )}
 
       <div className="lair-card" style={{ textAlign: 'center', marginBottom: 12, padding: '12px 20px' }}>
-        <div style={{ fontSize: 15, color: 'var(--accent-gold-light)' }}>
+        <div style={{ fontSize: 18, color: 'var(--accent-gold-light)', fontWeight: 600 }}>
           {selectedFamily?.name || 'Коллекция'}
         </div>
-        <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 4 }}>
+        <div style={{ fontSize: 15, color: 'var(--text-secondary)', marginTop: 4 }}>
           Собрано: {familyCollected} из {familyTotal}
           {growingCount > 0 && <span style={{ marginLeft: 8, color: 'var(--accent-gold)' }}>🌱 {growingCount} в процессе</span>}
         </div>
