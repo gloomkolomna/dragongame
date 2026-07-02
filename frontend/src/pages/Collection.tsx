@@ -161,6 +161,7 @@ function Collection() {
           width: '100%', height: '100%', display: 'flex',
           flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
           padding: Math.max(4, cellSize * 0.06), gap: cellSize * 0.03,
+          position: 'relative',
         }}>
           {c.egg_url ? (
             <img src={mediaUrl(c.egg_url)} alt="" style={{
