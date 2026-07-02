@@ -79,6 +79,17 @@ function Collection() {
     </div>
   );
 
+  if (!vkUserId) return (
+    <div style={{ maxWidth: 400, margin: '60px auto', textAlign: 'center' }}>
+      <div className="lair-card" style={{ padding: 24 }}>
+        <div style={{ fontSize: 40, marginBottom: 8 }}>🐉</div>
+        <p style={{ color: 'var(--text-secondary)' }}>
+          Откройте приложение через VK, чтобы увидеть свою коллекцию драконов.
+        </p>
+      </div>
+    </div>
+  );
+
   if (error) return (
     <div style={{ maxWidth: 400, margin: '60px auto', textAlign: 'center' }}>
       <div className="lair-card" style={{ padding: 24 }}>

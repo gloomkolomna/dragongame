@@ -21,8 +21,8 @@ const DEMO_VK_ID = import.meta.env.VITE_DEMO_VK_ID
   : null;
 
 function parseVkIdFromUrl(): number | null {
-  const qs = window.location.search;
-  const m = qs.match(/[?&]vk_user_id=(\d+)/);
+  const raw = window.location.search || window.location.hash.replace(/^#\/?/, '');
+  const m = raw.match(/[?&]vk_user_id=(\d+)/);
   if (m) return Number(m[1]);
   return null;
 }
@@ -32,7 +32,7 @@ export function VkBridgeProvider({ children }: { children: ReactNode }) {
   const [isVkWebView, setIsVkWebView] = useState(false);
   const [isDemo, setIsDemo] = useState(false);
   const [launchParams, setLaunchParams] = useState<Record<string, string>>({});
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const urlVkId = parseVkIdFromUrl();
