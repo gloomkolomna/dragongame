@@ -38,7 +38,8 @@ function Collection() {
   const nav = useNavigate();
 
   useEffect(() => {
-    if (bl || !vkUserId) return;
+    if (bl) return;
+    if (!vkUserId) { setLoad(false); return; }
     client.get(`/collection/${vkUserId}/families`)
       .then((r) => {
         setFamilies(r.data);

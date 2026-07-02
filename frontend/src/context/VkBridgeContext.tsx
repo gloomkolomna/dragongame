@@ -20,11 +20,20 @@ const DEMO_VK_ID = import.meta.env.VITE_DEMO_VK_ID
   ? Number(import.meta.env.VITE_DEMO_VK_ID)
   : null;
 
-function parseVkIdFromUrl(): number | null {
-  const raw = window.location.search || window.location.hash.replace(/^#\/?/, '');
-  const m = raw.match(/[?&]vk_user_id=(\d+)/);
-  if (m) return Number(m[1]);
-  return null;
+function parseVkParams(): { vkUserId: number | null; params: Record<string, string> } {
+  const qs = window.location.search.substring(1);
+  const params: Record<string, string> = {};
+  let vkUserId: number | null = null;
+
+  qs.split('&').forEach((p) => {
+    const [k, v] = p.split('=');
+    if (!k) return;
+    const val = decodeURIComponent(v || '');
+    params[k] = val;
+    if (k === 'vk_user_id') vkUserId = Number(val);
+  });
+
+  return { vkUserId, params };
 }
 
 export function VkBridgeProvider({ children }: { children: ReactNode }) {
@@ -35,19 +44,11 @@ export function VkBridgeProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const urlVkId = parseVkIdFromUrl();
+    const { vkUserId: id, params } = parseVkParams();
 
-    if (urlVkId) {
+    if (id) {
       setIsVkWebView(true);
-      setVkUserId(urlVkId);
-
-      // Parse all vk_ params for future use
-      const params: Record<string, string> = {};
-      const qs = window.location.search.substring(1);
-      qs.split('&').forEach((p) => {
-        const [k, v] = p.split('=');
-        if (k.startsWith('vk_')) params[k] = decodeURIComponent(v || '');
-      });
+      setVkUserId(id);
       setLaunchParams(params);
     } else if (DEMO_VK_ID) {
       setIsDemo(true);
