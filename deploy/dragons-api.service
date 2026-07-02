@@ -1,0 +1,22 @@
+[Unit]
+Description=Dragons API (FastAPI gunicorn)
+After=network.target
+
+[Service]
+User=dragons
+Group=dragons
+WorkingDirectory=/opt/dragons/api
+Environment=PATH=/opt/dragons/api/venv/bin
+ExecStart=/opt/dragons/api/venv/bin/gunicorn \
+    -w 2 \
+    -k uvicorn.workers.UvicornWorker \
+    --bind 127.0.0.1:8001 \
+    --access-logfile /var/log/dragons/api-access.log \
+    --error-logfile /var/log/dragons/api-error.log \
+    --timeout 120 \
+    api.main:app
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,10 @@
+fastapi==0.104.*
+uvicorn[standard]==0.24.*
+gunicorn==21.*
+python-jose[cryptography]==3.*
+httpx==0.25.*
+python-dotenv==1.*
+alembic==1.*
+sqlalchemy==2.*
+vk_api==11.*
+python-multipart==0.*

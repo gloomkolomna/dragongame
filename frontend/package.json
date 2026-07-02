@@ -1,0 +1,32 @@
+{
+  "name": "dragons-admin",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@tsparticles/react": "^4.3.1",
+    "@tsparticles/slim": "^4.3.1",
+    "@vkontakte/icons": "^2.92.0",
+    "@vkontakte/vk-bridge": "^2.14.0",
+    "@vkontakte/vkui": "^5.10.0",
+    "axios": "^1.7.0",
+    "framer-motion": "^12.42.2",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-icons": "^5.7.0",
+    "react-router-dom": "^6.23.0",
+    "zustand": "^5.0.14"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "@vitejs/plugin-react": "^4.3.0",
+    "typescript": "^5.4.5",
+    "vite": "^5.3.0"
+  }
+}

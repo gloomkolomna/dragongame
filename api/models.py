@@ -1,0 +1,81 @@
+from sqlalchemy import Column, Integer, String, Boolean, Text, ForeignKey, UniqueConstraint
+from sqlalchemy.orm import declarative_base
+
+Base = declarative_base()
+
+
+class Family(Base):
+    __tablename__ = "families"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String, nullable=False)
+    description = Column(Text, default="")
+    sort_order = Column(Integer, default=0)
+
+
+class Dragon(Base):
+    __tablename__ = "dragons"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String, nullable=False)
+    egg_type = Column(String, default="")
+    rarity = Column(Integer, nullable=False)
+    steps_count = Column(Integer, nullable=False)
+    image_path = Column(String, default="")
+    silhouette_path = Column(String, default="")
+    description = Column(Text, default="")
+    is_active = Column(Boolean, default=True)
+    pin_code = Column(String(4), nullable=True, unique=True)
+    family_id = Column(Integer, ForeignKey("families.id", ondelete="SET NULL"), nullable=True)
+
+
+class DragonStep(Base):
+    __tablename__ = "dragon_steps"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    dragon_id = Column(Integer, ForeignKey("dragons.id", ondelete="CASCADE"), nullable=False)
+    step_number = Column(Integer, nullable=False)
+    task_description = Column(Text, default="")
+    magic_action = Column(Text, default="")
+    hint = Column(Text, default="")
+    keyword = Column(String, default="вышито")
+
+
+class CollectionGrid(Base):
+    __tablename__ = "collection_grid"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    family_id = Column(Integer, ForeignKey("families.id", ondelete="CASCADE"), nullable=False)
+    cell_x = Column(Integer, nullable=False)
+    cell_y = Column(Integer, nullable=False)
+    dragon_id = Column(Integer, ForeignKey("dragons.id", ondelete="SET NULL"), nullable=True, unique=True)
+    __table_args__ = (UniqueConstraint("family_id", "cell_x", "cell_y"),)
+
+
+
+class User(Base):
+    __tablename__ = "users"
+    vk_id = Column(Integer, primary_key=True)
+    state = Column(String, default="idle")
+    current_dragon_id = Column(Integer, nullable=True)
+    current_step = Column(Integer, default=0)
+    state_data = Column(Text, default="{}")
+    registered_at = Column(String, default="")
+
+
+class UserProgress(Base):
+    __tablename__ = "user_progress"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.vk_id", ondelete="CASCADE"), nullable=False)
+    dragon_id = Column(Integer, ForeignKey("dragons.id", ondelete="CASCADE"), nullable=False)
+    step_number = Column(Integer, nullable=False)
+    photo_before_id = Column(Text, default="")
+    photo_after_id = Column(Text, default="")
+    completed = Column(Boolean, default=False)
+    completed_at = Column(String, default="")
+    __table_args__ = (UniqueConstraint("user_id", "dragon_id", "step_number"),)
+
+
+class UserDragon(Base):
+    __tablename__ = "user_dragons"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.vk_id", ondelete="CASCADE"), nullable=False)
+    dragon_id = Column(Integer, ForeignKey("dragons.id", ondelete="CASCADE"), nullable=False)
+    completed_at = Column(String, default="")
+    __table_args__ = (UniqueConstraint("user_id", "dragon_id"),)
