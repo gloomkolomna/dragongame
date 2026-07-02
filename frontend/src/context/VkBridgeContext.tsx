@@ -21,19 +21,23 @@ const DEMO_VK_ID = import.meta.env.VITE_DEMO_VK_ID
   ? Number(import.meta.env.VITE_DEMO_VK_ID)
   : null;
 
-function parseVkParams(): { vkUserId: number | null; params: Record<string, string> } {
-  // Запасной способ: разбор query-string (работает и вне VK-окружения).
-  const qs = window.location.search.substring(1);
+// Разбор launch params из URL — работает и для query (?vk_user_id=...),
+// и для hash (#vk_user_id=...). VK на разных платформах передаёт по-разному.
+function parseVkParamsFromUrl(): { vkUserId: number | null; params: Record<string, string> } {
+  const sources = [window.location.search, window.location.hash];
   const params: Record<string, string> = {};
   let vkUserId: number | null = null;
 
-  qs.split('&').forEach((p) => {
-    const [k, v] = p.split('=');
-    if (!k) return;
-    const val = decodeURIComponent(v || '');
-    params[k] = val;
-    if (k === 'vk_user_id') vkUserId = Number(val);
-  });
+  for (const src of sources) {
+    const qs = src.startsWith('?') || src.startsWith('#') ? src.substring(1) : src;
+    qs.split('&').forEach((p) => {
+      const [k, v] = p.split('=');
+      if (!k) return;
+      const val = decodeURIComponent(v || '');
+      params[k] = val;
+      if (k === 'vk_user_id') vkUserId = Number(val);
+    });
+  }
 
   return { vkUserId, params };
 }
@@ -49,38 +53,54 @@ export function VkBridgeProvider({ children }: { children: ReactNode }) {
     let cancelled = false;
 
     async function init() {
-      // 1. Запускаем приложение в VK — ОБЯЗАТЕЛЬНЫЙ вызов для Mini App.
-      //    Без него VK считает приложение «не инициализированным».
-      //    send() безопасен и вне VK (вернёт reject/timeout), поэтому вызываем всегда.
+      // 1. ОБЯЗАТЕЛЬНЫЙ запуск приложения в VK. Без VKWebAppInit VK считает
+      //    приложение «не инициализированным». Безопасен вне VK (reject/timeout).
       try {
         await bridge.send('VKWebAppInit');
       } catch {
-        // вне VK-окружения — нормально, идём дальше
+        // вне VK-окружения — нормально
       }
 
       if (cancelled) return;
 
-      // 2. Определяем параметры запуска. В VK-окружении bridge даёт их напрямую,
-      //    вне VK — разбираем query-string (dev-режим / прямой переход).
       let id: number | null = null;
       let params: Record<string, string> = {};
       let inVk = false;
 
+      // 2. Основной способ — запрос launch params через VK Bridge.
+      //    Работает везде (мобайл/веб), независимо от того, как VK передал
+      //    параметры (query или hash).
       try {
-        const lp = parseURLSearchParamsForGetLaunchParams(window.location.search);
-        if (lp && (lp as any).vk_user_id) {
+        const lp = await bridge.send('VKWebAppGetLaunchParams');
+        if (lp && lp.vk_user_id) {
           inVk = true;
-          id = Number((lp as any).vk_user_id);
+          id = Number(lp.vk_user_id);
           params = Object.fromEntries(
-            Object.entries(lp as any).map(([k, v]) => [k, String(v)])
-          ) as Record<string, string>;
+            Object.entries(lp).map(([k, v]) => [k, String(v)])
+          );
         }
       } catch {
-        // функция может бросать вне VK-окружения
+        // вне VK — метод недоступен, переходим к разбору URL
+      }
+
+      // 3. Запасной способ — разбор URL (query + hash). Нужен для dev-режима
+      //    и прямых переходов, а также если bridge.send почему-то не сработал.
+      if (!id) {
+        try {
+          const lp = parseURLSearchParamsForGetLaunchParams(
+            window.location.search + window.location.hash,
+          );
+          if (lp && (lp as any).vk_user_id) {
+            inVk = true;
+            id = Number((lp as any).vk_user_id);
+          }
+        } catch {
+          // игнорируем
+        }
       }
 
       if (!id) {
-        const fallback = parseVkParams();
+        const fallback = parseVkParamsFromUrl();
         if (fallback.vkUserId) {
           inVk = true;
           id = fallback.vkUserId;
