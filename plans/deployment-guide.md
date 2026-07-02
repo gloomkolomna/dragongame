@@ -306,13 +306,11 @@ sudo systemctl stop dragons-api dragons-bot
 ```nginx
 # ===== Драконы =====
 
-# Статика: изображения драконов
-# Mini App грузит: /dragons/api/static/images/{id}.png
-location /dragons/api/static/ {
-    alias /opt/dragons/images/;
-    expires 30d;
-    add_header Cache-Control "public, immutable";
-}
+# Изображения драконов отдаёт сам FastAPI через роут /api/static/images/{rest}
+# (пути в БД — "dragons/{id}.jpg", файлы в /opt/dragons/images/).
+# Отдельный location /dragons/api/static/ НЕ нужен: запросы уходят в общий
+# location /dragons/api/ ниже и проксируются на gunicorn :8001.
+# (Если добавить location static с alias — будет двойной "images/" в пути → 404.)
 
 # FastAPI (админка + API Mini App)
 # Проксируется на gunicorn :8001, префикс /dragons/api убирается

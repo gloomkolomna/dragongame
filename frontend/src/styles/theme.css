@@ -41,6 +41,27 @@
   /* === Measurements === */
   --gap-lair: 24px;
   --sidebar-w: 240px;
+
+  /* === Aliases: переменные, используемые в Mini App и админ-страницах === */
+  /* Привязаны к основной палитре выше, чтобы весь проект был единым по стилю. */
+  --accent-gold: var(--gold);
+  --accent-gold-light: var(--gold);
+  --accent-gold-dark: var(--gold-dim);
+
+  --bg-card: rgba(28, 20, 36, 0.85);
+  --bg-card-hover: rgba(38, 26, 50, 0.9);
+
+  --text-primary: var(--parchment);
+  --text-secondary: var(--parchment-dim);
+  --text-muted: var(--parchment-faded);
+
+  --warning-bg: rgba(155, 111, 199, 0.12);
+  --success-bg: rgba(58, 138, 101, 0.14);
+  --danger-bg: rgba(120, 40, 70, 0.18);
+
+  --border-color: var(--bronze);
+  --radius-sm: 8px;
+  --radius-md: var(--card-radius);
 }
 
 /* === SVG texture data === */
