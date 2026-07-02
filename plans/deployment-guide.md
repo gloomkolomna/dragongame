@@ -89,31 +89,25 @@ sudo apt install -y sqlite3
 > завершения). Файлы лежат в `/opt/dragons/images/dragons/`, раздаёт FastAPI
 > через `/api/static/images/*` (nginx кеширует). Текущий head Alembic: `c0d1e2f3a4b5`.
 
-### 2.2 Пользователь и директории
+### 2.2 Директории
 
 ```bash
-# Создаём системного пользователя (если ещё не создан)
-sudo useradd -r -s /bin/false -m dragons 2>/dev/null || true
+sudo mkdir -p /opt/dragons
 
-# Структура проекта (РЯДОМ с Учёт, не внутри)
-sudo mkdir -p /opt/dragons/{api,api/backups,api/alembic/versions,bot,frontend,images/dragons,deploy}
-sudo chown -R dragons:dragons /opt/dragons
-```
-
-### 2.3 Клонирование проекта
-
-```bash
+# Клонировать репозиторий
 cd /opt/dragons
-sudo -u dragons git clone https://github.com/your/repo.git .
-# или rsync/scp файлы проекта
+sudo git clone https://github.com/your/repo.git .
+
+# Досоздать папки, которых нет в репозитории
+sudo mkdir -p /opt/dragons/api/backups /opt/dragons/images/dragons /opt/dragons/deploy
 ```
 
 ## 3. Python-окружение
 
 ```bash
 cd /opt/dragons/api
-sudo -u dragons python3 -m venv venv
-sudo -u dragons venv/bin/pip install -r requirements.txt
+python3 -m venv venv
+venv/bin/pip install -r requirements.txt
 ```
 
 `requirements.txt` (реальный, уже в репозитории):
@@ -138,26 +132,28 @@ python-multipart==0.*
 Файл `/opt/dragons/api/.env`:
 
 ```bash
-# === Flask/FastAPI ===
+# ═══ Общие ═══
 SECRET_KEY=<random-64-char-string>
 ALGORITHM=HS256
 ACCESS_TOKEN_EXPIRE_MINUTES=480
 DATABASE_URL=sqlite:////opt/dragons/api/dragons.db
 APP_ENV=production
-
-# === VK OAuth (админка) ===
-VK_CLIENT_ID=1234567
-VK_CLIENT_SECRET=abcdef123456
-VK_REDIRECT_URI=https://belovolovhome.ru/dragons/api/auth/vk-callback
-VK_ALLOWED_IDS=123456789,987654321
-
-# === VK Bot ===
-VK_GROUP_TOKEN=vk1.a.abcdef...
-VK_GROUP_ID=234567890
-
-# === Фронтенд/Mini App ===
 FRONTEND_URL=https://belovolovhome.ru/dragons
-VK_MINI_APP_ID=1234567
+
+# ═══ VK OAuth (админка) ═══
+VK_CLIENT_ID=54663404
+VK_CLIENT_SECRET=cfQWyiz27lkUr8PQtg7B
+VK_REDIRECT_URI=https://belovolovhome.ru/dragons/api/auth/vk-callback
+VK_ALLOWED_IDS=795384,400977
+VK_SERVICE_TOKEN=eeba57e8eeba57e8eeba57e86dedf84f04eeebaeeba57e884fcf00a40b581f508c27f85
+
+# ═══ VK Mini App ═══
+VK_APP_ID=54663330
+VK_APP_SECRET=zmEDkiTy3891AdTVd4JX
+
+# ═══ VK Bot ═══
+VK_GROUP_TOKEN=vk1.a.abcdef...
+VK_GROUP_ID=239999455
 ```
 
 Сгенерировать `SECRET_KEY`:
@@ -168,15 +164,14 @@ python3 -c "import secrets; print(secrets.token_urlsafe(32))"
 Установить права:
 ```bash
 sudo chmod 600 /opt/dragons/api/.env
-sudo chown dragons:dragons /opt/dragons/api/.env
 ```
 
 ## 5. Сборка фронтенда
 
 ```bash
 cd /opt/dragons/frontend
-sudo -u dragons npm install
-sudo -u dragons npm run build
+npm install
+npm run build
 # → dist/ готов к отдаче через nginx (location /dragons/)
 ```
 
@@ -205,8 +200,6 @@ Description=Dragons API (FastAPI gunicorn)
 After=network.target
 
 [Service]
-User=dragons
-Group=dragons
 WorkingDirectory=/opt/dragons/api
 Environment=PATH=/opt/dragons/api/venv/bin
 ExecStart=/opt/dragons/api/venv/bin/gunicorn \
@@ -240,8 +233,6 @@ After=dragons-api.service
 Wants=dragons-api.service
 
 [Service]
-User=dragons
-Group=dragons
 WorkingDirectory=/opt/dragons/bot
 Environment=PATH=/opt/dragons/api/venv/bin
 Environment=PYTHONPATH=/opt/dragons/api
@@ -263,7 +254,6 @@ WantedBy=multi-user.target
 ```bash
 # Создать папку для логов
 sudo mkdir -p /var/log/dragons
-sudo chown dragons:dragons /var/log/dragons
 
 # Копировать unit-файлы
 sudo cp /opt/dragons/deploy/dragons-api.service /etc/systemd/system/
@@ -403,7 +393,6 @@ ls -1t "$BACKUP_DIR"/dragons.db.bak.* 2>/dev/null | \
 
 ```bash
 sudo chmod +x /opt/dragons/deploy/backup.sh
-sudo chown dragons:dragons /opt/dragons/deploy/backup.sh
 
 # Добавить в cron (каждый день в 3:00)
 echo "0 3 * * * root /opt/dragons/deploy/backup.sh" | \
@@ -416,9 +405,7 @@ echo "0 3 * * * root /opt/dragons/deploy/backup.sh" | \
 # 1. Системные зависимости
 sudo apt install -y python3 python3-venv git sqlite3
 
-# 2. Клонировать проект рядом с Учёт
-git clone ... /opt/dragons/
-sudo chown -R dragons:dragons /opt/dragons
+# 2. Клон, папки — см. пункт 2.2
 
 # 3. Python venv + зависимости
 cd /opt/dragons/api
@@ -621,7 +608,6 @@ sudo systemctl stop dragons-api dragons-bot
 # Восстановить БД
 sudo cp /opt/dragons/api/backups/dragons.db.bak.20260701_030000 \
        /opt/dragons/api/dragons.db
-sudo chown dragons:dragons /opt/dragons/api/dragons.db
 
 # Запустить
 sudo systemctl start dragons-api dragons-bot
