@@ -5,6 +5,7 @@ After=network.target
 [Service]
 WorkingDirectory=/opt/dragons
 Environment=PATH=/opt/dragons/api/venv/bin
+Environment=PYTHONPATH=/opt/dragons/api
 ExecStart=/opt/dragons/api/venv/bin/gunicorn \
     -w 2 \
     -k uvicorn.workers.UvicornWorker \
