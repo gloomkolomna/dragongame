@@ -12,6 +12,7 @@
     "@tsparticles/react": "^4.3.1",
     "@tsparticles/slim": "^4.3.1",
     "@vkontakte/icons": "^2.92.0",
+    "@vkontakte/vk-bridge": "^2.15.12",
     "@vkontakte/vkui": "^5.10.0",
     "axios": "^1.7.0",
     "framer-motion": "^12.42.2",
