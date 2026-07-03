@@ -11,6 +11,7 @@ interface Family { id: number; name: string; }
 interface Step {
   id: number; dragon_id: number; step_number: number;
   magic_action: string; task_description: string; hint: string;
+  timeout_hours: number; timeout_minutes: number;
 }
 
 function DragonForm() {
@@ -85,11 +86,17 @@ function DragonForm() {
     finally { setSaving(false); }
   };
 
-  const addStep = () => setSteps([...steps, { id: 0, dragon_id: Number(id) || 0, step_number: steps.length + 1, magic_action: '', task_description: '', hint: '' }]);
+  const addStep = () => setSteps([...steps, { id: 0, dragon_id: Number(id) || 0, step_number: steps.length + 1, magic_action: '', task_description: '', hint: '', timeout_hours: 0, timeout_minutes: 0 }]);
   const removeStep = (i: number) => setSteps(steps.filter((_, idx) => idx !== i));
   const updStep = (i: number, f: keyof Step, v: string) => {
     const s = [...steps];
-    (s[i] as any)[f] = v;
+    if (f === 'timeout_hours' || f === 'timeout_minutes') {
+      let val = v === '' ? 0 : parseInt(v, 10) || 0;
+      if (f === 'timeout_minutes') val = Math.max(0, Math.min(59, val));
+      (s[i] as any)[f] = val;
+    } else {
+      (s[i] as any)[f] = v;
+    }
     setSteps(s);
   };
 
@@ -189,6 +196,16 @@ function DragonForm() {
                 <input className="lair-input" style={{ fontSize: 13, padding: '6px 8px' }}
                        value={s.hint} onChange={(e) => updStep(i, 'hint', e.target.value)}
                        placeholder="Подсказка (опционально)" />
+                <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginTop: 6 }}>
+                  <input className="lair-input" type="number" min="0" value={s.timeout_hours}
+                         onChange={(e) => updStep(i, 'timeout_hours', e.target.value)}
+                         style={{ width: 60, fontSize: 13, padding: '6px 8px' }} placeholder="0" />
+                  <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>ч</span>
+                  <input className="lair-input" type="number" min="0" max="59" value={s.timeout_minutes}
+                         onChange={(e) => updStep(i, 'timeout_minutes', e.target.value)}
+                         style={{ width: 60, fontSize: 13, padding: '6px 8px' }} placeholder="0" />
+                  <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>мин</span>
+                </div>
               </div>
             ))}
             {steps.length === 0 && (

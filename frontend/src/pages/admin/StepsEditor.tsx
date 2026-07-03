@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import client from '../../api/client';
 
-interface Step { id: number; dragon_id: number; step_number: number; magic_action: string; task_description: string; hint: string; }
+interface Step { id: number; dragon_id: number; step_number: number; magic_action: string; task_description: string; hint: string; timeout_hours: number; timeout_minutes: number; }
 
 function StepsEditor() {
   const { id } = useParams<{ id: string }>();
@@ -24,7 +24,13 @@ function StepsEditor() {
 
   const upd = (i: number, f: keyof Step, v: string) => {
     const s = [...steps];
-    (s[i] as any)[f] = v;
+    if (f === 'timeout_hours' || f === 'timeout_minutes') {
+      let val = v === '' ? 0 : parseInt(v, 10) || 0;
+      if (f === 'timeout_minutes') val = Math.max(0, Math.min(59, val));
+      (s[i] as any)[f] = val;
+    } else {
+      (s[i] as any)[f] = v;
+    }
     setSteps(s);
   };
 
@@ -36,7 +42,7 @@ function StepsEditor() {
     setSteps(s);
   };
 
-  const add = () => setSteps([...steps, { id: 0, dragon_id: Number(id), step_number: steps.length + 1, magic_action: '', task_description: '', hint: '' }]);
+  const add = () => setSteps([...steps, { id: 0, dragon_id: Number(id), step_number: steps.length + 1, magic_action: '', task_description: '', hint: '', timeout_hours: 0, timeout_minutes: 0 }]);
 
   const remove = (i: number) => setSteps(steps.filter((_, idx) => idx !== i));
 
@@ -84,6 +90,22 @@ function StepsEditor() {
             <div className="lair-form-group">
               <label className="lair-label">Подсказка (опционально)</label>
               <input className="lair-input" value={s.hint} onChange={(e) => upd(i, 'hint', e.target.value)} placeholder="Подойдёт любой зимний сюжет" />
+            </div>
+            <div className="lair-form-group">
+              <label className="lair-label">Ожидание перед след. шагом</label>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <input className="lair-input" type="number" min="0" value={s.timeout_hours}
+                       onChange={(e) => upd(i, 'timeout_hours', e.target.value)}
+                       style={{ width: 80 }} placeholder="0" />
+                <span style={{ color: 'var(--text-muted)', fontSize: 13 }}>ч</span>
+                <input className="lair-input" type="number" min="0" max="59" value={s.timeout_minutes}
+                       onChange={(e) => upd(i, 'timeout_minutes', e.target.value)}
+                       style={{ width: 80 }} placeholder="0" />
+                <span style={{ color: 'var(--text-muted)', fontSize: 13 }}>мин</span>
+                {s.timeout_hours === 0 && s.timeout_minutes === 0 && (
+                  <span style={{ color: 'var(--text-muted)', fontSize: 12, marginLeft: 4 }}>Без ожидания</span>
+                )}
+              </div>
             </div>
           </div>
         ))}

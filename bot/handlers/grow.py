@@ -5,6 +5,7 @@ import os
 from bot.fsm import IDLE, grow_state
 from bot.services.grow_service import (
     get_dragon_step, get_total_steps, complete_step, complete_dragon,
+    get_timeout_remaining, set_step_timeout, get_step_timeout,
 )
 
 _IMAGES = os.path.join(os.path.dirname(__file__), "..", "..", "images", "dragons")
@@ -27,6 +28,19 @@ def handle_grow_message(user, text, attachments, db, send_message, upload_image=
         user.state = IDLE
         user.current_step = 0
         user.current_dragon_id = None
+        db.commit()
+        return True
+
+    # Timeout check before accepting any submission
+    remaining = get_timeout_remaining(db, user.vk_id, user.current_dragon_id)
+    if remaining is not None:
+        total_secs = int(remaining.total_seconds())
+        hours, remainder = divmod(total_secs, 3600)
+        minutes = remainder // 60
+        send_message(
+            f"⏳ Этот дракон ещё отдыхает после предыдущего этапа. "
+            f"Осталось подождать: {hours} ч. {minutes} мин. Вернитесь позже!"
+        )
         db.commit()
         return True
 
@@ -108,6 +122,15 @@ def handle_grow_message(user, text, attachments, db, send_message, upload_image=
 
             send_message(msg, attachment=attachment, keyboard=keyboard)
         else:
+            # Apply timeout for the completed step before advancing
+            step_hours, step_minutes = get_step_timeout(db, user.current_dragon_id, step)
+            total_timeout_min = step_hours * 60 + step_minutes
+            if total_timeout_min > 0:
+                set_step_timeout(db, user.vk_id, user.current_dragon_id, step)
+                remaining_msg = f"\n\n✅ Шаг выполнен! Следующий этап будет доступен через {step_hours} ч. {step_minutes} мин. Я уведомлю тебя, когда дракон будет готов."
+            else:
+                remaining_msg = ""
+
             next_step = step + 1
             user.state = grow_state(next_step)
             user.current_step = next_step
@@ -120,7 +143,10 @@ def handle_grow_message(user, text, attachments, db, send_message, upload_image=
             msg = f"✅ Шаг {step} выполнен! {bar} {pct}%\n\n"
             if next_def:
                 msg += format_step(next_def, next_step, total) + "\n"
-            msg += "\nПришли 2 фото (до и после) и напиши «вышито»."
+            if total_timeout_min > 0:
+                msg += remaining_msg
+            else:
+                msg += "\nПришли 2 фото (до и после) и напиши «вышито»."
 
             send_message(msg)
 
@@ -131,10 +157,20 @@ def handle_grow_message(user, text, attachments, db, send_message, upload_image=
     if has_keyword or photo_count > 0:
         send_message("❌ Нужно ровно 2 фото и слово «вышито» в одном сообщении.")
     else:
-        send_message(
-            f"📋 Ты на шаге {user.current_step}. "
-            f"Пришли 2 фото (до и после) и напиши «вышито» в одном сообщении."
-        )
+        remaining = get_timeout_remaining(db, user.vk_id, user.current_dragon_id)
+        if remaining is not None:
+            total_secs = int(remaining.total_seconds())
+            hours, remainder = divmod(total_secs, 3600)
+            minutes = remainder // 60
+            send_message(
+                f"⏳ Этот дракон ещё отдыхает после предыдущего этапа. "
+                f"Осталось подождать: {hours} ч. {minutes} мин. Вернитесь позже!"
+            )
+        else:
+            send_message(
+                f"📋 Ты на шаге {user.current_step}. "
+                f"Пришли 2 фото (до и после) и напиши «вышито» в одном сообщении."
+            )
 
     db.commit()
     return True

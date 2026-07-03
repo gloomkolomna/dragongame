@@ -2,7 +2,7 @@
 
 from models import Dragon, UserDragon, UserProgress
 from bot.fsm import IDLE, GROW_STEP, AWAIT_GARDEN, step_from_state, grow_state
-from bot.services.grow_service import get_total_steps, get_dragon_step
+from bot.services.grow_service import get_total_steps, get_dragon_step, get_timeout_remaining
 from bot.handlers.grow import format_step
 
 
@@ -17,9 +17,19 @@ def handle_start(user, db, send_message):
         dragon = db.query(Dragon).filter(Dragon.id == user.current_dragon_id).first()
         name = dragon.name if dragon else "?"
         step = user.current_step
+        remaining = get_timeout_remaining(db, user.vk_id, user.current_dragon_id)
+        timeout_line = ""
+        if remaining is not None:
+            total_secs = int(remaining.total_seconds())
+            hours, remainder = divmod(total_secs, 3600)
+            minutes = remainder // 60
+            timeout_line = f"\n⏳ Следующий шаг будет доступен через: {hours} ч. {minutes} мин."
+        else:
+            timeout_line = "\n✅ Готов к следующему шагу!"
         send_message(
             f"🪴 Ты выращиваешь: {name}\n"
-            f"📋 Текущий шаг: {step}\n\n"
+            f"📋 Текущий шаг: {step}\n"
+            f"{timeout_line}\n\n"
             f"Пришли 2 фото (до и после) и напиши «вышито» чтобы продолжить."
         )
 
@@ -57,10 +67,21 @@ def handle_status(user, db, send_message):
     filled = round((current / max(total, 1)) * bar_len) if total else 0
     bar = "█" * filled + "░" * (bar_len - filled)
 
+    remaining = get_timeout_remaining(db, user.vk_id, user.current_dragon_id)
+    timeout_line = ""
+    if remaining is not None:
+        total_secs = int(remaining.total_seconds())
+        hours, remainder = divmod(total_secs, 3600)
+        minutes = remainder // 60
+        timeout_line = f"\n⏳ Следующий шаг будет доступен через: {hours} ч. {minutes} мин."
+    else:
+        timeout_line = "\n✅ Готов к следующему шагу!"
+
     send_message(
         f"🥚 {dragon.name}\n"
         f"📋 Шаг {current} из {total}\n"
-        f"{bar} {pct}%"
+        f"{bar} {pct}%\n"
+        f"{timeout_line}"
     )
 
 
@@ -210,7 +231,73 @@ def switch_dragon(user, num: int, db, send_message):
     curr_step = completed + 1
     next_def = get_dragon_step(db, ud.dragon_id, curr_step)
 
-    msg = f"▸ Переключился на «{dragon.name}».\n{format_step(next_def, curr_step, total)}"
-    msg += "\n\nПришли фото и напиши «вышито» когда выполнишь."
+    remaining = get_timeout_remaining(db, user.vk_id, ud.dragon_id)
+    if remaining is not None:
+        total_secs = int(remaining.total_seconds())
+        hours, remainder = divmod(total_secs, 3600)
+        minutes = remainder // 60
+        msg = f"▸ Переключился на «{dragon.name}».\n{format_step(next_def, curr_step, total)}"
+        msg += f"\n⏳ Дракон отдыхает. Осталось: {hours} ч. {minutes} мин."
+    else:
+        msg = f"▸ Переключился на «{dragon.name}».\n{format_step(next_def, curr_step, total)}"
+        msg += "\n\nПришли фото и напиши «вышито» когда выполнишь."
+
+    send_message(msg)
+
+
+def handle_switch_to(user, dragon_id: int, db, send_message):
+    from bot.fsm import grow_state, IDLE
+    from models import Dragon, UserDragon, UserProgress
+    from bot.services.grow_service import get_dragon_step, get_total_steps, get_timeout_remaining
+    from bot.handlers.grow import format_step
+
+    ud = db.query(UserDragon).filter(
+        UserDragon.user_id == user.vk_id,
+        UserDragon.dragon_id == dragon_id,
+    ).first()
+    if not ud or ud.completed_at:
+        send_message("Этот дракон уже выращен или не найден.")
+        return
+
+    dragon = db.query(Dragon).filter(Dragon.id == dragon_id).first()
+    if not dragon:
+        send_message("Дракон не найден.")
+        return
+
+    completed = db.query(UserProgress).filter(
+        UserProgress.user_id == user.vk_id,
+        UserProgress.dragon_id == dragon_id,
+        UserProgress.completed == True,
+    ).count()
+    total = dragon.steps_count
+    if completed >= total:
+        from bot.services.grow_service import complete_dragon
+        complete_dragon(db, user.vk_id, dragon_id)
+        send_message(f"⭐ {dragon.name} уже выращен! Можешь посмотреть его в мини-приложении.")
+        if user.current_dragon_id == dragon_id:
+            user.current_dragon_id = None
+            user.current_step = 0
+            user.state = IDLE
+            db.commit()
+        return
+
+    next_step = completed + 1
+    user.current_dragon_id = dragon_id
+    user.current_step = next_step
+    user.state = grow_state(next_step)
+    db.commit()
+
+    step_def = get_dragon_step(db, dragon_id, next_step)
+
+    remaining = get_timeout_remaining(db, user.vk_id, dragon_id)
+    if remaining is not None:
+        total_secs = int(remaining.total_seconds())
+        hours, remainder = divmod(total_secs, 3600)
+        minutes = remainder // 60
+        msg = f"▸ Переключился на «{dragon.name}».\n{format_step(step_def, next_step, total)}"
+        msg += f"\n⏳ Дракон отдыхает. Осталось: {hours} ч. {minutes} мин."
+    else:
+        msg = f"▸ Переключился на «{dragon.name}».\n{format_step(step_def, next_step, total)}"
+        msg += "\n\nПришли 2 фото и напиши «вышито» когда выполнишь."
 
     send_message(msg)

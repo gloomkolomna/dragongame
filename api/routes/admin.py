@@ -65,6 +65,8 @@ def create_dragon_route(
         except json.JSONDecodeError:
             raise HTTPException(status_code=400, detail="Invalid steps JSON")
         for s in steps_data:
+            th = max(0, int(s.get("timeout_hours", 0) or 0))
+            tm = max(0, min(59, int(s.get("timeout_minutes", 0) or 0)))
             db.add(DragonStep(
                 dragon_id=dragon.id,
                 step_number=s.get("step_number", 0),
@@ -72,6 +74,8 @@ def create_dragon_route(
                 task_description=s.get("task_description", ""),
                 hint=s.get("hint", ""),
                 keyword="\u0432\u044B\u0448\u0438\u0442\u043E",
+                timeout_hours=th,
+                timeout_minutes=tm,
             ))
         db.commit()
         sync_steps_count(db, dragon.id)
@@ -131,12 +135,15 @@ async def save_steps(dragon_id: int, request: Request, db: Session = Depends(get
         raise HTTPException(status_code=400, detail="Invalid JSON body")
     steps_data = data.get("steps", [])
     for s in steps_data:
+        th = max(0, int(s.get("timeout_hours", 0) or 0))
+        tm = max(0, min(59, int(s.get("timeout_minutes", 0) or 0)))
         sid = s.get("id", 0)
         if sid == 0:
             step = DragonStep(dragon_id=dragon_id, step_number=s.get("step_number", 0),
                               magic_action=s.get("magic_action", ""),
                               task_description=s.get("task_description", ""),
-                              hint=s.get("hint", ""), keyword="вышито")
+                              hint=s.get("hint", ""), keyword="вышито",
+                              timeout_hours=th, timeout_minutes=tm)
             db.add(step)
         else:
             step = db.query(DragonStep).filter(DragonStep.id == sid, DragonStep.dragon_id == dragon_id).first()
@@ -146,6 +153,8 @@ async def save_steps(dragon_id: int, request: Request, db: Session = Depends(get
                 step.task_description = s.get("task_description", step.task_description)
                 step.hint = s.get("hint", step.hint)
                 step.keyword = "вышито"
+                step.timeout_hours = th
+                step.timeout_minutes = tm
     db.commit()
     sync_steps_count(db, dragon_id)
     return {"ok": True, "saved": len(steps_data)}
@@ -157,11 +166,11 @@ def add_step(dragon_id: int, db: Session = Depends(get_db)):
     if not dragon:
         raise HTTPException(status_code=404, detail="Dragon not found")
     max_number = db.query(DragonStep).filter(DragonStep.dragon_id == dragon_id).count()
-    step = DragonStep(dragon_id=dragon_id, step_number=max_number + 1, magic_action="", task_description="", hint="")
+    step = DragonStep(dragon_id=dragon_id, step_number=max_number + 1, magic_action="", task_description="", hint="", timeout_hours=0, timeout_minutes=0)
     db.add(step)
     db.commit()
-    db.refresh(step)
     sync_steps_count(db, dragon_id)
+    db.refresh(step)
     return step
 
 
@@ -508,6 +517,15 @@ def toggle_user_step(vk_id: int, step_number: int, db: Session = Depends(get_db)
                 existing.completed_at = ""
 
     db.flush()
+
+    # Сброс таймаута при ручном изменении шага админом
+    ud_toggle = db.query(UserDragon).filter(
+        UserDragon.user_id == vk_id, UserDragon.dragon_id == user.current_dragon_id
+    ).first()
+    if ud_toggle:
+        ud_toggle.next_step_available_at = None
+        ud_toggle.timeout_notified = False
+
     completed_count = db.query(UserProgress).filter(
         UserProgress.user_id == vk_id,
         UserProgress.dragon_id == user.current_dragon_id,
@@ -632,8 +650,12 @@ def skip_step(vk_id: int, db: Session = Depends(get_db)):
         up = UserProgress(user_id=vk_id, dragon_id=user.current_dragon_id, step_number=user.current_step, completed=True)
         db.add(up)
 
+    ud = db.query(UserDragon).filter(UserDragon.user_id == vk_id, UserDragon.dragon_id == dragon.id).first()
+    if ud:
+        ud.next_step_available_at = None
+        ud.timeout_notified = False
+
     if user.current_step >= total:
-        ud = db.query(UserDragon).filter(UserDragon.user_id == vk_id, UserDragon.dragon_id == dragon.id).first()
         if ud and not ud.completed_at:
             ud.completed_at = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
         user.state = "idle"
@@ -656,6 +678,12 @@ def reset_dragon(vk_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=400, detail="No active dragon — игрок сейчас не выращивает дракона")
 
     dragon_name = db.query(Dragon).filter(Dragon.id == user.current_dragon_id).first().name
+    ud = db.query(UserDragon).filter(
+        UserDragon.user_id == vk_id, UserDragon.dragon_id == user.current_dragon_id
+    ).first()
+    if ud:
+        ud.next_step_available_at = None
+        ud.timeout_notified = False
     db.query(UserProgress).filter(
         UserProgress.user_id == vk_id, UserProgress.dragon_id == user.current_dragon_id
     ).delete()
@@ -684,6 +712,9 @@ def restart_dragon(vk_id: int, dragon_id: int, db: Session = Depends(get_db)):
     db.query(UserProgress).filter(
         UserProgress.user_id == vk_id, UserProgress.dragon_id == dragon_id
     ).delete()
+
+    ud.next_step_available_at = None
+    ud.timeout_notified = False
 
     if ud.completed_at:
         ud.completed_at = ""

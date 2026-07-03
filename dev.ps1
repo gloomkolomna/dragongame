@@ -23,6 +23,20 @@ Write-Host @"
 
 "@ -ForegroundColor Magenta
 
+# ─── Apply migrations ───
+$venvPython = Join-Path $root "api\venv\Scripts\python.exe"
+$apiDir = Join-Path $root "api"
+Write-Step "Applying migrations"
+Push-Location $apiDir
+& $venvPython -m alembic upgrade head 2>&1 | ForEach-Object { Write-Host "  $_" }
+$alembicExit = $LASTEXITCODE
+Pop-Location
+if ($alembicExit -ne 0) {
+    Write-Err "Migration failed"
+    exit 1
+}
+Write-OK "Migrations applied"
+
 function cleanup {
     if ($procs.Count -gt 0) {
         Write-Host "`nStopping..." -ForegroundColor Yellow

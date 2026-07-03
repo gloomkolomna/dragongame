@@ -37,6 +37,8 @@ class DragonStep(Base):
     magic_action = Column(Text, default="")
     hint = Column(Text, default="")
     keyword = Column(String, default="вышито")
+    timeout_hours = Column(Integer, default=0)
+    timeout_minutes = Column(Integer, default=0)
 
 
 class CollectionGrid(Base):
@@ -79,4 +81,6 @@ class UserDragon(Base):
     user_id = Column(Integer, ForeignKey("users.vk_id", ondelete="CASCADE"), nullable=False)
     dragon_id = Column(Integer, ForeignKey("dragons.id", ondelete="CASCADE"), nullable=False)
     completed_at = Column(String, default="")
+    next_step_available_at = Column(String, nullable=True, default=None)
+    timeout_notified = Column(Boolean, default=False)
     __table_args__ = (UniqueConstraint("user_id", "dragon_id"),)

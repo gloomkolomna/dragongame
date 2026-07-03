@@ -4,6 +4,7 @@ import sys
 import os
 import json
 import random
+import threading
 import vk_api
 from vk_api.bot_longpoll import VkBotLongPoll, VkBotEventType
 
@@ -14,10 +15,11 @@ sys.path.insert(0, os.path.join(_root, "api"))
 import config
 from db import SessionLocal
 from bot.fsm import IDLE, AWAIT_PIN, AWAIT_GARDEN, is_growing
-from bot.handlers.commands import handle_start, handle_help, handle_status, handle_garden, switch_dragon, cancel_garden
+from bot.handlers.commands import handle_start, handle_help, handle_status, handle_garden, switch_dragon, cancel_garden, handle_switch_to
 from bot.handlers.pin import handle_pin_command, handle_pin_entry
 from bot.handlers.grow import handle_grow_message
 from bot.services.user_service import get_or_create_user
+from bot.scheduler import run_timeout_checker
 from bot.keyboard import idle_keyboard, growing_keyboard, await_pin_keyboard, await_garden_keyboard
 
 
@@ -70,6 +72,14 @@ def main():
     longpoll = VkBotLongPoll(vk_session, group_id=config.VK_GROUP_ID)
 
     print(f"Dragons bot started (group {config.VK_GROUP_ID})")
+
+    scheduler_thread = threading.Thread(
+        target=run_timeout_checker,
+        args=(SessionLocal, vk, 30),
+        daemon=True,
+    )
+    scheduler_thread.start()
+    print("Timeout scheduler started")
 
     def upload_image(filepath: str) -> str:
         """Upload local image to VK and return attachment string."""
@@ -132,6 +142,19 @@ def main():
                 if t.isdigit():
                     switch_dragon(user, int(t), db, send_message)
                     continue
+
+            # switch_to: parse dragon_id from payload
+            if cmd == "switch_to":
+                try:
+                    payload = json.loads(payload_str) if payload_str else {}
+                    dragon_id = payload.get("dragon_id")
+                except (json.JSONDecodeError, TypeError):
+                    dragon_id = None
+                if dragon_id:
+                    handle_switch_to(user, dragon_id, db, send_message)
+                else:
+                    send_message("Не удалось переключиться. Попробуй через «🔄 Сменить дракона».")
+                continue
 
             if cmd == "start":
                 handle_start(user, db, send_message)
