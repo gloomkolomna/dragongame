@@ -122,12 +122,19 @@ function Collection() {
     rows.push(r);
   }
 
-  // Адаптивный размер ячейки: вписываемся в ширину миниаппа,
-  // но держим ячейки крупными. Если не влезает — разрешаем горизонтальный скролл.
+  // Адаптивный размер ячейки: честно вписываем колонки по ширине миниаппа,
+  // но не мельчим сильнее 140px — текущий «идеальный» размер (вы его утвердили).
+  // Если колонок больше, чем влезает (5–6 при узком миниаппе) — включается
+  // горизонтальный скролл, см. контейнер сетки ниже.
   const GAP = 4;
   const available = gridWidth || 360;
-  const fitByWidth = Math.floor((available + GAP) / (mx + GAP));
+  // Корректная формула: доступная ширина минус все промежутки, делённая на число колонок.
+  const fitByWidth = (available - (mx - 1) * GAP) / mx;
   const cellSize = Math.max(140, Math.min(240, fitByWidth));
+
+  // Реальная ширина готовой сетки. Если она шире контейнера — включаем скролл.
+  const gridTotalWidth = mx * cellSize + (mx - 1) * GAP;
+  const gridNeedsScroll = gridTotalWidth > available + 1;
 
   const handleCellClick = (cell: Cell) => {
     if (cell.status !== 'locked' && cell.dragon_id) {
@@ -257,7 +264,13 @@ function Collection() {
       </div>
 
       {rows.length > 0 ? (
-        <div ref={gridWrapRef} style={{ width: '100%', overflowX: 'auto', scrollbarWidth: 'none', msOverflowStyle: 'none', WebkitOverflowScrolling: 'touch' }}>
+        <div style={{ position: 'relative' }}>
+        <div ref={gridWrapRef} style={{
+          width: '100%',
+          overflowX: gridNeedsScroll ? 'auto' : 'hidden',
+          WebkitOverflowScrolling: 'touch',
+          paddingBottom: gridNeedsScroll ? 6 : 0,
+        }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: GAP, alignItems: 'center', width: 'fit-content', minWidth: '100%' }}>
           {rows.map((r, ri) => (
             <div key={ri} style={{ display: 'flex', gap: GAP }}>
@@ -284,6 +297,14 @@ function Collection() {
             </div>
           ))}
           </div>
+        </div>
+        {gridNeedsScroll && (
+          <div style={{
+            position: 'absolute', right: 0, top: 0, bottom: 0, width: 32,
+            background: 'linear-gradient(90deg, transparent, var(--coal))',
+            pointerEvents: 'none',
+          }} />
+        )}
         </div>
       ) : (
         <div className="lair-card" style={{ textAlign: 'center', padding: 32 }}>
