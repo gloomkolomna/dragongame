@@ -2,14 +2,14 @@
 
 from models import Dragon, UserDragon, UserProgress
 from bot.fsm import IDLE, GROW_STEP, AWAIT_GARDEN, step_from_state, grow_state
-from bot.services.grow_service import get_total_steps
+from bot.services.grow_service import get_total_steps, get_dragon_step
 from bot.handlers.grow import format_step
 
 
 def handle_start(user, db, send_message):
     if user.state == IDLE or not user.current_dragon_id:
         send_message(
-            "🐉 Добро пожаловать в Гнездо Дракона!\n\n"
+            "🐉 Добро пожаловать в Бестиарий драконьих легенд!\n\n"
             "Здесь ты выращиваешь драконов через вышивку.\n"
             "Купил яйцо? Нажми «🐉 Добавить дракона» и введи PIN-код."
         )
@@ -26,16 +26,17 @@ def handle_start(user, db, send_message):
 
 def handle_help(send_message):
     send_message(
-        "🐉 Команды бота:\n\n"
-        "🐉 Добавить дракона — ввести PIN-код и начать выращивание\n"
-        "📖 Мой Бестиарий — открыть коллекцию в мини-приложении\n"
-        "🔄 Сменить дракона — посмотреть всех драконов и переключиться\n"
-        "📋 Статус — текущий прогресс\n"
+        "🐉 Добро пожаловать в Бестиарий драконьих легенд!\n\n"
+        "📖 Мой Бестиарий — открыть коллекцию в мини-приложении ВК\n"
+        "🐉 Добавить дракона — ввести PIN-код с яйца и начать выращивание\n"
+        "🔄 Сменить дракона — посмотреть всех драконов и переключиться на другого\n"
+        "📋 Статус — узнать текущий шаг и прогресс\n"
         "❓ Помощь — эта справка\n\n"
-        "📸 Для прохождения шага:\n"
-        "1. Сфотографируй ДО и ПОСЛЕ\n"
-        "2. Отправь фото в чат\n"
-        "3. Напиши «вышито»"
+        "📸 Как проходить шаги:\n"
+        "1. Сфотографируй вышивку ДО и ПОСЛЕ\n"
+        "2. Отправь оба фото в чат одним сообщением\n"
+        "3. В этом же сообщении напиши «вышито»\n\n"
+        "🌱 Если передумал менять дракона — напиши «не менять» или нажми кнопку"
     )
 
 
@@ -113,12 +114,36 @@ def handle_garden(user, db, send_message):
     if entries:
         user.state = AWAIT_GARDEN
         db.commit()
-        lines.append("\nНапиши номер дракона, чтобы переключиться на него.")
+        if user.current_dragon_id:
+            lines.append("\nНапиши номер дракона, чтобы переключиться, или 0 чтобы не менять.")
+        else:
+            lines.append("\nНапиши номер дракона, чтобы переключиться на него.")
     else:
         user.state = IDLE
         db.commit()
 
-    send_message("\n".join(lines))
+    if user.current_dragon_id:
+        from bot.keyboard import await_garden_keyboard
+        send_message("\n".join(lines), keyboard=await_garden_keyboard(with_cancel=True))
+    else:
+        send_message("\n".join(lines))
+
+
+def cancel_garden(user, db, send_message):
+    """Cancel dragon switching — restore to growing/idle state."""
+    if not user.current_dragon_id:
+        user.state = IDLE
+        db.commit()
+        send_message("Хорошо, остаёмся без дракона. Нажми «🐉 Добавить дракона» чтобы начать.")
+        return
+    
+    total = get_total_steps(db, user.current_dragon_id)
+    user.state = grow_state(user.current_step)
+    db.commit()
+    step_def = get_dragon_step(db, user.current_dragon_id, user.current_step)
+    dragon = db.query(Dragon).filter(Dragon.id == user.current_dragon_id).first()
+    name = dragon.name if dragon else "?"
+    send_message(f"Остаёмся на «{name}».\n{format_step(step_def, user.current_step, total)}\n\nПришли фото и напиши «вышито» когда выполнишь.")
 
 
 def switch_dragon(user, num: int, db, send_message):
@@ -142,7 +167,6 @@ def switch_dragon(user, num: int, db, send_message):
     if ud.dragon_id == user.current_dragon_id:
         user.state = grow_state(user.current_step)
         db.commit()
-        from bot.services.grow_service import get_dragon_step
         step_def = get_dragon_step(db, ud.dragon_id, user.current_step)
         msg = f"Ты уже выращиваешь этого дракона.\n{format_step(step_def, user.current_step, get_total_steps(db, ud.dragon_id))}"
         msg += "\n\nПришли 2 фото и напиши «вышито» когда выполнишь."
@@ -184,7 +208,6 @@ def switch_dragon(user, num: int, db, send_message):
     db.commit()
 
     curr_step = completed + 1
-    from bot.services.grow_service import get_dragon_step
     next_def = get_dragon_step(db, ud.dragon_id, curr_step)
 
     msg = f"▸ Переключился на «{dragon.name}».\n{format_step(next_def, curr_step, total)}"

@@ -20,13 +20,14 @@ def row(*labels_and_payloads):
         else:
             label = item
             cmd = label
+        is_primary = ("дракон" in label.lower() or "подтвердить" in label.lower()) and "сменить" not in label.lower()
         btns.append({
             "action": {
                 "type": "text",
                 "label": label,
                 "payload": json.dumps({"cmd": cmd}, ensure_ascii=False),
             },
-            "color": "primary" if "дракон" in label.lower() or "подтвердить" in label.lower() else "secondary",
+            "color": "primary" if is_primary else "secondary",
         })
     return btns
 
@@ -41,11 +42,14 @@ def bestiary_link_row():
     }]
 
 
-def idle_keyboard():
+def idle_keyboard(has_active=True):
+    bottom = [("🔄 Сменить дракона", "garden"), ("❓ Помощь", "help")]
+    if not has_active:
+        bottom = [("❓ Помощь", "help")]
     return _keyboard([
         bestiary_link_row(),
         row(("🐉 Добавить дракона", "pin")),
-        row(("🔄 Сменить дракона", "garden"), ("❓ Помощь", "help")),
+        row(*bottom),
     ])
 
 
@@ -64,9 +68,13 @@ def await_pin_keyboard():
     ])
 
 
-def await_garden_keyboard():
-    return _keyboard([
+def await_garden_keyboard(with_cancel=False):
+    buttons = [
         bestiary_link_row(),
         row(("🐉 Добавить дракона", "pin")),
-        row(("🔄 Сменить дракона", "garden"), ("📋 Статус", "status")),
-    ])
+    ]
+    bottom = [("🔄 Сменить дракона", "garden"), ("📋 Статус", "status")]
+    if with_cancel:
+        bottom.insert(0, ("◀ Не менять", "garden_cancel"))
+    buttons.append(row(*bottom))
+    return _keyboard(buttons)

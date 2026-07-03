@@ -14,21 +14,21 @@ sys.path.insert(0, os.path.join(_root, "api"))
 import config
 from db import SessionLocal
 from bot.fsm import IDLE, AWAIT_PIN, AWAIT_GARDEN, is_growing
-from bot.handlers.commands import handle_start, handle_help, handle_status, handle_garden, switch_dragon
+from bot.handlers.commands import handle_start, handle_help, handle_status, handle_garden, switch_dragon, cancel_garden
 from bot.handlers.pin import handle_pin_command, handle_pin_entry
 from bot.handlers.grow import handle_grow_message
 from bot.services.user_service import get_or_create_user
 from bot.keyboard import idle_keyboard, growing_keyboard, await_pin_keyboard, await_garden_keyboard
 
 
-def get_keyboard(state: str) -> str:
+def get_keyboard(state: str, user=None) -> str:
     if state == AWAIT_PIN:
         return await_pin_keyboard()
     if state == AWAIT_GARDEN:
         return await_garden_keyboard()
     if is_growing(state):
         return growing_keyboard()
-    return idle_keyboard()
+    return idle_keyboard(has_active=bool(user and user.current_dragon_id))
 
 
 def extract_cmd(text: str, payload_str: str) -> str | None:
@@ -114,7 +114,7 @@ def main():
                     "random_id": random.randint(1, 2**31 - 1),
                 }
                 if keyboard is None:
-                    keyboard = get_keyboard(user.state)
+                    keyboard = get_keyboard(user.state, user)
                 if keyboard:
                     kwargs["keyboard"] = keyboard
                 if attachment:
@@ -123,10 +123,15 @@ def main():
 
             cmd = extract_cmd(text, payload_str)
 
-            # AWAIT_GARDEN: expect number for switching
-            if user.state == AWAIT_GARDEN and text.strip().isdigit() and not cmd:
-                switch_dragon(user, int(text.strip()), db, send_message)
-                continue
+            # AWAIT_GARDEN: expect number for switching, or 0/"не менять" to cancel
+            if user.state == AWAIT_GARDEN and not cmd:
+                t = text.strip().lower()
+                if t in ("0", "не менять"):
+                    cancel_garden(user, db, send_message)
+                    continue
+                if t.isdigit():
+                    switch_dragon(user, int(t), db, send_message)
+                    continue
 
             if cmd == "start":
                 handle_start(user, db, send_message)
@@ -136,6 +141,8 @@ def main():
                 handle_status(user, db, send_message)
             elif cmd == "garden":
                 handle_garden(user, db, send_message)
+            elif cmd == "garden_cancel":
+                cancel_garden(user, db, send_message)
             elif cmd == "pin":
                 handle_pin_command(user, db, send_message)
 
@@ -150,7 +157,7 @@ def main():
             # IDLE: anything else → prompt
             elif user.state == IDLE and text and not cmd:
                 send_message(
-                    "🐉 Добро пожаловать в Гнездо Дракона!\n"
+                    "🐉 Добро пожаловать в Бестиарий драконьих легенд!\n"
                     "Нажми «🐉 Добавить дракона» чтобы начать выращивание."
                 )
 
