@@ -52,7 +52,7 @@ def extract_cmd(text: str, payload_str: str) -> str | None:
         return "status"
     if "помощь" in t or "/help" in t:
         return "help"
-    if "бестиарий" in t or "/garden" in t:
+    if "бестиарий" in t or "сменить" in t or "/garden" in t:
         return "garden"
     return None
 

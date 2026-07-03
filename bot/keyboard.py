@@ -2,6 +2,8 @@
 
 import json
 
+MINIAPP_URL = "https://vk.com/app54663330"
+
 
 def _keyboard(buttons, one_time=False):
     return json.dumps({
@@ -29,28 +31,42 @@ def row(*labels_and_payloads):
     return btns
 
 
+def bestiary_link_row():
+    return [{
+        "action": {
+            "type": "open_link",
+            "label": "📖 Мой Бестиарий",
+            "link": MINIAPP_URL,
+        },
+    }]
+
+
 def idle_keyboard():
     return _keyboard([
+        bestiary_link_row(),
         row(("🐉 Добавить дракона", "pin")),
-        row(("📖 Мой Бестиарий", "garden"), ("❓ Помощь", "help")),
+        row(("🔄 Сменить дракона", "garden"), ("❓ Помощь", "help")),
     ])
 
 
 def growing_keyboard():
     return _keyboard([
+        bestiary_link_row(),
         row(("📋 Статус", "status")),
-        row(("📖 Мой Бестиарий", "garden"), ("❓ Помощь", "help")),
+        row(("🔄 Сменить дракона", "garden"), ("❓ Помощь", "help")),
     ])
 
 
 def await_pin_keyboard():
     return _keyboard([
-        row(("📖 Мой Бестиарий", "garden"), ("❓ Помощь", "help")),
+        bestiary_link_row(),
+        row(("🔄 Сменить дракона", "garden"), ("❓ Помощь", "help")),
     ])
 
 
 def await_garden_keyboard():
     return _keyboard([
+        bestiary_link_row(),
         row(("🐉 Добавить дракона", "pin")),
-        row(("📖 Мой Бестиарий", "garden"), ("📋 Статус", "status")),
+        row(("🔄 Сменить дракона", "garden"), ("📋 Статус", "status")),
     ])

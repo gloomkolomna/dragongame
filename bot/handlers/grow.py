@@ -66,7 +66,7 @@ def handle_grow_message(user, text, attachments, db, send_message, upload_image=
                     [{
                         "action": {
                             "type": "open_link",
-                            "label": "🐉 Открыть приложение",
+                            "label": "📖 Мой Бестиарий",
                             "link": "https://vk.com/app54663330",
                         },
                     }],
@@ -79,11 +79,21 @@ def handle_grow_message(user, text, attachments, db, send_message, upload_image=
                             },
                             "color": "primary",
                         },
+                    ],
+                    [
                         {
                             "action": {
                                 "type": "text",
-                                "label": "📖 Мой Бестиарий",
+                                "label": "🔄 Сменить дракона",
                                 "payload": json.dumps({"cmd": "garden"}, ensure_ascii=False),
+                            },
+                            "color": "secondary",
+                        },
+                        {
+                            "action": {
+                                "type": "text",
+                                "label": "❓ Помощь",
+                                "payload": json.dumps({"cmd": "help"}, ensure_ascii=False),
                             },
                             "color": "secondary",
                         },
