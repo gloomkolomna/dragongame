@@ -7,7 +7,6 @@ const NAV_ITEMS = [
   { path: '/admin/families', label: 'Семейства / Союзы', icon: '📂' },
   { path: '/admin/dragons', label: 'Драконы', icon: '🐉' },
   { path: '/admin/grid', label: 'Сетка', icon: '📐' },
-  { path: '/admin/pins', label: 'PIN-коды', icon: '🔑' },
   { path: '/admin/users', label: 'Игроки', icon: '👥' },
 ];
 
