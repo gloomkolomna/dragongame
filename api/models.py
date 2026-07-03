@@ -24,7 +24,7 @@ class Dragon(Base):
     dragon_path = Column(String, default="")    # картинка ВЗРОСЛОГО дракона
     description = Column(Text, default="")
     is_active = Column(Boolean, default=True)
-    pin_code = Column(String(4), nullable=True, unique=True)
+    pin_code = Column(String(5), nullable=True, unique=True)
     family_id = Column(Integer, ForeignKey("families.id", ondelete="SET NULL"), nullable=True)
 
 

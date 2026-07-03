@@ -1,5 +1,6 @@
 import os
 import secrets
+import string
 from sqlalchemy.orm import Session
 from fastapi import UploadFile
 from models import Dragon, DragonStep
@@ -7,8 +8,9 @@ from models import Dragon, DragonStep
 IMAGES_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "images", "dragons")
 
 def _generate_pin_code(db: Session) -> str:
+    chars = string.ascii_uppercase + string.digits
     for _ in range(1000):
-        code = f"{secrets.randbelow(10000):04d}"
+        code = "".join(secrets.choice(chars) for _ in range(5))
         exists = db.query(Dragon).filter(Dragon.pin_code == code).first()
         if not exists:
             return code

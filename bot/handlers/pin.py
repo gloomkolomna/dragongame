@@ -16,17 +16,17 @@ def handle_pin_command(user, db, send_message):
     db.commit()
 
     if was_growing:
-        send_message("🔑 У тебя уже есть активный дракон — сейчас добавим ещё одного.\nВведи 4-значный PIN-код с листка из яйца:")
+        send_message("🔑 У тебя уже есть активный дракон — сейчас добавим ещё одного.\nВведи 5-символьный PIN-код с листка из яйца (заглавные буквы и цифры):")
     else:
-        send_message("🔑 Введи 4-значный PIN-код с листка из нового яйца:")
+        send_message("🔑 Введи 5-символьный PIN-код с листка из нового яйца (заглавные буквы и цифры):")
 
 
 def handle_pin_entry(user, text, db, send_message, upload_image=None):
-    """Handle PIN code input (4 digits) when user is in await_pin state."""
-    code = text.strip()
+    """Handle PIN code input (5 chars, uppercase A-Z + 0-9) when user is in await_pin state."""
+    code = text.strip().upper()
 
-    if len(code) != 4 or not code.isdigit():
-        send_message("❌ PIN-код должен быть ровно из 4 цифр. Попробуй ещё раз.")
+    if len(code) != 5 or not code.isalnum():
+        send_message("❌ PIN-код должен быть ровно из 5 символов (заглавные буквы A-Z и цифры). Попробуй ещё раз.")
         return
 
     dragon = validate_pin_code(db, code)
