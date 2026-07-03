@@ -207,7 +207,7 @@ function Collection() {
   };
 
   return (
-    <div style={{ maxWidth: 640, margin: '0 auto', padding: '12px 8px' }}>
+    <div style={{ padding: '12px 8px' }}>
       {isDemo && (
         <div style={{
           marginBottom: 8, padding: 6, textAlign: 'center',
