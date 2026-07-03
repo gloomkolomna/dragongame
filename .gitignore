@@ -3,6 +3,8 @@ dist/
 venv/
 .env
 *.db
+*.db-wal
+*.db-shm
 *.db.bak.*
 __pycache__/
 *.pyc
