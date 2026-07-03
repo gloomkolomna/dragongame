@@ -22,7 +22,7 @@ function DragonDetail() {
   const pct = d.steps_count ? Math.round((d.user_progress.completed_steps / d.steps_count) * 100) : 0;
 
   return (
-    <div style={{ maxWidth: 640, margin: '0 auto', padding: 20 }}>
+    <div style={{ padding: 20 }}>
       <button
         onClick={() => nav(-1)}
         className="lair-btn lair-btn-outline lair-btn-sm"

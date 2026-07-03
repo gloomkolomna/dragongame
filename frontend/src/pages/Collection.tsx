@@ -72,7 +72,7 @@ function Collection() {
     measure();
     window.addEventListener('resize', measure);
     return () => window.removeEventListener('resize', measure);
-  }, []);
+  }, [grid.length]);
 
   if (bl || load) return (
     <div style={{ display: 'flex', justifyContent: 'center', padding: 60 }}>

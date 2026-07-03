@@ -1,5 +1,6 @@
 """Growing step handler — exactly 2 photos + keyword in one message."""
 
+import json
 import os
 from bot.fsm import IDLE, grow_state
 from bot.services.grow_service import (
@@ -59,12 +60,23 @@ def handle_grow_message(user, text, attachments, db, send_message, upload_image=
                 msg += f"\n{dragon.description}\n"
             msg += "\nЗагляни в мини-приложение, чтобы увидеть его в своей коллекции!"
 
+            keyboard = json.dumps({
+                "one_time": True,
+                "buttons": [[{
+                    "action": {
+                        "type": "open_link",
+                        "label": "🐉 Открыть приложение",
+                        "link": "https://vk.com/app54663330",
+                    },
+                }]],
+            }, ensure_ascii=False)
+
             attachment = ""
             if upload_image and dragon and dragon.dragon_path:
                 filepath = os.path.join(_IMAGES, os.path.basename(dragon.dragon_path))
                 attachment = upload_image(filepath)
 
-            send_message(msg, attachment=attachment)
+            send_message(msg, attachment=attachment, keyboard=keyboard)
         else:
             next_step = step + 1
             user.state = grow_state(next_step)
