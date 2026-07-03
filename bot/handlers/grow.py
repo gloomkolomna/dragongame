@@ -62,13 +62,33 @@ def handle_grow_message(user, text, attachments, db, send_message, upload_image=
 
             keyboard = json.dumps({
                 "one_time": True,
-                "buttons": [[{
-                    "action": {
-                        "type": "open_link",
-                        "label": "🐉 Открыть приложение",
-                        "link": "https://vk.com/app54663330",
-                    },
-                }]],
+                "buttons": [
+                    [{
+                        "action": {
+                            "type": "open_link",
+                            "label": "🐉 Открыть приложение",
+                            "link": "https://vk.com/app54663330",
+                        },
+                    }],
+                    [
+                        {
+                            "action": {
+                                "type": "text",
+                                "label": "🐉 Добавить дракона",
+                                "payload": json.dumps({"cmd": "pin"}, ensure_ascii=False),
+                            },
+                            "color": "primary",
+                        },
+                        {
+                            "action": {
+                                "type": "text",
+                                "label": "📖 Мой Бестиарий",
+                                "payload": json.dumps({"cmd": "garden"}, ensure_ascii=False),
+                            },
+                            "color": "secondary",
+                        },
+                    ],
+                ],
             }, ensure_ascii=False)
 
             attachment = ""
