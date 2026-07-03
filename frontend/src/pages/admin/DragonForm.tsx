@@ -101,7 +101,7 @@ function DragonForm() {
         <h2>{isEdit ? 'Редактирование' : 'Создание дракона'}</h2>
       </div>
       <div className="lair-content">
-        {error && <div style={{ padding: '10px 16px', marginBottom: 16, borderRadius: 'var(--radius-sm)', background: 'var(--danger-bg)', color: '#d47474', fontSize: 13 }}>{error}</div>}
+        {error && <div style={{ padding: '10px 16px', marginBottom: 16, borderRadius: 'var(--radius-sm)', background: 'var(--danger-bg)', color: '#d47474', fontSize: 14 }}>{error}</div>}
 
         <div className="lair-card" style={{ maxWidth: 600 }}>
           <div className="lair-form-group">
@@ -177,22 +177,22 @@ function DragonForm() {
                 border: '1px solid var(--bronze)',
               }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                  <span style={{ color: 'var(--accent-gold-light)', fontSize: 13, fontWeight: 600 }}>Шаг {i + 1}</span>
+                  <span style={{ color: 'var(--accent-gold-light)', fontSize: 14, fontWeight: 600 }}>Шаг {i + 1}</span>
                   <button type="button" className="lair-btn lair-btn-sm lair-btn-danger" onClick={() => removeStep(i)}>🗑</button>
                 </div>
-                <input className="lair-input" style={{ marginBottom: 6, fontSize: 13, padding: '6px 10px' }}
+                <input className="lair-input" style={{ marginBottom: 6, fontSize: 14, padding: '7px 10px' }}
                        value={s.magic_action} onChange={(e) => updStep(i, 'magic_action', e.target.value)}
                        placeholder="Магическое действие (Положи яйцо на снег)" />
-                <textarea className="lair-textarea" style={{ marginBottom: 6, fontSize: 13, minHeight: 50, padding: '6px 10px' }}
+                <textarea className="lair-textarea" style={{ marginBottom: 6, fontSize: 14, minHeight: 50, padding: '7px 10px' }}
                           value={s.task_description} onChange={(e) => updStep(i, 'task_description', e.target.value)}
                           placeholder="Задание по вышивке" />
-                <input className="lair-input" style={{ fontSize: 12, padding: '5px 8px' }}
+                <input className="lair-input" style={{ fontSize: 13, padding: '6px 8px' }}
                        value={s.hint} onChange={(e) => updStep(i, 'hint', e.target.value)}
                        placeholder="Подсказка (опционально)" />
               </div>
             ))}
             {steps.length === 0 && (
-              <div style={{ color: 'var(--text-muted)', fontSize: 13, textAlign: 'center', padding: 12 }}>
+              <div style={{ color: 'var(--text-muted)', fontSize: 14, textAlign: 'center', padding: 12 }}>
                 Нажми «+ Шаг» чтобы добавить шаги выращивания
               </div>
             )}

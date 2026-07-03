@@ -71,7 +71,7 @@ function UsersList() {
                   VK ID: {detail.vk_id}
                 </a>
               </h3>
-              <p style={{ color: 'var(--parchment-dim)', fontSize: 13 }}>Выращено: {detail.dragons_collected}/{detail.dragons_total}</p>
+              <p style={{ color: 'var(--parchment-dim)', fontSize: 14 }}>Выращено: {detail.dragons_collected}/{detail.dragons_total}</p>
             </div>
 
             {stepsData && stepsData.steps.length > 0 && (
@@ -88,9 +88,9 @@ function UsersList() {
                       <tr key={s.step_number} style={{ background: s.current ? 'rgba(201,160,220,0.06)' : undefined }}>
                         <td style={{ fontWeight: s.current ? 700 : undefined }}>{s.step_number}{s.current ? ' ←' : ''}</td>
                         <td>
-                          {s.magic_action && <div style={{ fontSize: 13 }}>✨ {s.magic_action}</div>}
-                          <div style={{ fontSize: 13 }}>📝 {s.task_description}</div>
-                          {s.hint && <div style={{ fontSize: 11, color: 'var(--parchment-faded)' }}>💡 {s.hint}</div>}
+                          {s.magic_action && <div style={{ fontSize: 14 }}>✨ {s.magic_action}</div>}
+                          <div style={{ fontSize: 14 }}>📝 {s.task_description}</div>
+                          {s.hint && <div style={{ fontSize: 12, color: 'var(--parchment-faded)' }}>💡 {s.hint}</div>}
                         </td>
                         <td style={{ textAlign: 'center' }}>{s.completed ? '✅' : '→'}</td>
                         <td>
@@ -111,10 +111,10 @@ function UsersList() {
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: 6 }}>
                 {detail.dragons.map((d) => (
                   <div key={d.dragon_id} className="lair-grid-cell" style={{ textAlign: 'center', padding: 12 }}>
-                    <div style={{ fontWeight: 600, fontSize: 13 }}>{d.name || d.egg_type}</div>
-                    <div style={{ fontSize: 11, marginTop: 4 }}>{d.status === 'completed' ? '⭐' : d.status === 'growing' ? `${d.progress_pct}%` : '🔒'}</div>
+                    <div style={{ fontWeight: 600, fontSize: 14 }}>{d.name || d.egg_type}</div>
+                    <div style={{ fontSize: 12, marginTop: 4 }}>{d.status === 'completed' ? '⭐' : d.status === 'growing' ? `${d.progress_pct}%` : '🔒'}</div>
                     {d.status === 'completed' && (
-                      <button className="lair-btn lair-btn-sm lair-btn-outline" style={{ marginTop: 6, fontSize: 10 }}
+                      <button className="lair-btn lair-btn-sm lair-btn-outline" style={{ marginTop: 6, fontSize: 12 }}
                               onClick={() => restartDragon(detail.vk_id, d.dragon_id)}>🔄 Заново</button>
                     )}
                   </div>
@@ -137,16 +137,16 @@ function UsersList() {
                          onClick={(e) => e.stopPropagation()} style={{ color: 'var(--gold)' }}>
                         {name}
                       </a>
-                      <div style={{ fontSize: 11, color: 'var(--parchment-faded)' }}>id{u.vk_id}</div>
+                      <div style={{ fontSize: 12, color: 'var(--parchment-faded)' }}>id{u.vk_id}</div>
                     </td>
                     <td>{u.dragons_collected}</td>
-                    <td style={{ fontSize: 13 }}>{u.state === 'idle' ? '—' : `шаг ${u.current_step}`}</td>
-                    <td style={{ fontSize: 12, color: 'var(--parchment-faded)' }}>{u.registered_at?.slice(0, 10)}</td>
+                    <td style={{ fontSize: 14 }}>{u.state === 'idle' ? '—' : `шаг ${u.current_step}`}</td>
+                    <td style={{ fontSize: 13, color: 'var(--parchment-faded)' }}>{u.registered_at?.slice(0, 10)}</td>
                     <td>
                       <a href={chatUrl(u.vk_id)} target="_blank" rel="noopener noreferrer"
                          onClick={(e) => e.stopPropagation()}
                          className="lair-btn lair-btn-sm lair-btn-outline"
-                         style={{ textDecoration: 'none', fontSize: 11 }}>💬</a>
+                          style={{ textDecoration: 'none', fontSize: 12 }}>💬</a>
                     </td>
                   </tr>
                 );

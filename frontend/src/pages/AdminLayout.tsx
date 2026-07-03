@@ -18,12 +18,12 @@ function AdminLayout() {
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh' }}>
-      <div className="lair-sidebar" style={{ width: 230, flexShrink: 0, display: 'flex', flexDirection: 'column' }}>
+      <div className="lair-sidebar" style={{ width: 250, flexShrink: 0, display: 'flex', flexDirection: 'column' }}>
         <div style={{ padding: '20px 16px', textAlign: 'center', borderBottom: '1px solid var(--bronze)' }}>
           <div style={{ marginBottom: 4, display: 'flex', justifyContent: 'center' }}>
-            <DragonLogo width={64} height={64} />
+            <DragonLogo width={72} height={72} />
           </div>
-          <div style={{ fontFamily: 'var(--font-title)', fontSize: 14, fontWeight: 700, color: 'var(--gold)', letterSpacing: 1 }}>
+          <div style={{ fontFamily: 'var(--font-title)', fontSize: 16, fontWeight: 700, color: 'var(--gold)', letterSpacing: 1 }}>
             Гнездо Дракона
           </div>
         </div>
@@ -35,14 +35,14 @@ function AdminLayout() {
               className={`lair-nav-item ${location.pathname.startsWith(item.path) ? 'active' : ''}`}
               onClick={() => navigate(item.path)}
             >
-              <span style={{ fontSize: 16 }}>{item.icon}</span>
+              <span style={{ fontSize: 18 }}>{item.icon}</span>
               {item.label}
             </div>
           ))}
         </nav>
 
-        <div style={{ padding: '12px 16px', borderTop: '1px solid var(--bronze)' }}>
-          <div style={{ fontSize: 12, color: 'var(--parchment-faded)', marginBottom: 8, fontFamily: 'var(--font-body)' }}>
+        <div style={{ padding: '14px 16px', borderTop: '1px solid var(--bronze)' }}>
+          <div style={{ fontSize: 13, color: 'var(--parchment-faded)', marginBottom: 8, fontFamily: 'var(--font-body)' }}>
             {user?.vk_id || '—'}
           </div>
           <button className="lair-btn lair-btn-outline lair-btn-sm" style={{ width: '100%' }} onClick={logout}>

@@ -26,7 +26,7 @@ function PinManager() {
             <tbody>{dragons.map((d) => (
               <tr key={d.id}>
                 <td>{d.name}</td>
-                <td style={{ fontFamily: 'var(--font-mono)', fontSize: 18, letterSpacing: 4, color: d.pin_code ? 'var(--gold)' : 'var(--parchment-faded)' }}>
+                <td style={{ fontFamily: 'var(--font-mono)', fontSize: 20, letterSpacing: 4, color: d.pin_code ? 'var(--gold)' : 'var(--parchment-faded)' }}>
                   {d.pin_code || '—'}
                 </td>
                 <td><span className={`lair-badge ${rarityCls(d.rarity)}`}>{rarityLabel(d.rarity)}</span></td>

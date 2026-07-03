@@ -60,13 +60,13 @@ function StepsEditor() {
     <>
       <div className="lair-header">
         <h2>📝 Шаги: {dragonName}</h2>
-        <span style={{ color: 'var(--text-muted)', fontSize: 12, marginLeft: 8 }}>{steps.length} шагов</span>
+        <span style={{ color: 'var(--text-muted)', fontSize: 14, marginLeft: 8 }}>{steps.length} шагов</span>
       </div>
       <div className="lair-content">
         {steps.map((s, i) => (
           <div key={i} className="lair-card" style={{ marginBottom: 12 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-              <strong style={{ color: 'var(--accent-gold-light)', fontSize: 15 }}>Шаг {i + 1}</strong>
+              <strong style={{ color: 'var(--accent-gold-light)', fontSize: 16 }}>Шаг {i + 1}</strong>
               <div style={{ display: 'flex', gap: 4 }}>
                 <button className="lair-btn lair-btn-sm lair-btn-outline" disabled={i === 0} onClick={() => move(i, -1)}>↑</button>
                 <button className="lair-btn lair-btn-sm lair-btn-outline" disabled={i === steps.length - 1} onClick={() => move(i, 1)}>↓</button>

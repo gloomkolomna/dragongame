@@ -33,8 +33,8 @@ function FamiliesList() {
               <tr key={f.id}>
                 <td><div style={{ width: 20, height: 20, borderRadius: 6, background: f.color || '#9b6fc7', border: '2px solid var(--bronze)' }} /></td>
                 <td style={{ fontWeight: 600 }}>{f.name}</td>
-                <td style={{ color: 'var(--parchment-dim)', fontSize: 13 }}>{f.description}</td>
-                <td style={{ fontFamily: 'var(--font-mono)', fontSize: 12 }}>{f.color || '#9b6fc7'}</td>
+                <td style={{ color: 'var(--parchment-dim)', fontSize: 14 }}>{f.description}</td>
+                <td style={{ fontFamily: 'var(--font-mono)', fontSize: 13 }}>{f.color || '#9b6fc7'}</td>
                 <td>{f.sort_order}</td>
                 <td>{f.dragon_count}</td>
                 <td>

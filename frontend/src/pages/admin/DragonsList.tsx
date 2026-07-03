@@ -13,7 +13,7 @@ function FilterInput({ col, value, onChange }: { col: string; value: string; onC
   return (
     <input className="lair-input" value={value}
            onChange={(e) => onChange(col, e.target.value)}
-           placeholder="..." style={{ width: '100%', padding: '3px 6px', fontSize: 10, marginTop: 2 }} />
+           placeholder="..." style={{ width: '100%', padding: '4px 8px', fontSize: 12, marginTop: 2 }} />
   );
 }
 
@@ -97,7 +97,7 @@ function DragonsList() {
     <>
       <div className="lair-header">
         <h2>Драконы</h2>
-        <span style={{ marginLeft: 'auto', color: 'var(--parchment-faded)', fontSize: 12 }}>{sorted.length} из {dragons.length}</span>
+        <span style={{ marginLeft: 'auto', color: 'var(--parchment-faded)', fontSize: 14 }}>{sorted.length} из {dragons.length}</span>
         <button className="lair-btn" style={{ marginLeft: 12 }} onClick={() => navigate('/admin/dragons/new')}>+ Создать</button>
       </div>
       <div className="lair-content">
@@ -146,7 +146,7 @@ function DragonsList() {
                       <td>{d.egg_type}</td>
                       <td><span style={{ color: 'var(--gold)', fontWeight: 600 }}>{d.steps_count}</span></td>
                       <td>{d.is_active ? '✅' : '❌'}</td>
-                      <td style={{ fontFamily: 'var(--font-mono)', fontSize: 12 }}>{d.pin_code || '—'}</td>
+                      <td style={{ fontFamily: 'var(--font-mono)', fontSize: 13 }}>{d.pin_code || '—'}</td>
                       <td>
                         <button className="lair-btn lair-btn-sm lair-btn-outline" onClick={() => navigate(`/admin/dragons/${d.id}/steps`)} style={{ marginRight: 4 }}>📝 Шаги</button>
                         <button className="lair-btn lair-btn-sm lair-btn-outline" onClick={() => navigate(`/admin/dragons/${d.id}/edit`)} style={{ marginRight: 4 }}>Ред.</button>
