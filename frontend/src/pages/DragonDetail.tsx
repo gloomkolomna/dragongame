@@ -12,6 +12,7 @@ function DragonDetail() {
   const { vkUserId, loading: bl } = useVkBridge();
   const [d, setD] = useState<Dragon | null>(null);
   const [load, setLoad] = useState(true);
+  const [zoom, setZoom] = useState<string | null>(null);
   const nav = useNavigate();
 
   useEffect(() => { if (bl || !vkUserId) return; client.get(`/dragon/${id}`, { params: { vk_id: vkUserId } }).then((r) => setD(r.data)).finally(() => setLoad(false)); }, [id, vkUserId, bl]);
@@ -34,10 +35,10 @@ function DragonDetail() {
         <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 8 }}>
           {d.is_revealed
             ? (d.dragon_url
-                ? <img src={`${mediaUrl(d.dragon_url)}?v=${d.rarity}`} alt="" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} style={{ maxWidth: '100%', maxHeight: 300, borderRadius: 'var(--radius-md)' }} />
+                ? <img src={`${mediaUrl(d.dragon_url)}?v=${d.rarity}`} alt="" onClick={() => setZoom(`${mediaUrl(d.dragon_url)}?v=${d.rarity}`)} onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} style={{ maxWidth: '100%', maxHeight: 300, borderRadius: 'var(--radius-md)', cursor: 'pointer' }} />
                 : <span style={{ fontSize: 64 }}>🐉</span>)
             : (d.egg_url
-                ? <img src={mediaUrl(d.egg_url)} alt="" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} style={{ maxWidth: '100%', maxHeight: 300, borderRadius: 'var(--radius-md)' }} />
+                ? <img src={mediaUrl(d.egg_url)} alt="" onClick={() => setZoom(mediaUrl(d.egg_url))} onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} style={{ maxWidth: '100%', maxHeight: 300, borderRadius: 'var(--radius-md)', cursor: 'pointer' }} />
                 : <span style={{ fontSize: 64 }}>🥚</span>)}
         </div>
         <h2 style={{ margin: '0 0 4px', color: 'var(--accent-gold-light)', fontSize: 22 }}>
@@ -45,8 +46,12 @@ function DragonDetail() {
         </h2>
         {d.is_revealed && <div style={{ color: 'var(--text-secondary)', fontSize: 15, marginBottom: 12 }}>Редкость: {'⭐'.repeat(d.rarity || 1)}</div>}
         {d.is_revealed && d.description && <p style={{ color: 'var(--text-secondary)', fontSize: 16, fontStyle: 'italic' }}>{d.description}</p>}
+      </div>
 
-        <div style={{ marginTop: 12, background: 'var(--bg-card-hover)', borderRadius: 'var(--radius-sm)', height: 10, overflow: 'hidden' }}>
+      {!d.is_revealed && (
+      <>
+      <div className="lair-card" style={{ marginBottom: 16 }}>
+        <div style={{ marginTop: 0, background: 'var(--bg-card-hover)', borderRadius: 'var(--radius-sm)', height: 10, overflow: 'hidden' }}>
           <div style={{ height: '100%', width: `${pct}%`, background: 'linear-gradient(90deg, var(--accent-gold-dark), var(--accent-gold-light))', borderRadius: 'var(--radius-sm)', transition: 'width 0.5s' }} />
         </div>
         <div style={{ fontSize: 14, color: 'var(--text-muted)', marginTop: 4 }}>{pct}%</div>
@@ -66,7 +71,18 @@ function DragonDetail() {
           </div>
         ))}
       </div>
+      </>
+      )}
       <style>{`.dragon-skeleton-card{height:300px;background:var(--bg-card);border:1px solid var(--border-color);border-radius:var(--radius-md);animation:sh 1.5s infinite}@keyframes sh{0%,100%{opacity:.4}50%{opacity:.7}}`}</style>
+      {zoom && (
+        <div onClick={() => setZoom(null)}
+             style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+          <img src={zoom} alt="" onClick={(e) => e.stopPropagation()}
+               style={{ maxWidth: '90vw', maxHeight: '90vh', objectFit: 'contain', borderRadius: 8, boxShadow: '0 0 60px rgba(153,102,255,0.3)' }} />
+          <button onClick={() => setZoom(null)}
+                  style={{ position: 'absolute', top: 16, right: 16, background: 'none', border: 'none', color: '#fff', fontSize: 32, cursor: 'pointer', lineHeight: 1 }}>✕</button>
+        </div>
+      )}
     </div>
   );
 }
