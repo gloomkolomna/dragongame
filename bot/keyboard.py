@@ -60,6 +60,14 @@ def growing_keyboard():
     ])
 
 
+def waiting_keyboard():
+    return _keyboard([
+        row(("📋 Статус", "status")),
+        row(("🔄 Сменить дракона", "garden"), ("❓ Помощь", "help")),
+        bestiary_link_row(),
+    ])
+
+
 def start_growing_keyboard():
     return _keyboard([
         row(("🌱 Перейти к выращиванию", "grow")),

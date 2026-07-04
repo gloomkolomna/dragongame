@@ -21,7 +21,7 @@ from bot.handlers.pin import handle_pin_command, handle_pin_entry
 from bot.handlers.grow import handle_grow_message, handle_grow_command, handle_norm_command, handle_x2_command
 from bot.services.user_service import get_or_create_user
 from bot.scheduler import run_timeout_checker
-from bot.keyboard import idle_keyboard, growing_keyboard, start_growing_keyboard, step_buttons_keyboard, await_pin_keyboard, await_garden_keyboard
+from bot.keyboard import idle_keyboard, growing_keyboard, waiting_keyboard, start_growing_keyboard, step_buttons_keyboard, await_pin_keyboard, await_garden_keyboard
 from datetime import datetime
 
 
@@ -32,7 +32,7 @@ def get_keyboard(state: str, user=None) -> str:
         return await_garden_keyboard()
     if is_growing(state):
         if is_waiting_text(state):
-            return growing_keyboard()
+            return waiting_keyboard()
         return growing_keyboard()
     return idle_keyboard(has_active=bool(user and user.current_dragon_id))
 
