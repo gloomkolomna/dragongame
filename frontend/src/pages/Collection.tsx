@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useVkBridge } from '../context/VkBridgeContext';
 import client from '../api/client';
@@ -24,7 +24,6 @@ interface Family {
   collected: number;
 }
 
-const CELL = 200;
 const GAP = 4;
 
 function Collection() {
@@ -32,10 +31,10 @@ function Collection() {
   const [families, setFamilies] = useState<Family[]>([]);
   const [selectedFamilyId, setSelectedFamilyId] = useState<number | null>(null);
   const [grid, setGrid] = useState<Cell[]>([]);
-  const [total, setTotal] = useState(0);
-  const [collected, setCollected] = useState(0);
   const [load, setLoad] = useState(true);
   const [error, setError] = useState('');
+  const [gridWidth, setGridWidth] = useState(0);
+  const gridWrapRef = useRef<HTMLDivElement>(null);
   const nav = useNavigate();
 
   useEffect(() => {
@@ -56,10 +55,17 @@ function Collection() {
     client.get(`/collection/${vkUserId}`, { params: { family_id: selectedFamilyId } })
       .then((r) => {
         setGrid(r.data.grid);
-        setTotal(r.data.total_dragons);
-        setCollected(r.data.total_collected);
       });
   }, [vkUserId, selectedFamilyId, bl]);
+
+  useLayoutEffect(() => {
+    const measure = () => {
+      if (gridWrapRef.current) setGridWidth(gridWrapRef.current.clientWidth);
+    };
+    measure();
+    window.addEventListener('resize', measure);
+    return () => window.removeEventListener('resize', measure);
+  }, [grid.length]);
 
   if (bl || load) return (
     <div style={{ display: 'flex', justifyContent: 'center', padding: 60 }}>
@@ -92,9 +98,6 @@ function Collection() {
 
   const selectedFamily = families.find((f) => f.id === selectedFamilyId);
   const familyGrid = grid;
-  const familyTotal = selectedFamily?.total_dragons ?? total;
-  const familyCollected = selectedFamily?.collected ?? collected;
-  const growingCount = grid.filter((c) => c.status === 'growing').length;
 
   const mx = Math.max(...familyGrid.map((c) => c.x), -1) + 1;
   const my = Math.max(...familyGrid.map((c) => c.y), -1) + 1;
@@ -108,6 +111,12 @@ function Collection() {
     }
     rows.push(r);
   }
+
+  const available = gridWidth || 360;
+  const fitByWidth = (available - (mx - 1) * GAP) / mx;
+  const cellSize = Math.max(140, Math.min(200, fitByWidth));
+  const gridTotalWidth = mx * cellSize + (mx - 1) * GAP;
+  const gridNeedsScroll = gridTotalWidth > available + 1;
 
   const handleCellClick = (cell: Cell) => {
     if (cell.status !== 'locked' && cell.dragon_id) {
@@ -143,13 +152,13 @@ function Collection() {
               width: '100%', height: '100%', objectFit: 'cover', opacity: 0.85,
             }} />
           ) : (
-            <span style={{ fontSize: 100, opacity: 0.85, display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%' }}>🥚</span>
+            <span style={{ fontSize: cellSize * 0.5, opacity: 0.85, display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%' }}>🥚</span>
           )}
           {c.egg_type && (
             <div style={{
               position: 'absolute', top: 0, left: 0, right: 0,
               padding: '4px 6px', background: 'rgba(21,15,26,0.78)',
-              fontSize: 18, color: 'var(--accent-gold-light)',
+              fontSize: Math.max(13, cellSize * 0.12), color: 'var(--accent-gold-light)',
               textAlign: 'center', fontWeight: 600,
               whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
             }} title={c.egg_type}>
@@ -161,14 +170,14 @@ function Collection() {
             padding: '4px 8px 6px',
             background: 'linear-gradient(transparent, rgba(21,15,26,0.85) 40%)',
           }}>
-            <div style={{ width: '100%', height: 10, background: 'rgba(21,15,26,0.55)', borderRadius: 6, overflow: 'hidden' }}>
+            <div style={{ width: '100%', height: Math.max(6, cellSize * 0.07), background: 'rgba(21,15,26,0.55)', borderRadius: cellSize * 0.04, overflow: 'hidden' }}>
               <div style={{
                 height: '100%', width: `${c.progress_pct}%`,
                 background: 'linear-gradient(90deg, var(--ember), var(--fire), var(--molten))',
-                borderRadius: 6, transition: 'width 0.5s',
+                borderRadius: cellSize * 0.04, transition: 'width 0.5s',
               }} />
             </div>
-            <div style={{ fontSize: 16, color: 'var(--accent-gold)', textAlign: 'center', fontWeight: 700 }}>
+            <div style={{ fontSize: Math.max(12, cellSize * 0.12), color: 'var(--accent-gold)', textAlign: 'center', fontWeight: 700 }}>
               {c.progress_pct}%
             </div>
           </div>
@@ -176,7 +185,7 @@ function Collection() {
       );
     }
 
-    return <span style={{ color: 'var(--text-muted)', fontSize: 80 }}>?</span>;
+    return <span style={{ color: 'var(--text-muted)', fontSize: cellSize * 0.4 }}>?</span>;
   };
 
   return (
@@ -227,8 +236,14 @@ function Collection() {
       </div>
 
       {rows.length > 0 ? (
-        <>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: GAP, alignItems: 'center' }}>
+        <div style={{ position: 'relative' }}>
+        <div ref={gridWrapRef} style={{
+          width: '100%',
+          overflowX: gridNeedsScroll ? 'auto' : 'hidden',
+          WebkitOverflowScrolling: 'touch',
+          paddingBottom: gridNeedsScroll ? 6 : 0,
+        }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: GAP, alignItems: 'center', width: 'fit-content', minWidth: '100%' }}>
           {rows.map((r, ri) => (
             <div key={ri} style={{ display: 'flex', gap: GAP }}>
               {r.map((c) => (
@@ -238,7 +253,7 @@ function Collection() {
                   className="lair-grid-cell"
                   title={c.name || c.egg_type || ''}
                   style={{
-                    width: CELL, height: CELL, padding: 0,
+                    width: cellSize, height: cellSize, padding: 0,
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                     cursor: c.status !== 'locked' ? 'pointer' : 'default',
                     overflow: 'hidden',
@@ -254,14 +269,15 @@ function Collection() {
             </div>
           ))}
           </div>
+        </div>
+        {gridNeedsScroll && (
           <div style={{
-            textAlign: 'center', marginTop: 12, padding: '8px 20px',
-            fontSize: 15, color: 'var(--text-secondary)',
-          }}>
-            Собрано: {familyCollected} из {familyTotal}
-            {growingCount > 0 && <span style={{ marginLeft: 8, color: 'var(--accent-gold)' }}>🌱 {growingCount} в процессе</span>}
-          </div>
-        </>
+            position: 'absolute', right: 0, top: 0, bottom: 0, width: 32,
+            background: 'linear-gradient(90deg, transparent, var(--coal))',
+            pointerEvents: 'none',
+          }} />
+        )}
+        </div>
       ) : (
         <div className="lair-card" style={{ textAlign: 'center', padding: 32 }}>
           <div style={{ fontSize: 40, marginBottom: 8 }}>🐉</div>
