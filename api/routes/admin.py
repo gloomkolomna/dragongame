@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from typing import Optional
 from db import get_db
 from auth import get_current_admin
-from models import Dragon, DragonStep, User, UserDragon, CollectionGrid, UserProgress, Family, ErrorLog
+from models import Dragon, DragonStep, User, UserDragon, CollectionGrid, UserProgress, Family, ErrorLog, ServiceHeartbeat
 from services.dragon_service import (
     get_dragons, get_dragon, create_dragon, update_dragon, delete_dragon, sync_steps_count,
 )
@@ -738,3 +738,23 @@ def list_logs(page: int = Query(1, ge=1), per_page: int = Query(50, ge=1, le=200
     total = db.query(ErrorLog).count()
     logs = db.query(ErrorLog).order_by(ErrorLog.id.desc()).offset(offset).limit(per_page).all()
     return {"logs": logs, "total": total, "page": page, "per_page": per_page}
+
+
+@router.get("/health")
+def get_health(db: Session = Depends(get_db)):
+    now = datetime.now()
+    services = {}
+
+    for name in ("bot",):
+        hb = db.query(ServiceHeartbeat).filter(ServiceHeartbeat.service_name == name).first()
+        if hb and hb.last_seen:
+            try:
+                last = datetime.fromisoformat(hb.last_seen)
+                online = (now - last).total_seconds() < 90
+                services[name] = {"status": "online" if online else "offline", "last_seen": hb.last_seen}
+            except ValueError:
+                services[name] = {"status": "unknown", "last_seen": hb.last_seen}
+        else:
+            services[name] = {"status": "unknown", "last_seen": None}
+
+    return {"services": services, "checked_at": now.isoformat()}

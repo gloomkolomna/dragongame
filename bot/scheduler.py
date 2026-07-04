@@ -19,6 +19,7 @@ def run_timeout_checker(session_factory, vk, interval=30):
             db = session_factory()
             try:
                 _check_expired(db, vk, logger)
+                _heartbeat(db)
             finally:
                 db.close()
         except Exception as e:
@@ -41,6 +42,19 @@ def run_timeout_checker(session_factory, vk, interval=30):
             except Exception:
                 pass
         time.sleep(interval)
+
+
+def _heartbeat(db):
+    from datetime import datetime
+    from models import ServiceHeartbeat
+    now = datetime.now().isoformat()
+    hb = db.query(ServiceHeartbeat).filter(ServiceHeartbeat.service_name == "bot").first()
+    if hb:
+        hb.last_seen = now
+        hb.status = "online"
+    else:
+        db.add(ServiceHeartbeat(service_name="bot", last_seen=now, status="online"))
+    db.commit()
 
 
 def _check_expired(db, vk, logger):

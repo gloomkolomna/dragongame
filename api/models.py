@@ -95,3 +95,11 @@ class ErrorLog(Base):
     traceback_text = Column(Text, default="")
     user_id = Column(Integer, nullable=True)
     created_at = Column(String, default="")
+
+
+class ServiceHeartbeat(Base):
+    __tablename__ = "service_heartbeats"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    service_name = Column(String, unique=True, nullable=False)
+    last_seen = Column(String, default="")
+    status = Column(String, default="unknown")

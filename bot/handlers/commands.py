@@ -52,7 +52,13 @@ def handle_help(send_message):
 
 def handle_status(user, db, send_message):
     if not user.current_dragon_id:
-        send_message("У тебя пока нет активного дракона. Нажми «🐉 Добавить дракона» чтобы начать.")
+        from bot.keyboard import idle_keyboard
+        user.state = IDLE
+        db.commit()
+        send_message(
+            "У тебя пока нет активного дракона. Нажми «🐉 Добавить дракона» чтобы начать.",
+            keyboard=idle_keyboard(has_active=False),
+        )
         return
 
     dragon = db.query(Dragon).filter(Dragon.id == user.current_dragon_id).first()
@@ -101,7 +107,13 @@ def handle_garden(user, db, send_message):
     ).all()
 
     if not entries and not completed_entries:
-        send_message("🔄 У тебя пока нет драконов. Нажми «🐉 Добавить дракона» чтобы начать.")
+        from bot.keyboard import idle_keyboard
+        user.state = IDLE
+        db.commit()
+        send_message(
+            "🔄 У тебя пока нет драконов. Нажми «🐉 Добавить дракона» чтобы начать.",
+            keyboard=idle_keyboard(has_active=False),
+        )
         return
 
     lines = ["🔄 Твои драконы:\n"]
@@ -155,7 +167,10 @@ def cancel_garden(user, db, send_message):
     if not user.current_dragon_id:
         user.state = IDLE
         db.commit()
-        send_message("Хорошо, остаёмся без дракона. Нажми «🐉 Добавить дракона» чтобы начать.")
+        send_message(
+            "Хорошо, остаёмся без дракона. Нажми «🐉 Добавить дракона» чтобы начать.",
+            keyboard=idle_keyboard(has_active=False),
+        )
         return
     
     total = get_total_steps(db, user.current_dragon_id)
