@@ -238,9 +238,14 @@ def switch_dragon(user, num: int, db, send_message):
 
     if ud.completed_at:
         dragon = db.query(Dragon).filter(Dragon.id == ud.dragon_id).first()
-        send_message(f"⭐ {dragon.name if dragon else '?'} уже выращен! Можешь посмотреть его в мини-приложении.")
+        name = dragon.name if dragon else "?"
         user.state = IDLE
         db.commit()
+        send_message(
+            f"⭐ «{name}» уже выращен!\n"
+            f"Загляни в мини-приложение, чтобы увидеть его в коллекции, или добавь нового дракона.",
+            keyboard=_completed_keyboard(),
+        )
         return
 
     dragon = db.query(Dragon).filter(Dragon.id == ud.dragon_id).first()
@@ -258,11 +263,15 @@ def switch_dragon(user, num: int, db, send_message):
     if completed >= total:
         from bot.services.grow_service import complete_dragon
         complete_dragon(db, user.vk_id, ud.dragon_id)
-        send_message(f"⭐ {dragon.name} уже выращен! Можешь посмотреть его в мини-приложении.")
         user.state = IDLE
         user.current_dragon_id = None
         user.current_step = 0
         db.commit()
+        send_message(
+            f"⭐ «{dragon.name}» уже выращен!\n"
+            f"Загляни в мини-приложение, чтобы увидеть его в коллекции, или добавь нового дракона.",
+            keyboard=_completed_keyboard(),
+        )
         return
 
     user.current_dragon_id = ud.dragon_id
@@ -298,7 +307,11 @@ def handle_switch_to(user, dragon_id: int, db, send_message):
         UserDragon.dragon_id == dragon_id,
     ).first()
     if not ud or ud.completed_at:
-        send_message("Этот дракон уже выращен или не найден.")
+        send_message(
+            "Этот дракон уже выращен или не найден.\n"
+            "Добавь нового дракона или загляни в мини-приложение.",
+            keyboard=_completed_keyboard(),
+        )
         return
 
     dragon = db.query(Dragon).filter(Dragon.id == dragon_id).first()
@@ -315,12 +328,16 @@ def handle_switch_to(user, dragon_id: int, db, send_message):
     if completed >= total:
         from bot.services.grow_service import complete_dragon
         complete_dragon(db, user.vk_id, dragon_id)
-        send_message(f"⭐ {dragon.name} уже выращен! Можешь посмотреть его в мини-приложении.")
         if user.current_dragon_id == dragon_id:
             user.current_dragon_id = None
             user.current_step = 0
             user.state = IDLE
             db.commit()
+        send_message(
+            f"⭐ «{dragon.name}» уже выращен!\n"
+            f"Загляни в мини-приложение, чтобы увидеть его в коллекции, или добавь нового дракона.",
+            keyboard=_completed_keyboard(),
+        )
         return
 
     next_step = completed + 1
@@ -343,3 +360,18 @@ def handle_switch_to(user, dragon_id: int, db, send_message):
         msg += "\n\nПришли 2 фото и напиши «вышито» когда выполнишь."
 
     send_message(msg)
+
+
+def _completed_keyboard():
+    import json
+    return json.dumps({
+        "one_time": False,
+        "buttons": [
+            [{"action": {"type": "open_link", "label": "📖 Мой Бестиарий", "link": "https://vk.com/app54663330"}}],
+            [{"action": {"type": "text", "label": "🐉 Добавить дракона", "payload": json.dumps({"cmd": "pin"}, ensure_ascii=False)}, "color": "primary"}],
+            [
+                {"action": {"type": "text", "label": "🔄 Сменить дракона", "payload": json.dumps({"cmd": "garden"}, ensure_ascii=False)}, "color": "secondary"},
+                {"action": {"type": "text", "label": "❓ Помощь", "payload": json.dumps({"cmd": "help"}, ensure_ascii=False)}, "color": "secondary"},
+            ],
+        ],
+    }, ensure_ascii=False)
