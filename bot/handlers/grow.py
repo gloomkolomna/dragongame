@@ -122,30 +122,25 @@ def handle_grow_message(user, text, attachments, db, send_message, upload_image=
 
             send_message(msg, attachment=attachment, keyboard=keyboard)
         else:
-            # Apply timeout for the completed step before advancing
             step_hours, step_minutes = get_step_timeout(db, user.current_dragon_id, step)
             total_timeout_min = step_hours * 60 + step_minutes
             if total_timeout_min > 0:
                 set_step_timeout(db, user.vk_id, user.current_dragon_id, step)
-                remaining_msg = f"\n\n✅ Шаг выполнен! Следующий этап будет доступен через {step_hours} ч. {step_minutes} мин. Я уведомлю тебя, когда дракон будет готов."
+                msg = f"✅ Шаг {step} выполнен! Следующий этап будет доступен через {step_hours} ч. {step_minutes} мин. Я уведомлю тебя, когда дракон будет готов."
             else:
-                remaining_msg = ""
+                bar_len = 10
+                filled = round((step / max(total, 1)) * bar_len)
+                bar = "█" * filled + "░" * (bar_len - filled)
+                msg = f"✅ Шаг {step} выполнен! {bar} {pct}%\n\n"
 
             next_step = step + 1
             user.state = grow_state(next_step)
             user.current_step = next_step
 
-            next_def = get_dragon_step(db, user.current_dragon_id, next_step)
-            bar_len = 10
-            filled = round((step / max(total, 1)) * bar_len)
-            bar = "█" * filled + "░" * (bar_len - filled)
-
-            msg = f"✅ Шаг {step} выполнен! {bar} {pct}%\n\n"
-            if next_def:
-                msg += format_step(next_def, next_step, total) + "\n"
-            if total_timeout_min > 0:
-                msg += remaining_msg
-            else:
+            if not total_timeout_min:
+                next_def = get_dragon_step(db, user.current_dragon_id, next_step)
+                if next_def:
+                    msg += format_step(next_def, next_step, total) + "\n"
                 msg += "\nПришли 2 фото (до и после) и напиши «вышито»."
 
             send_message(msg)

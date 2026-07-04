@@ -15,7 +15,18 @@ def handle_start(user, db, send_message):
         )
     else:
         dragon = db.query(Dragon).filter(Dragon.id == user.current_dragon_id).first()
-        name = dragon.name if dragon else "?"
+        if not dragon:
+            from bot.keyboard import idle_keyboard
+            user.current_dragon_id = None
+            user.current_step = 0
+            user.state = IDLE
+            db.commit()
+            send_message(
+                "Дракон не найден. Нажми «🐉 Добавить дракона» чтобы начать.",
+                keyboard=idle_keyboard(has_active=False),
+            )
+            return
+        name = dragon.name
         step = user.current_step
         remaining = get_timeout_remaining(db, user.vk_id, user.current_dragon_id)
         timeout_line = ""
@@ -63,7 +74,15 @@ def handle_status(user, db, send_message):
 
     dragon = db.query(Dragon).filter(Dragon.id == user.current_dragon_id).first()
     if not dragon:
-        send_message("Дракон не найден.")
+        from bot.keyboard import idle_keyboard
+        user.current_dragon_id = None
+        user.current_step = 0
+        user.state = IDLE
+        db.commit()
+        send_message(
+            "Дракон не найден. Нажми «🐉 Добавить дракона» чтобы начать.",
+            keyboard=idle_keyboard(has_active=False),
+        )
         return
 
     total = get_total_steps(db, user.current_dragon_id)
