@@ -53,7 +53,11 @@ def handle_pin_entry(user, text, db, send_message, upload_image=None):
     attachment = ""
     if upload_image and dragon.egg_path:
         filepath = os.path.join(_IMAGES, os.path.basename(dragon.egg_path))
+        if not os.path.isfile(filepath):
+            print(f"[PIN] Image not found: {filepath} (egg_path={dragon.egg_path})")
         attachment = upload_image(filepath)
+        if not attachment:
+            print(f"[PIN] Upload failed for: {filepath}")
 
     keyboard = start_growing_keyboard()
     send_message(msg, attachment=attachment, keyboard=keyboard)
