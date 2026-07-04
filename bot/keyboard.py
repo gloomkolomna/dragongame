@@ -44,8 +44,6 @@ def bestiary_link_row():
 
 def idle_keyboard(has_active=True):
     bottom = [("🔄 Сменить дракона", "garden"), ("❓ Помощь", "help")]
-    if not has_active:
-        bottom = [("❓ Помощь", "help")]
     return _keyboard([
         bestiary_link_row(),
         row(("🐉 Добавить дракона", "pin")),
