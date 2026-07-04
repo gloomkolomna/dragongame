@@ -20,6 +20,7 @@ interface Family {
   id: number;
   name: string;
   description: string;
+  color: string;
   total_dragons: number;
   collected: number;
 }
@@ -207,29 +208,43 @@ function Collection() {
               display: 'flex', flexWrap: 'wrap', gap: 6, padding: '0 4px 8px',
             }}
           >
-            {families.map((fam) => (
+              {families.map((fam) => {
+                const isActive = selectedFamilyId === fam.id;
+                return (
               <button
                 key={fam.id}
                 onClick={() => setSelectedFamilyId(fam.id)}
-                className={selectedFamilyId === fam.id ? 'lair-btn' : 'lair-btn lair-btn-outline'}
+                className={isActive ? 'lair-btn' : 'lair-btn lair-btn-outline'}
                 style={{
                   padding: '8px 20px', fontSize: 15,
                   letterSpacing: 0.5, whiteSpace: 'nowrap',
+                  ...(isActive && fam.color ? {
+                    background: fam.color,
+                    borderColor: fam.color,
+                    color: '#fff',
+                  } : {}),
                 }}
               >
                 {fam.name}
               </button>
-            ))}
+                );
+              })}
           </div>
         </div>
       )}
 
-      <div className="lair-card" style={{ marginBottom: 12, padding: '12px 20px' }}>
-        <div style={{ fontSize: 20, color: 'var(--accent-gold-light)', fontWeight: 600, marginBottom: 2 }}>
+      <div className="lair-card" style={{
+        marginBottom: 12, padding: '12px 20px', position: 'relative', overflow: 'hidden',
+        background: selectedFamily?.color
+          ? `linear-gradient(135deg, ${selectedFamily.color}33 0%, ${selectedFamily.color}11 100%)`
+          : undefined,
+        borderColor: selectedFamily?.color ? `${selectedFamily.color}66` : undefined,
+      }}>
+        <div style={{ fontSize: 20, color: selectedFamily?.color || 'var(--accent-gold-light)', fontWeight: 600, marginBottom: 2 }}>
           {selectedFamily?.name || 'Коллекция'}
         </div>
         {selectedFamily?.description && (
-          <div style={{ fontSize: 14, color: 'var(--parchment-dim)', lineHeight: 1.5 }}>
+          <div style={{ fontSize: 14, color: selectedFamily?.color || 'var(--parchment-dim)', lineHeight: 1.5 }}>
             {selectedFamily.description}
           </div>
         )}

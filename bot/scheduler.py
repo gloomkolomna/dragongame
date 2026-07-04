@@ -139,7 +139,7 @@ def _check_expired(db, vk, logger):
             step_def = get_dragon_step(db, ud.dragon_id, next_step_num)
             norm = step_def.crosses_norm if step_def else "?"
             msg = (
-                f"⏰ Время пришло! Ты можешь продолжить выращивание «{dragon.name}».\n\n"
+                f"⏰ Время пришло! Ты можешь продолжить выращивание «{dragon.egg_type or dragon.name or '?'}».\n\n"
                 f"{format_step(step_def, next_step_num, total)}"
                 f"\n\n🎯 Норма: {norm} крестиков\nВыбери режим:"
             )
@@ -148,7 +148,7 @@ def _check_expired(db, vk, logger):
             _send(vk, ud.user_id, msg, keyboard_json, logger)
         else:
             msg = (
-                f"⏰ Дракон «{dragon.name}» готов к следующему шагу!\n"
+                f"⏰ Дракон «{dragon.egg_type or dragon.name or '?'}» готов к следующему шагу!\n"
                 f"Нажми кнопку ниже, чтобы переключиться."
             )
             keyboard_json = _switch_keyboard(ud.dragon_id)

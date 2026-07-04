@@ -134,7 +134,7 @@ def _handle_crosses_check(user, text, db, send_message, upload_image=None):
         hours, remainder = divmod(total_secs, 3600)
         minutes = remainder // 60
         send_message(
-            f"⏳ Яйцо выращивается."
+            f"⏳ Яйцо выращивается. "
             f"Осталось подождать: {hours} ч. {minutes} мин. Вернитесь позже!"
         )
         db.commit()

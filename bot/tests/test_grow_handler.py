@@ -57,7 +57,7 @@ def test_grow_message_timeout_blocks(db):
 
     assert handled is True
     assert len(messages) == 1
-    assert "отдыхает" in messages[0].lower()
+    assert "подождать" in messages[0].lower()
 
 
 def test_grow_message_completes_step(db):

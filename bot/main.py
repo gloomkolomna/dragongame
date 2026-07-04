@@ -25,6 +25,33 @@ from bot.keyboard import idle_keyboard, growing_keyboard, waiting_keyboard, star
 from datetime import datetime
 
 
+from datetime import datetime
+
+
+def _handle_growing_chat(user, db, send_message):
+    from bot.services.grow_service import get_timeout_remaining, get_dragon_step, get_total_steps
+    from models import Dragon
+    dragon = db.query(Dragon).filter(Dragon.id == user.current_dragon_id).first()
+    label = dragon.egg_type or "яйцо" if dragon else "?"
+
+    remaining = get_timeout_remaining(db, user.vk_id, user.current_dragon_id)
+    if remaining is not None:
+        total_secs = int(remaining.total_seconds())
+        hours, remainder = divmod(total_secs, 3600)
+        minutes = remainder // 60
+        send_message(
+            f"🥚 {label} выращивается!\n"
+            f"⏳ До следующего шага осталось: {hours} ч. {minutes} мин."
+        )
+    else:
+        total = get_total_steps(db, user.current_dragon_id)
+        step_def = get_dragon_step(db, user.current_dragon_id, user.current_step)
+        msg = f"🥚 {label}\n📋 Шаг {user.current_step} из {total}"
+        if step_def:
+            msg += f"\n\n🎯 Норма: {step_def.crosses_norm} крестиков\nВыбери режим:"
+        send_message(msg, keyboard=step_buttons_keyboard())
+
+
 def get_keyboard(state: str, user=None) -> str:
     if state == AWAIT_PIN:
         return await_pin_keyboard()
@@ -185,6 +212,9 @@ def main():
 
             elif is_waiting_text(user.state) and user.current_dragon_id:
                 handle_grow_message(user, text, attachments, db, send_message, upload_image)
+
+            elif is_growing(user.state) and user.current_dragon_id and text and not cmd:
+                _handle_growing_chat(user, db, send_message)
 
             elif user.state == IDLE and text and not cmd:
                 from models import UserDragon

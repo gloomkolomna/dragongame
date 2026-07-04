@@ -48,7 +48,7 @@ def handle_start(user, db, send_message):
         step_def = get_dragon_step(db, user.current_dragon_id, step)
         norm = step_def.crosses_norm if step_def else "?"
         send_message(
-            f"🪴 Ты выращиваешь: {dragon.name}\n"
+            f"🪴 Ты выращиваешь: {dragon.egg_type or 'яйцо'}\n"
             f"📋 Текущий шаг: {step}\n"
             f"🎯 Норма крестиков: {norm}\n"
             f"{timeout_line}"
@@ -117,7 +117,7 @@ def handle_status(user, db, send_message):
     norm = step_def.crosses_norm if step_def else "?"
 
     send_message(
-        f"🥚 {dragon.name}\n"
+        f"🥚 {dragon.egg_type or 'яйцо'}\n"
         f"📋 Шаг {current} из {total}\n"
         f"{bar} {pct}%\n"
         f"🎯 Норма: {norm} крестиков\n"
@@ -169,7 +169,8 @@ def handle_garden(user, db, send_message):
             bar = "█" * filled + "░" * (10 - filled)
             status = "🥚"
         marker = " ← сейчас" if is_current else ""
-        lines.append(f"{i + 1}. {status} {dragon.name} {bar} {pct}%{marker}")
+        label = dragon.name if ud.completed_at else (dragon.egg_type or dragon.name or "?")
+        lines.append(f"{i + 1}. {status} {label} {bar} {pct}%{marker}")
 
     if entries:
         user.state = AWAIT_GARDEN
@@ -206,8 +207,8 @@ def cancel_garden(user, db, send_message):
     db.commit()
     step_def = get_dragon_step(db, user.current_dragon_id, user.current_step)
     dragon = db.query(Dragon).filter(Dragon.id == user.current_dragon_id).first()
-    name = dragon.name if dragon else "?"
-    msg = f"Остаёмся на «{name}».\n{format_step(step_def, user.current_step, total)}"
+    label = dragon.egg_type or "яйцо" if dragon else "?"
+    msg = f"Остаёмся на «{label}».\n{format_step(step_def, user.current_step, total)}"
     if step_def:
         msg += f"\n\n🎯 Норма: {step_def.crosses_norm} крестиков\nВыбери режим:"
     send_message(msg, keyboard=step_buttons_keyboard())
@@ -233,11 +234,20 @@ def switch_dragon(user, num: int, db, send_message):
     if ud.dragon_id == user.current_dragon_id:
         user.state = grow_state(user.current_step)
         db.commit()
+        remaining = get_timeout_remaining(db, user.vk_id, ud.dragon_id)
         step_def = get_dragon_step(db, ud.dragon_id, user.current_step)
-        msg = f"Ты уже выращиваешь этого дракона.\n{format_step(step_def, user.current_step, get_total_steps(db, ud.dragon_id))}"
-        if step_def:
-            msg += f"\n\n🎯 Норма: {step_def.crosses_norm} крестиков\nВыбери режим:"
-        send_message(msg, keyboard=step_buttons_keyboard())
+        dragon = db.query(Dragon).filter(Dragon.id == ud.dragon_id).first()
+        label = dragon.egg_type or "яйцо" if dragon else "?"
+        if remaining is not None:
+            total_secs = int(remaining.total_seconds())
+            hours, remainder = divmod(total_secs, 3600)
+            minutes = remainder // 60
+            send_message(f"🥚 Ты уже выращиваешь «{label}».\n⏳ До следующего шага осталось: {hours} ч. {minutes} мин.")
+        else:
+            msg = f"Ты уже выращиваешь этого дракона.\n{format_step(step_def, user.current_step, get_total_steps(db, ud.dragon_id))}"
+            if step_def:
+                msg += f"\n\n🎯 Норма: {step_def.crosses_norm} крестиков\nВыбери режим:"
+            send_message(msg, keyboard=step_buttons_keyboard())
         return
 
     if ud.completed_at:
@@ -291,11 +301,11 @@ def switch_dragon(user, num: int, db, send_message):
         total_secs = int(remaining.total_seconds())
         hours, remainder = divmod(total_secs, 3600)
         minutes = remainder // 60
-        msg = f"▸ Переключился на «{dragon.name}».\n{format_step(next_def, curr_step, total)}"
+        msg = f"▸ Переключился на «{dragon.egg_type or dragon.name or '?'}».\n{format_step(next_def, curr_step, total)}"
         msg += f"\n⏳ Дракон отдыхает. Осталось: {hours} ч. {minutes} мин."
         send_message(msg)
     else:
-        msg = f"▸ Переключился на «{dragon.name}».\n{format_step(next_def, curr_step, total)}"
+        msg = f"▸ Переключился на «{dragon.egg_type or dragon.name or '?'}».\n{format_step(next_def, curr_step, total)}"
         if next_def:
             msg += f"\n\n🎯 Норма: {next_def.crosses_norm} крестиков\nВыбери режим:"
         send_message(msg, keyboard=step_buttons_keyboard())
@@ -359,11 +369,11 @@ def handle_switch_to(user, dragon_id: int, db, send_message):
         total_secs = int(remaining.total_seconds())
         hours, remainder = divmod(total_secs, 3600)
         minutes = remainder // 60
-        msg = f"▸ Переключился на «{dragon.name}».\n{format_step(step_def, next_step, total)}"
+        msg = f"▸ Переключился на «{dragon.egg_type or dragon.name or '?'}».\n{format_step(step_def, next_step, total)}"
         msg += f"\n⏳ Дракон отдыхает. Осталось: {hours} ч. {minutes} мин."
         send_message(msg)
     else:
-        msg = f"▸ Переключился на «{dragon.name}».\n{format_step(step_def, next_step, total)}"
+        msg = f"▸ Переключился на «{dragon.egg_type or dragon.name or '?'}».\n{format_step(step_def, next_step, total)}"
         if step_def:
             msg += f"\n\n🎯 Норма: {step_def.crosses_norm} крестиков\nВыбери режим:"
         send_message(msg, keyboard=step_buttons_keyboard())
