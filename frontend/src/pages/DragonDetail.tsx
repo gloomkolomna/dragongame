@@ -5,7 +5,7 @@ import client from '../api/client';
 import { mediaUrl } from '../api/media';
 
 interface Step { number: number; task: string; completed: boolean; }
-interface Dragon { is_revealed: boolean; name?: string; rarity?: number; egg_type: string; steps_count: number; description?: string; dragon_url?: string; egg_url?: string; next_step_available_at?: string; user_progress: { status: string; completed_steps: number; steps: Step[] }; }
+interface Dragon { is_revealed: boolean; name?: string; rarity?: number; egg_type: string; steps_count: number; description?: string; dragon_url?: string; egg_url?: string; next_step_available_at?: string; family_color?: string; user_progress: { status: string; completed_steps: number; steps: Step[] }; }
 
 function DragonDetail() {
   const { id } = useParams<{ id: string }>();
@@ -21,6 +21,7 @@ function DragonDetail() {
   if (!d) return <div className="lair-card" style={{ maxWidth: 400, margin: '40px auto', textAlign: 'center' }}><div className="lair-empty-icon">🐉</div><p style={{ color: 'var(--text-secondary)' }}>Дракон не найден</p></div>;
 
   const pct = d.steps_count ? Math.round((d.user_progress.completed_steps / d.steps_count) * 100) : 0;
+  const clr = d.family_color || 'var(--accent-gold-light)';
 
   return (
     <div style={{ padding: 20 }}>
@@ -41,7 +42,7 @@ function DragonDetail() {
                 ? <img src={mediaUrl(d.egg_url)} alt="" onClick={() => setZoom(mediaUrl(d.egg_url))} onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} style={{ maxWidth: '100%', maxHeight: 300, borderRadius: 'var(--radius-md)', cursor: 'pointer' }} />
                 : <span style={{ fontSize: 64 }}>🥚</span>)}
         </div>
-        <h2 style={{ margin: '0 0 4px', color: 'var(--accent-gold-light)', fontSize: 22 }}>
+        <h2 style={{ margin: '0 0 4px', color: clr, fontSize: 22 }}>
           {d.is_revealed ? d.name : `Яйцо: ${d.egg_type}`}
         </h2>
         {d.is_revealed && <div style={{ color: 'var(--text-secondary)', fontSize: 15, marginBottom: 12 }}>Редкость: {'⭐'.repeat(d.rarity || 1)}</div>}
@@ -52,7 +53,7 @@ function DragonDetail() {
       <>
       <div className="lair-card" style={{ marginBottom: 16 }}>
         <div style={{ marginTop: 0, background: 'var(--bg-card-hover)', borderRadius: 'var(--radius-sm)', height: 10, overflow: 'hidden' }}>
-          <div style={{ height: '100%', width: `${pct}%`, background: 'linear-gradient(90deg, var(--accent-gold-dark), var(--accent-gold-light))', borderRadius: 'var(--radius-sm)', transition: 'width 0.5s' }} />
+          <div style={{ height: '100%', width: `${pct}%`, background: `linear-gradient(90deg, ${clr}88, ${clr})`, borderRadius: 'var(--radius-sm)', transition: 'width 0.5s' }} />
         </div>
         <div style={{ fontSize: 14, color: 'var(--text-muted)', marginTop: 4 }}>{pct}%</div>
       </div>

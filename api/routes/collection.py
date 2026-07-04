@@ -152,6 +152,8 @@ def get_dragon(
     ud = db.query(UserDragon).filter(UserDragon.user_id == vk_id, UserDragon.dragon_id == dragon_id).first()
     next_step_available_at = ud.next_step_available_at if ud else None
 
+    family = db.query(Family).filter(Family.id == dragon.family_id).first() if dragon.family_id else None
+
     return {
         "is_revealed": revealed,
         "name": dragon.name if revealed else None,
@@ -162,6 +164,7 @@ def get_dragon(
         "dragon_url": f"/api/static/images/{dragon.dragon_path}" if revealed and dragon.dragon_path else None,
         "egg_url": f"/api/static/images/{dragon.egg_path}" if not revealed and dragon.egg_path else None,
         "next_step_available_at": next_step_available_at,
+        "family_color": family.color if family else None,
         "user_progress": {
             "status": "completed" if revealed else ("growing" if completed_steps > 0 else "locked"),
             "completed_steps": completed_steps,
