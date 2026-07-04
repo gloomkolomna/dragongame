@@ -116,7 +116,16 @@ function DragonsList() {
                   <th style={{ width: 170 }}></th>
                 </tr>
                 <tr>
-                  <th><FilterInput col="family" value={filters['family'] || ''} onChange={handleFilterChange} /></th>
+                  <th>
+                    <select className="lair-input" value={filters['family'] || ''}
+                            onChange={(e) => handleFilterChange('family', e.target.value)}
+                            style={{ width: '100%', padding: '4px 8px', fontSize: 24, marginTop: 2 }}>
+                      <option value="">Все</option>
+                      {families.map((f) => (
+                        <option key={f.id} value={f.name}>{f.name}</option>
+                      ))}
+                    </select>
+                  </th>
                   <th><FilterInput col="name" value={filters['name'] || ''} onChange={handleFilterChange} /></th>
                   <th><FilterInput col="rarity" value={filters['rarity'] || ''} onChange={handleFilterChange} /></th>
                   <th><FilterInput col="egg_type" value={filters['egg_type'] || ''} onChange={handleFilterChange} /></th>
