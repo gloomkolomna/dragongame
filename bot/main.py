@@ -181,10 +181,18 @@ def main():
 
             # IDLE: anything else → prompt
             elif user.state == IDLE and text and not cmd:
-                send_message(
-                    "🐉 Добро пожаловать в Бестиарий драконьих легенд!\n"
-                    "Нажми «🐉 Добавить дракона» чтобы начать выращивание."
-                )
+                from models import UserDragon
+                has_any = db.query(UserDragon).filter(UserDragon.user_id == user_id).first() is not None
+                if has_any:
+                    send_message(
+                        "🐉 Добро пожаловать в Бестиарий драконьих легенд!\n"
+                        "Нажми «🐉 Добавить дракона» чтобы начать выращивание."
+                    )
+                else:
+                    send_message(
+                        "🐉 У тебя пока нет драконов.\n"
+                        "Нажми «🐉 Добавить дракона» чтобы начать выращивание."
+                    )
 
         except Exception as exc:
             print(f"Error processing message from {user_id}: {exc}")

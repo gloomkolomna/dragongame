@@ -268,3 +268,86 @@ def test_get_user_steps_shows_timeout(client, db):
     assert resp.status_code == 200
     data = resp.json()
     assert data["total"] == 1
+
+
+def test_get_user_detail_empty(client, db):
+    user = User(vk_id=201, state="idle")
+    db.add(user)
+    db.commit()
+    resp = client.get("/api/admin/users/201")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["dragons"] == []
+
+
+def test_get_user_detail_growing(client, db):
+    fam = _create_family(client)
+    steps_data = [
+        {"step_number": 1, "magic_action": "S1", "timeout_hours": 0, "timeout_minutes": 0},
+        {"step_number": 2, "magic_action": "S2", "timeout_hours": 0, "timeout_minutes": 0},
+    ]
+    dragon_resp = client.post(
+        "/api/admin/dragons",
+        data={
+            "name": "D", "rarity": 1, "egg_type": "e", "description": "",
+            "family_id": fam.json()["id"], "steps": json.dumps(steps_data),
+        },
+    )
+    dragon_id = dragon_resp.json()["id"]
+
+    user = User(vk_id=202, state="grow_step_2", current_dragon_id=dragon_id, current_step=2)
+    db.add(user)
+    ud = UserDragon(user_id=202, dragon_id=dragon_id, completed_at="")
+    db.add(ud)
+    up = UserProgress(user_id=202, dragon_id=dragon_id, step_number=1, completed=True)
+    db.add(up)
+    db.commit()
+
+    resp = client.get("/api/admin/users/202")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert len(data["dragons"]) == 1
+    d = data["dragons"][0]
+    assert d["status"] == "growing"
+    assert d["progress_pct"] == 50
+
+
+def test_get_user_detail_completed(client, db):
+    fam = _create_family(client)
+    dragon_resp = client.post(
+        "/api/admin/dragons",
+        data={"name": "D", "rarity": 1, "egg_type": "e", "description": "", "family_id": fam.json()["id"]},
+    )
+    dragon_id = dragon_resp.json()["id"]
+
+    user = User(vk_id=203, state="idle")
+    db.add(user)
+    ud = UserDragon(user_id=203, dragon_id=dragon_id, completed_at="2026-01-01T00:00:00")
+    db.add(ud)
+    db.commit()
+
+    resp = client.get("/api/admin/users/203")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert len(data["dragons"]) == 1
+    d = data["dragons"][0]
+    assert d["status"] == "completed"
+    assert d["progress_pct"] == 100
+
+
+def test_get_user_detail_excludes_locked(client, db):
+    fam = _create_family(client)
+    dragon_resp = client.post(
+        "/api/admin/dragons",
+        data={"name": "D", "rarity": 1, "egg_type": "e", "description": "", "family_id": fam.json()["id"]},
+    )
+    dragon_id = dragon_resp.json()["id"]
+
+    user = User(vk_id=204, state="idle")
+    db.add(user)
+    db.commit()
+
+    resp = client.get("/api/admin/users/204")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert len(data["dragons"]) == 0

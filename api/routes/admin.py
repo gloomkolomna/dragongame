@@ -389,9 +389,15 @@ def get_user_detail(vk_id: int, db: Session = Depends(get_db)):
         progress = db.query(UserProgress).filter(
             UserProgress.user_id == vk_id, UserProgress.dragon_id == d.id, UserProgress.completed == True
         ).count()
+        if not collected and progress == 0:
+            continue
         if collected:
-            status = "completed"
-            pct = 100
+            if collected.completed_at:
+                status = "completed"
+                pct = 100
+            else:
+                status = "growing"
+                pct = round((progress / max(d.steps_count, 1)) * 100)
         elif progress > 0:
             status = "growing"
             pct = round((progress / max(d.steps_count, 1)) * 100)

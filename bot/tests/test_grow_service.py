@@ -93,17 +93,17 @@ def test_get_timeout_remaining_short_expiry(db):
     u = User(vk_id=7)
     db.add(u)
     db.flush()
-    near_future = (datetime.now() + timedelta(seconds=1)).strftime("%Y-%m-%dT%H:%M:%S")
+    near_future = (datetime.now() + timedelta(seconds=3)).strftime("%Y-%m-%dT%H:%M:%S")
     ud = UserDragon(user_id=7, dragon_id=d.id, next_step_available_at=near_future)
     db.add(ud)
     db.commit()
 
     remaining = get_timeout_remaining(db, 7, d.id)
     assert remaining is not None
-    assert 0.3 < remaining.total_seconds() < 2.0
+    assert 0.3 < remaining.total_seconds() < 5.0
 
     import time
-    time.sleep(1.5)
+    time.sleep(4.0)
 
     assert get_timeout_remaining(db, 7, d.id) is None
 

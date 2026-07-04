@@ -8,11 +8,19 @@ from bot.handlers.grow import format_step
 
 def handle_start(user, db, send_message):
     if user.state == IDLE or not user.current_dragon_id:
-        send_message(
-            "🐉 Добро пожаловать в Бестиарий драконьих легенд!\n\n"
-            "Здесь ты выращиваешь драконов через вышивку.\n"
-            "Купил яйцо? Нажми «🐉 Добавить дракона» и введи PIN-код."
-        )
+        from models import UserDragon
+        has_any = db.query(UserDragon).filter(UserDragon.user_id == user.vk_id).first() is not None
+        if has_any:
+            send_message(
+                "🐉 Добро пожаловать в Бестиарий драконьих легенд!\n\n"
+                "Здесь ты выращиваешь драконов через вышивку.\n"
+                "Купил яйцо? Нажми «🐉 Добавить дракона» и введи PIN-код."
+            )
+        else:
+            send_message(
+                "🐉 У тебя пока нет драконов.\n"
+                "Нажми «🐉 Добавить дракона» чтобы начать выращивание."
+            )
     else:
         dragon = db.query(Dragon).filter(Dragon.id == user.current_dragon_id).first()
         if not dragon:

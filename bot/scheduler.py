@@ -95,6 +95,40 @@ def _check_expired(db, vk, logger):
         next_step_num = completed_count + 1
         total = get_total_steps(db, ud.dragon_id)
 
+        if completed_count >= total:
+            from bot.services.grow_service import complete_dragon
+            complete_dragon(db, ud.user_id, ud.dragon_id)
+            ud.timeout_notified = True
+            active = user.current_dragon_id == ud.dragon_id
+            if active:
+                user.state = "idle"
+                user.current_dragon_id = None
+                user.current_step = 0
+            db.commit()
+
+            msg = (
+                f"🎉 Поздравляю! Ты вырастил дракона!\n\n"
+                f"⭐ {dragon.name} ⭐\n"
+                f"Редкость: {'⭐' * dragon.rarity}\n"
+            )
+            if dragon.description:
+                msg += f"\n{dragon.description}\n"
+            msg += "\nЗагляни в мини-приложение, чтобы увидеть его в своей коллекции!"
+
+            keyboard_json = json.dumps({
+                "one_time": True,
+                "buttons": [
+                    [{"action": {"type": "open_link", "label": "📖 Мой Бестиарий", "link": "https://vk.com/app54663330"}}],
+                    [{"action": {"type": "text", "label": "🐉 Добавить дракона", "payload": json.dumps({"cmd": "pin"}, ensure_ascii=False)}, "color": "primary"}],
+                    [
+                        {"action": {"type": "text", "label": "🔄 Сменить дракона", "payload": json.dumps({"cmd": "garden"}, ensure_ascii=False)}, "color": "secondary"},
+                        {"action": {"type": "text", "label": "❓ Помощь", "payload": json.dumps({"cmd": "help"}, ensure_ascii=False)}, "color": "secondary"},
+                    ],
+                ],
+            }, ensure_ascii=False)
+            _send(vk, ud.user_id, msg, keyboard_json, logger)
+            continue
+
         ud.timeout_notified = True
         db.commit()
 

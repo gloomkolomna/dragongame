@@ -60,6 +60,20 @@ def handle_grow_message(user, text, attachments, db, send_message, upload_image=
         dragon = db.query(Dragon).filter(Dragon.id == user.current_dragon_id).first()
 
         if step >= total:
+            step_hours, step_minutes = get_step_timeout(db, user.current_dragon_id, step)
+            total_timeout_min = step_hours * 60 + step_minutes
+
+            if total_timeout_min > 0:
+                set_step_timeout(db, user.vk_id, user.current_dragon_id, step)
+                next_step = step + 1
+                user.state = grow_state(next_step)
+                user.current_step = next_step
+                send_message(
+                    f"✅ Шаг {step} выполнен! Дракон будет готов через {step_hours} ч. {step_minutes} мин. Я уведомлю тебя, когда он вылупится."
+                )
+                db.commit()
+                return True
+
             complete_dragon(db, user.vk_id, user.current_dragon_id)
             user.state = IDLE
             user.current_dragon_id = None
