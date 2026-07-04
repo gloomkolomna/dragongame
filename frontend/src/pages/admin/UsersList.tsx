@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import client from '../../api/client';
 
 const GROUP_ID = 239999455;
@@ -12,12 +12,20 @@ function UsersList() {
   const [detail, setDetail] = useState<Detail | null>(null);
   const [load, setLoad] = useState(true);
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
 
-  useEffect(() => { client.get('/admin/users').then((r) => setUsers(r.data)).finally(() => setLoad(false)); }, []);
+  useEffect(() => {
+    client.get('/admin/users').then((r) => {
+      setUsers(r.data);
+      const uid = searchParams.get('vk_id');
+      if (uid) show(Number(uid));
+    }).finally(() => setLoad(false));
+  }, []);
 
   const show = async (id: number) => {
     const r = await client.get(`/admin/users/${id}`);
     setDetail(r.data);
+    setSearchParams({ vk_id: String(id) });
   };
 
   const restartDragon = async (vkId: number, dragonId: number) => {
@@ -49,7 +57,7 @@ function UsersList() {
       <div className="lair-content">
         {detail ? (
           <div className="lair-rise">
-            <button className="lair-btn lair-btn-outline lair-btn-sm" onClick={() => setDetail(null)} style={{ marginBottom: 16 }}>← Назад</button>
+            <button className="lair-btn lair-btn-outline lair-btn-sm" onClick={() => { setDetail(null); setSearchParams({}); }} style={{ marginBottom: 16 }}>← Назад</button>
             <div className="lair-card" style={{ marginBottom: 16 }}>
               <h3 style={{ color: 'var(--gold)', margin: '0 0 12px', display: 'flex', alignItems: 'center', gap: 8 }}>
                 <a href={profileUrl(detail.vk_id)} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--gold)', textDecoration: 'none' }}>
