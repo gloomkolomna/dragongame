@@ -181,6 +181,8 @@ def handle_garden(user, db, send_message):
     else:
         user.state = IDLE
         db.commit()
+        if completed_entries:
+            lines.append("\nВсе драконы выращены! Добавь нового или загляни в Бестиарий.")
 
     if user.current_dragon_id:
         from bot.keyboard import await_garden_keyboard
