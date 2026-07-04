@@ -20,6 +20,7 @@ def get_collection_families(vk_id: int, db: Session = Depends(get_db)):
         result.append({
             "id": fam.id,
             "name": fam.name,
+            "description": fam.description,
             "total_dragons": total,
             "collected": collected,
         })

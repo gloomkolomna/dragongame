@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useVkBridge } from '../context/VkBridgeContext';
 import client from '../api/client';
@@ -11,17 +11,21 @@ interface Cell {
   status: string;
   progress_pct: number;
   name?: string;
-  egg_type?: string;    // тип яйца (показывается под растущим яйцом)
-  egg_url?: string;     // картинка яйца (growing)
-  dragon_url?: string;  // взрослый дракон (completed)
+  egg_type?: string;
+  egg_url?: string;
+  dragon_url?: string;
 }
 
 interface Family {
   id: number;
   name: string;
+  description: string;
   total_dragons: number;
   collected: number;
 }
+
+const CELL = 200;
+const GAP = 4;
 
 function Collection() {
   const { vkUserId, isDemo, loading: bl } = useVkBridge();
@@ -32,8 +36,6 @@ function Collection() {
   const [collected, setCollected] = useState(0);
   const [load, setLoad] = useState(true);
   const [error, setError] = useState('');
-  const [gridWidth, setGridWidth] = useState(0);
-  const gridWrapRef = useRef<HTMLDivElement>(null);
   const nav = useNavigate();
 
   useEffect(() => {
@@ -58,15 +60,6 @@ function Collection() {
         setCollected(r.data.total_collected);
       });
   }, [vkUserId, selectedFamilyId, bl]);
-
-  useLayoutEffect(() => {
-    const measure = () => {
-      if (gridWrapRef.current) setGridWidth(gridWrapRef.current.clientWidth);
-    };
-    measure();
-    window.addEventListener('resize', measure);
-    return () => window.removeEventListener('resize', measure);
-  }, [grid.length]);
 
   if (bl || load) return (
     <div style={{ display: 'flex', justifyContent: 'center', padding: 60 }}>
@@ -116,20 +109,6 @@ function Collection() {
     rows.push(r);
   }
 
-  // Адаптивный размер ячейки: честно вписываем колонки по ширине миниаппа,
-  // но не мельчим сильнее 140px — текущий «идеальный» размер (вы его утвердили).
-  // Если колонок больше, чем влезает (5–6 при узком миниаппе) — включается
-  // горизонтальный скролл, см. контейнер сетки ниже.
-  const GAP = 4;
-  const available = gridWidth || 360;
-  // Корректная формула: доступная ширина минус все промежутки, делённая на число колонок.
-  const fitByWidth = (available - (mx - 1) * GAP) / mx;
-  const cellSize = Math.max(140, Math.min(240, fitByWidth));
-
-  // Реальная ширина готовой сетки. Если она шире контейнера — включаем скролл.
-  const gridTotalWidth = mx * cellSize + (mx - 1) * GAP;
-  const gridNeedsScroll = gridTotalWidth > available + 1;
-
   const handleCellClick = (cell: Cell) => {
     if (cell.status !== 'locked' && cell.dragon_id) {
       nav(`/dragon/${cell.dragon_id}`);
@@ -145,7 +124,7 @@ function Collection() {
             <div style={{
               position: 'absolute', bottom: 0, left: 0, right: 0,
               padding: '4px 6px', background: 'rgba(21,15,26,0.78)',
-              fontSize: Math.max(13, cellSize * 0.12), color: 'var(--accent-gold-light)', textAlign: 'center',
+              fontSize: 18, color: 'var(--accent-gold-light)', textAlign: 'center',
               whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontWeight: 600,
             }} title={c.name}>
               {c.name || '⭐'}
@@ -153,7 +132,7 @@ function Collection() {
           </div>
         );
       }
-      return <span style={{ fontWeight: 700, color: 'var(--accent-gold-light)', fontSize: cellSize * 0.35 }}>{c.name?.charAt(0) || '⭐'}</span>;
+      return <span style={{ fontWeight: 700, color: 'var(--accent-gold-light)', fontSize: 18 }}>{c.name?.charAt(0) || '⭐'}</span>;
     }
 
     if (c.status === 'growing') {
@@ -164,13 +143,13 @@ function Collection() {
               width: '100%', height: '100%', objectFit: 'cover', opacity: 0.85,
             }} />
           ) : (
-            <span style={{ fontSize: cellSize * 0.5, opacity: 0.85, display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%' }}>🥚</span>
+            <span style={{ fontSize: 100, opacity: 0.85, display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%' }}>🥚</span>
           )}
           {c.egg_type && (
             <div style={{
               position: 'absolute', top: 0, left: 0, right: 0,
               padding: '4px 6px', background: 'rgba(21,15,26,0.78)',
-              fontSize: Math.max(13, cellSize * 0.12), color: 'var(--accent-gold-light)',
+              fontSize: 18, color: 'var(--accent-gold-light)',
               textAlign: 'center', fontWeight: 600,
               whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
             }} title={c.egg_type}>
@@ -182,14 +161,14 @@ function Collection() {
             padding: '4px 8px 6px',
             background: 'linear-gradient(transparent, rgba(21,15,26,0.85) 40%)',
           }}>
-            <div style={{ width: '100%', height: Math.max(6, cellSize * 0.07), background: 'rgba(21,15,26,0.55)', borderRadius: cellSize * 0.04, overflow: 'hidden' }}>
+            <div style={{ width: '100%', height: 10, background: 'rgba(21,15,26,0.55)', borderRadius: 6, overflow: 'hidden' }}>
               <div style={{
                 height: '100%', width: `${c.progress_pct}%`,
                 background: 'linear-gradient(90deg, var(--ember), var(--fire), var(--molten))',
-                borderRadius: cellSize * 0.04, transition: 'width 0.5s',
+                borderRadius: 6, transition: 'width 0.5s',
               }} />
             </div>
-            <div style={{ fontSize: Math.max(12, cellSize * 0.12), color: 'var(--accent-gold)', textAlign: 'center', fontWeight: 700 }}>
+            <div style={{ fontSize: 16, color: 'var(--accent-gold)', textAlign: 'center', fontWeight: 700 }}>
               {c.progress_pct}%
             </div>
           </div>
@@ -197,7 +176,7 @@ function Collection() {
       );
     }
 
-    return <span style={{ color: 'var(--text-muted)', fontSize: cellSize * 0.4 }}>?</span>;
+    return <span style={{ color: 'var(--text-muted)', fontSize: 80 }}>?</span>;
   };
 
   return (
@@ -236,25 +215,20 @@ function Collection() {
         </div>
       )}
 
-      <div className="lair-card" style={{ textAlign: 'center', marginBottom: 12, padding: '12px 20px' }}>
-        <div style={{ fontSize: 18, color: 'var(--accent-gold-light)', fontWeight: 600 }}>
+      <div className="lair-card" style={{ marginBottom: 12, padding: '12px 20px' }}>
+        <div style={{ fontSize: 20, color: 'var(--accent-gold-light)', fontWeight: 600, marginBottom: 2 }}>
           {selectedFamily?.name || 'Коллекция'}
         </div>
-        <div style={{ fontSize: 15, color: 'var(--text-secondary)', marginTop: 4 }}>
-          Собрано: {familyCollected} из {familyTotal}
-          {growingCount > 0 && <span style={{ marginLeft: 8, color: 'var(--accent-gold)' }}>🌱 {growingCount} в процессе</span>}
-        </div>
+        {selectedFamily?.description && (
+          <div style={{ fontSize: 14, color: 'var(--parchment-dim)', lineHeight: 1.5 }}>
+            {selectedFamily.description}
+          </div>
+        )}
       </div>
 
       {rows.length > 0 ? (
-        <div style={{ position: 'relative' }}>
-        <div ref={gridWrapRef} style={{
-          width: '100%',
-          overflowX: gridNeedsScroll ? 'auto' : 'hidden',
-          WebkitOverflowScrolling: 'touch',
-          paddingBottom: gridNeedsScroll ? 6 : 0,
-        }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: GAP, alignItems: 'center', width: 'fit-content', minWidth: '100%' }}>
+        <>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: GAP, alignItems: 'center' }}>
           {rows.map((r, ri) => (
             <div key={ri} style={{ display: 'flex', gap: GAP }}>
               {r.map((c) => (
@@ -264,7 +238,7 @@ function Collection() {
                   className="lair-grid-cell"
                   title={c.name || c.egg_type || ''}
                   style={{
-                    width: cellSize, height: cellSize, padding: 0,
+                    width: CELL, height: CELL, padding: 0,
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                     cursor: c.status !== 'locked' ? 'pointer' : 'default',
                     overflow: 'hidden',
@@ -280,15 +254,14 @@ function Collection() {
             </div>
           ))}
           </div>
-        </div>
-        {gridNeedsScroll && (
           <div style={{
-            position: 'absolute', right: 0, top: 0, bottom: 0, width: 32,
-            background: 'linear-gradient(90deg, transparent, var(--coal))',
-            pointerEvents: 'none',
-          }} />
-        )}
-        </div>
+            textAlign: 'center', marginTop: 12, padding: '8px 20px',
+            fontSize: 15, color: 'var(--text-secondary)',
+          }}>
+            Собрано: {familyCollected} из {familyTotal}
+            {growingCount > 0 && <span style={{ marginLeft: 8, color: 'var(--accent-gold)' }}>🌱 {growingCount} в процессе</span>}
+          </div>
+        </>
       ) : (
         <div className="lair-card" style={{ textAlign: 'center', padding: 32 }}>
           <div style={{ fontSize: 40, marginBottom: 8 }}>🐉</div>
