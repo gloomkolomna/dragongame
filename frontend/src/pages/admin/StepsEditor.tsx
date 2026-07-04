@@ -99,11 +99,11 @@ function StepsEditor() {
             <div className="lair-form-group">
               <label className="lair-label">Ожидание перед след. шагом</label>
               <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                <input className="lair-input" type="number" min="0" value={s.timeout_hours}
+                <input className="lair-input" type="text" inputMode="numeric" value={s.timeout_hours}
                        onChange={(e) => upd(i, 'timeout_hours', e.target.value)}
                        style={{ width: 80 }} placeholder="0" />
                 <span style={{ color: 'var(--text-muted)', fontSize: 13 }}>ч</span>
-                <input className="lair-input" type="number" min="0" max="59" value={s.timeout_minutes}
+                <input className="lair-input" type="text" inputMode="numeric" value={s.timeout_minutes}
                        onChange={(e) => upd(i, 'timeout_minutes', e.target.value)}
                        style={{ width: 80 }} placeholder="0" />
                 <span style={{ color: 'var(--text-muted)', fontSize: 13 }}>мин</span>
@@ -114,7 +114,7 @@ function StepsEditor() {
             </div>
             <div className="lair-form-group">
               <label className="lair-label">Норма крестиков</label>
-              <input className="lair-input" type="number" min="1" value={s.crosses_norm}
+              <input className="lair-input" type="text" inputMode="numeric" value={s.crosses_norm}
                      onChange={(e) => upd(i, 'crosses_norm', e.target.value)}
                      style={{ width: 120 }} placeholder="1000" />
             </div>

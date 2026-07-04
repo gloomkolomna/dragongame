@@ -149,14 +149,14 @@ function GridEditor() {
             <div style={{ display: 'flex', gap: 12, justifyContent: 'center', marginBottom: 16 }}>
               <div>
                 <label className="lair-label">Колонок</label>
-                <input className="lair-input" type="number" min={1} max={20} value={cols}
+                <input className="lair-input" type="text" inputMode="numeric" value={cols}
                        onChange={(e) => setCols(Math.max(1, Math.min(20, Number(e.target.value))))}
                        style={{ width: 80 }} />
               </div>
               <div style={{ display: 'flex', alignItems: 'center', paddingTop: 18, color: 'var(--gold)', fontSize: 20, fontWeight: 'bold' }}>×</div>
               <div>
                 <label className="lair-label">Строк</label>
-                <input className="lair-input" type="number" min={1} max={20} value={rows}
+                <input className="lair-input" type="text" inputMode="numeric" value={rows}
                        onChange={(e) => setRows(Math.max(1, Math.min(20, Number(e.target.value))))}
                        style={{ width: 80 }} />
               </div>

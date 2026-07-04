@@ -53,7 +53,6 @@ def idle_keyboard(has_active=True):
 
 def growing_keyboard():
     return _keyboard([
-        row(("🌱 Перейти к выращиванию", "grow")),
         row(("📋 Статус", "status")),
         row(("🔄 Сменить дракона", "garden"), ("❓ Помощь", "help")),
         bestiary_link_row(),

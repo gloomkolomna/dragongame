@@ -87,7 +87,7 @@ function FamiliesForm() {
           </div>
           <div style={{ marginBottom: 16 }}>
             <label className="lair-label">Порядок</label>
-            <input className="lair-input" type="number" value={sortOrder} onChange={(e) => setSortOrder(Number(e.target.value))} style={{ width: 100 }} />
+            <input className="lair-input" type="text" inputMode="numeric" value={sortOrder} onChange={(e) => setSortOrder(Number(e.target.value))} style={{ width: 100 }} />
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
             <button className="lair-btn" disabled={saving} onClick={save}>{saving ? '...' : 'Сохранить'}</button>

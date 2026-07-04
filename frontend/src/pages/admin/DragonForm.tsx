@@ -201,16 +201,16 @@ function DragonForm() {
                        value={s.hint} onChange={(e) => updStep(i, 'hint', e.target.value)}
                        placeholder="Подсказка (опционально)" />
                 <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginTop: 6 }}>
-                  <input className="lair-input" type="number" min="0" value={s.timeout_hours}
+                  <input className="lair-input" type="text" inputMode="numeric" value={s.timeout_hours}
                          onChange={(e) => updStep(i, 'timeout_hours', e.target.value)}
                           style={{ width: 60, fontSize: 26, padding: '6px 8px' }} placeholder="0" />
                   <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>ч</span>
-                  <input className="lair-input" type="number" min="0" max="59" value={s.timeout_minutes}
+                  <input className="lair-input" type="text" inputMode="numeric" value={s.timeout_minutes}
                          onChange={(e) => updStep(i, 'timeout_minutes', e.target.value)}
                          style={{ width: 60, fontSize: 26, padding: '6px 8px' }} placeholder="0" />
                   <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>мин</span>
                   <span style={{ marginLeft: 12, color: 'var(--text-muted)', fontSize: 12 }}>Норма:</span>
-                  <input className="lair-input" type="number" min="1" value={s.crosses_norm}
+                  <input className="lair-input" type="text" inputMode="numeric" value={s.crosses_norm}
                          onChange={(e) => updStep(i, 'crosses_norm', e.target.value)}
                          style={{ width: 80, fontSize: 26, padding: '6px 8px' }} placeholder="1000" />
                   <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>крест.</span>

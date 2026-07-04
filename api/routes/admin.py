@@ -847,6 +847,14 @@ def list_api_requests(page: int = Query(1, ge=1), per_page: int = Query(50, ge=1
     return {"items": items, "total": total, "page": page, "per_page": per_page}
 
 
+@router.post("/logs/clear")
+def clear_logs(db: Session = Depends(get_db)):
+    db.query(ErrorLog).delete(synchronize_session=False)
+    db.query(ApiRequestLog).delete(synchronize_session=False)
+    db.commit()
+    return {"ok": True}
+
+
 @router.get("/health")
 def get_health(db: Session = Depends(get_db)):
     now = datetime.now()

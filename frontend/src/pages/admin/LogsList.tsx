@@ -119,6 +119,17 @@ function LogsList() {
     else fetchReqLogs(p);
   };
 
+  const clearLogs = async () => {
+    if (!window.confirm('Очистить все логи (БД + запросы API)?')) return;
+    try {
+      await client.post('/admin/logs/clear');
+      if (tab === 'db') fetchDbLogs(1);
+      else if (tab === 'requests') fetchReqLogs(1);
+    } catch (e: any) {
+      alert('Ошибка очистки');
+    }
+  };
+
   const statusColor = (code: number) => code >= 500 ? 'var(--fire)' : 'var(--ember)';
 
   return (
@@ -135,6 +146,10 @@ function LogsList() {
               {t === 'db' ? 'Логи БД' : t === 'api' ? 'Логи API' : 'Запросы API'}
             </button>
           ))}
+          {tab !== 'api' && (
+            <button className="lair-btn lair-btn-danger" style={{ fontSize: 14, marginLeft: 8 }}
+                    onClick={clearLogs}>🗑 Очистить</button>
+          )}
         </div>
       </div>
       <div className="lair-content">

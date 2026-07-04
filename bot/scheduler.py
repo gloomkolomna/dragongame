@@ -141,10 +141,10 @@ def _check_expired(db, vk, logger):
             msg = (
                 f"⏰ Время пришло! Ты можешь продолжить выращивание «{dragon.name}».\n\n"
                 f"{format_step(step_def, next_step_num, total)}"
-                f"\n\n🎯 Норма: {norm} крестиков\nНажми «🌱 Перейти к выращиванию» чтобы начать задание."
+                f"\n\n🎯 Норма: {norm} крестиков\nВыбери режим:"
             )
-            from bot.keyboard import growing_keyboard
-            keyboard_json = growing_keyboard()
+            from bot.keyboard import step_buttons_keyboard
+            keyboard_json = step_buttons_keyboard()
             _send(vk, ud.user_id, msg, keyboard_json, logger)
         else:
             msg = (

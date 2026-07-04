@@ -215,8 +215,7 @@ def _handle_crosses_check(user, text, db, send_message, upload_image=None):
             msg = f"✅ Шаг {step} выполнен!\n\n"
             if next_def:
                 msg += format_step(next_def, next_step, total)
-                msg += f"\n\n🎯 Норма крестиков: {next_def.crosses_norm}"
-            msg += "\n\nНажми «🌱 Перейти к выращиванию» чтобы начать задание."
+                msg += f"\n\n🎯 Норма крестиков: {next_def.crosses_norm}\nВыбери режим:"
             send_message(msg)
 
     db.commit()

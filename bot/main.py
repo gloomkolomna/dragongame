@@ -33,7 +33,7 @@ def get_keyboard(state: str, user=None) -> str:
     if is_growing(state):
         if is_waiting_text(state):
             return waiting_keyboard()
-        return growing_keyboard()
+        return step_buttons_keyboard()
     return idle_keyboard(has_active=bool(user and user.current_dragon_id))
 
 
