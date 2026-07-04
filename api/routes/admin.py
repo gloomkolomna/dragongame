@@ -692,7 +692,7 @@ def reset_dragon(vk_id: int, db: Session = Depends(get_db)):
     user.state = "idle"
     user.state_data = "{}"
     db.commit()
-    _notify_user(vk_id, f"🔄 Администратор сбросил прогресс выращивания дракона «{dragon_name}». Можешь начать заново — добавь нового дракона через PIN.")
+    _notify_user(vk_id, f"🔄 Администратор сбросил прогресс выращивания дракона «{dragon_name}». Дракон остался в твоём бестиарии — нажми «🔄 Сменить дракона» чтобы переключиться на него и начать заново.")
     return {"ok": True}
 
 
