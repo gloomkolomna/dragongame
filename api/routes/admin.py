@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from typing import Optional
 from db import get_db
 from auth import get_current_admin
-from models import Dragon, DragonStep, User, UserDragon, CollectionGrid, UserProgress, Family, ErrorLog, ServiceHeartbeat
+from models import Dragon, DragonStep, User, UserDragon, CollectionGrid, UserProgress, Family, ErrorLog, ServiceHeartbeat, ApiRequestLog
 from config import API_ERROR_LOG
 from services.dragon_service import (
     get_dragons, get_dragon, create_dragon, update_dragon, delete_dragon, sync_steps_count,
@@ -98,12 +98,51 @@ def update_dragon_route(
     family_id: Optional[int] = Form(None),
     image: Optional[UploadFile] = File(None),
     silhouette: Optional[UploadFile] = File(None),
+    steps: Optional[str] = Form(None),
     db: Session = Depends(get_db),
 ):
     dragon = update_dragon(db, dragon_id, name, rarity, egg_type, description,
                            is_active, family_id, image, silhouette)
     if not dragon:
         raise HTTPException(status_code=404, detail="Dragon not found")
+
+    if steps:
+        try:
+            steps_data = json.loads(steps)
+        except json.JSONDecodeError:
+            raise HTTPException(status_code=400, detail="Invalid steps JSON")
+        submitted_ids = {s.get("id", 0) for s in steps_data if s.get("id", 0) != 0}
+        if submitted_ids:
+            db.query(DragonStep).filter(
+                DragonStep.dragon_id == dragon_id,
+                DragonStep.id.notin_(submitted_ids),
+            ).delete(synchronize_session=False)
+        else:
+            db.query(DragonStep).filter(DragonStep.dragon_id == dragon_id).delete(synchronize_session=False)
+        for s in steps_data:
+            th = max(0, int(s.get("timeout_hours", 0) or 0))
+            tm = max(0, min(59, int(s.get("timeout_minutes", 0) or 0)))
+            sid = s.get("id", 0)
+            if sid == 0:
+                step = DragonStep(dragon_id=dragon_id, step_number=s.get("step_number", 0),
+                                  magic_action=s.get("magic_action", ""),
+                                  task_description=s.get("task_description", ""),
+                                  hint=s.get("hint", ""), keyword="вышито",
+                                  timeout_hours=th, timeout_minutes=tm)
+                db.add(step)
+            else:
+                step = db.query(DragonStep).filter(DragonStep.id == sid, DragonStep.dragon_id == dragon_id).first()
+                if step:
+                    step.step_number = s.get("step_number", step.step_number)
+                    step.magic_action = s.get("magic_action", step.magic_action)
+                    step.task_description = s.get("task_description", step.task_description)
+                    step.hint = s.get("hint", step.hint)
+                    step.keyword = "вышито"
+                    step.timeout_hours = th
+                    step.timeout_minutes = tm
+        db.commit()
+        sync_steps_count(db, dragon_id)
+
     return dragon
 
 
@@ -135,6 +174,14 @@ async def save_steps(dragon_id: int, request: Request, db: Session = Depends(get
     except json.JSONDecodeError:
         raise HTTPException(status_code=400, detail="Invalid JSON body")
     steps_data = data.get("steps", [])
+    submitted_ids = {s.get("id", 0) for s in steps_data if s.get("id", 0) != 0}
+    if submitted_ids:
+        db.query(DragonStep).filter(
+            DragonStep.dragon_id == dragon_id,
+            DragonStep.id.notin_(submitted_ids),
+        ).delete(synchronize_session=False)
+    else:
+        db.query(DragonStep).filter(DragonStep.dragon_id == dragon_id).delete(synchronize_session=False)
     for s in steps_data:
         th = max(0, int(s.get("timeout_hours", 0) or 0))
         tm = max(0, min(59, int(s.get("timeout_minutes", 0) or 0)))
@@ -761,6 +808,14 @@ def list_api_logs(page: int = Query(1, ge=1), per_page: int = Query(50, ge=1, le
     offset = (page - 1) * per_page
     chunk = all_lines[offset:offset + per_page]
     return {"lines": chunk, "total": total, "page": page, "per_page": per_page}
+
+
+@router.get("/logs/api-requests")
+def list_api_requests(page: int = Query(1, ge=1), per_page: int = Query(50, ge=1, le=200), db: Session = Depends(get_db)):
+    offset = (page - 1) * per_page
+    total = db.query(ApiRequestLog).count()
+    items = db.query(ApiRequestLog).order_by(ApiRequestLog.id.desc()).offset(offset).limit(per_page).all()
+    return {"items": items, "total": total, "page": page, "per_page": per_page}
 
 
 @router.get("/health")

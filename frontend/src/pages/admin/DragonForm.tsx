@@ -86,18 +86,20 @@ function DragonForm() {
     finally { setSaving(false); }
   };
 
-  const addStep = () => setSteps([...steps, { id: 0, dragon_id: Number(id) || 0, step_number: steps.length + 1, magic_action: '', task_description: '', hint: '', timeout_hours: 0, timeout_minutes: 0 }]);
-  const removeStep = (i: number) => setSteps(steps.filter((_, idx) => idx !== i));
+  const addStep = () => setSteps((prev) => [...prev, { id: 0, dragon_id: Number(id) || 0, step_number: prev.length + 1, magic_action: '', task_description: '', hint: '', timeout_hours: 0, timeout_minutes: 0 }]);
+  const removeStep = (i: number) => setSteps((prev) => prev.filter((_, idx) => idx !== i));
   const updStep = (i: number, f: keyof Step, v: string) => {
-    const s = [...steps];
-    if (f === 'timeout_hours' || f === 'timeout_minutes') {
-      let val = v === '' ? 0 : parseInt(v, 10) || 0;
-      if (f === 'timeout_minutes') val = Math.max(0, Math.min(59, val));
-      (s[i] as any)[f] = val;
-    } else {
-      (s[i] as any)[f] = v;
-    }
-    setSteps(s);
+    setSteps((prev) => {
+      const s = [...prev];
+      if (f === 'timeout_hours' || f === 'timeout_minutes') {
+        let val = v === '' ? 0 : parseInt(v, 10) || 0;
+        if (f === 'timeout_minutes') val = Math.max(0, Math.min(59, val));
+        (s[i] as any)[f] = val;
+      } else {
+        (s[i] as any)[f] = v;
+      }
+      return s;
+    });
   };
 
   if (loading) return <div className="lair-content"><div className="dragon-skeleton-card" style={{ height: 400 }} /></div>;

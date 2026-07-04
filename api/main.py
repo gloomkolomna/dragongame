@@ -1,9 +1,11 @@
 import os
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
 from fastapi.responses import FileResponse
 from config import FRONTEND_URL
 from db import init_db
+from middleware import log_failed_requests
 
 init_db()
 
@@ -16,6 +18,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.add_middleware(BaseHTTPMiddleware, dispatch=log_failed_requests)
 
 from routes.auth import router as auth_router
 from routes.admin import router as admin_router

@@ -11,32 +11,38 @@ interface ErrorLog {
   created_at: string;
 }
 
-type Tab = 'db' | 'api';
+interface ApiRequestItem {
+  id: number;
+  method: string;
+  path: string;
+  status_code: number;
+  client_ip: string;
+  created_at: string;
+}
 
-interface ApiLogState {
-  lines: string[];
+type Tab = 'db' | 'api' | 'requests';
+
+interface PaginatedState<T> {
+  items: T[];
   total: number;
   page: number;
 }
 
 function LogsList() {
   const [tab, setTab] = useState<Tab>('db');
-  const [logs, setLogs] = useState<ErrorLog[]>([]);
-  const [total, setTotal] = useState(0);
-  const [page, setPage] = useState(1);
   const [load, setLoad] = useState(true);
   const [expanded, setExpanded] = useState<number | null>(null);
   const perPage = 50;
 
-  const [api, setApi] = useState<ApiLogState>({ lines: [], total: 0, page: 1 });
+  const [dbState, setDbState] = useState<PaginatedState<ErrorLog>>({ items: [], total: 0, page: 1 });
+  const [apiState, setApiState] = useState<PaginatedState<string>>({ items: [], total: 0, page: 1 });
+  const [reqState, setReqState] = useState<PaginatedState<ApiRequestItem>>({ items: [], total: 0, page: 1 });
 
   const fetchDbLogs = useCallback((p: number) => {
     setLoad(true);
     client.get('/admin/logs', { params: { page: p, per_page: perPage } })
       .then((r) => {
-        setLogs(r.data.logs);
-        setTotal(r.data.total);
-        setPage(r.data.page);
+        setDbState({ items: r.data.logs, total: r.data.total, page: r.data.page });
       })
       .finally(() => setLoad(false));
   }, []);
@@ -45,7 +51,16 @@ function LogsList() {
     setLoad(true);
     client.get('/admin/logs/api', { params: { page: p, per_page: perPage } })
       .then((r) => {
-        setApi({ lines: r.data.lines, total: r.data.total, page: r.data.page });
+        setApiState({ items: r.data.lines, total: r.data.total, page: r.data.page });
+      })
+      .finally(() => setLoad(false));
+  }, []);
+
+  const fetchReqLogs = useCallback((p: number) => {
+    setLoad(true);
+    client.get('/admin/logs/api-requests', { params: { page: p, per_page: perPage } })
+      .then((r) => {
+        setReqState({ items: r.data.items, total: r.data.total, page: r.data.page });
       })
       .finally(() => setLoad(false));
   }, []);
@@ -55,22 +70,29 @@ function LogsList() {
   const switchTab = (t: Tab) => {
     setTab(t);
     setExpanded(null);
-    if (t === 'api' && api.lines.length === 0) fetchApiLogs(1);
+    if (t === 'api' && apiState.items.length === 0) fetchApiLogs(1);
+    if (t === 'requests' && reqState.items.length === 0) fetchReqLogs(1);
   };
 
-  const totalPages = Math.ceil((tab === 'db' ? total : api.total) / perPage);
+  const cur = tab === 'db' ? { page: dbState.page, total: dbState.total } :
+             tab === 'api' ? { page: apiState.page, total: apiState.total } :
+             { page: reqState.page, total: reqState.total };
+  const totalPages = Math.ceil(cur.total / perPage);
   const formatDate = (s: string) => s ? new Date(s).toLocaleString('ru-RU') : '—';
 
   const goPage = (p: number) => {
     if (tab === 'db') fetchDbLogs(p);
-    else fetchApiLogs(p);
+    else if (tab === 'api') fetchApiLogs(p);
+    else fetchReqLogs(p);
   };
+
+  const statusColor = (code: number) => code >= 500 ? 'var(--fire)' : 'var(--ember)';
 
   return (
     <>
       <div className="lair-header" style={{ flexWrap: 'wrap', gap: 8, paddingBottom: 12 }}>
         <h2 style={{ flexShrink: 0 }}>📋 Логи</h2>
-        <div style={{ display: 'flex', gap: 6 }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
           <button
             className={tab === 'db' ? 'lair-btn' : 'lair-btn lair-btn-outline'}
             style={{ fontSize: 15 }}
@@ -85,6 +107,13 @@ function LogsList() {
           >
             Логи API
           </button>
+          <button
+            className={tab === 'requests' ? 'lair-btn' : 'lair-btn lair-btn-outline'}
+            style={{ fontSize: 15 }}
+            onClick={() => switchTab('requests')}
+          >
+            Запросы API
+          </button>
         </div>
       </div>
       <div className="lair-content">
@@ -93,7 +122,7 @@ function LogsList() {
         ) : tab === 'db' ? (
           <>
             <div style={{ marginBottom: 12, color: 'var(--parchment-faded)', fontSize: 14 }}>
-              Всего: {total}
+              Всего: {dbState.total}
             </div>
             <div className="lair-card" style={{ padding: 0, overflow: 'hidden' }}>
               <table className="lair-table">
@@ -108,7 +137,7 @@ function LogsList() {
                   </tr>
                 </thead>
                 <tbody>
-                  {logs.map((log) => (
+                  {dbState.items.map((log) => (
                     <>
                       <tr
                         key={log.id}
@@ -136,20 +165,20 @@ function LogsList() {
                       )}
                     </>
                   ))}
-                  {logs.length === 0 && (
+                  {dbState.items.length === 0 && (
                     <tr><td colSpan={6} style={{ textAlign: 'center', padding: 32, color: 'var(--parchment-faded)' }}>Ошибок нет</td></tr>
                   )}
                 </tbody>
               </table>
             </div>
           </>
-        ) : (
+        ) : tab === 'api' ? (
           <>
             <div style={{ marginBottom: 12, color: 'var(--parchment-faded)', fontSize: 14 }}>
-              Строк в логе: {api.total}
+              Строк в логе: {apiState.total}
             </div>
             <div className="lair-card" style={{ padding: 0, overflow: 'hidden' }}>
-              {api.lines.length > 0 ? (
+              {apiState.items.length > 0 ? (
                 <pre style={{
                   margin: 0, padding: '16px 20px',
                   fontSize: 13, lineHeight: 1.6,
@@ -157,7 +186,7 @@ function LogsList() {
                   wordBreak: 'break-all', maxHeight: 'calc(100vh - 320px)',
                   overflowY: 'auto', fontFamily: 'var(--font-mono)',
                 }}>
-                  {api.lines.map((line, i) => (
+                  {apiState.items.map((line, i) => (
                     <div key={i} style={{
                       color: line.includes('Error') || line.includes('Traceback') || line.includes('ERROR') ? 'var(--fire)' :
                              line.includes('WARN') || line.includes('warning') ? 'var(--ember)' : undefined,
@@ -173,21 +202,56 @@ function LogsList() {
               )}
             </div>
           </>
+        ) : (
+          <>
+            <div style={{ marginBottom: 12, color: 'var(--parchment-faded)', fontSize: 14 }}>
+              Всего: {reqState.total}
+            </div>
+            <div className="lair-card" style={{ padding: 0, overflow: 'hidden' }}>
+              <table className="lair-table">
+                <thead>
+                  <tr>
+                    <th style={{ width: 50 }}>ID</th>
+                    <th style={{ width: 60 }}>Метод</th>
+                    <th>Путь</th>
+                    <th style={{ width: 60 }}>Статус</th>
+                    <th style={{ width: 110 }}>IP</th>
+                    <th style={{ width: 140 }}>Дата</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {reqState.items.map((r) => (
+                    <tr key={r.id}>
+                      <td>{r.id}</td>
+                      <td style={{ fontFamily: 'var(--font-mono)', fontSize: 13 }}>{r.method}</td>
+                      <td style={{ fontFamily: 'var(--font-mono)', fontSize: 13, maxWidth: 400, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.path}</td>
+                      <td style={{ color: statusColor(r.status_code), fontWeight: 700 }}>{r.status_code}</td>
+                      <td style={{ fontSize: 13, color: 'var(--parchment-dim)' }}>{r.client_ip}</td>
+                      <td style={{ fontSize: 13, color: 'var(--parchment-faded)' }}>{formatDate(r.created_at)}</td>
+                    </tr>
+                  ))}
+                  {reqState.items.length === 0 && (
+                    <tr><td colSpan={6} style={{ textAlign: 'center', padding: 32, color: 'var(--parchment-faded)' }}>Ошибочных запросов нет</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
         {totalPages > 1 && (
           <div style={{ display: 'flex', justifyContent: 'center', gap: 8, marginTop: 16 }}>
             <button
               className="lair-btn lair-btn-sm lair-btn-outline"
-              disabled={(tab === 'db' ? page : api.page) <= 1}
-              onClick={() => goPage((tab === 'db' ? page : api.page) - 1)}
+              disabled={cur.page <= 1}
+              onClick={() => goPage(cur.page - 1)}
             >← Назад</button>
             <span style={{ color: 'var(--parchment-dim)', fontSize: 14, padding: '4px 12px' }}>
-              {tab === 'db' ? page : api.page} / {totalPages}
+              {cur.page} / {totalPages}
             </span>
             <button
               className="lair-btn lair-btn-sm lair-btn-outline"
-              disabled={(tab === 'db' ? page : api.page) >= totalPages}
-              onClick={() => goPage((tab === 'db' ? page : api.page) + 1)}
+              disabled={cur.page >= totalPages}
+              onClick={() => goPage(cur.page + 1)}
             >Вперёд →</button>
           </div>
         )}

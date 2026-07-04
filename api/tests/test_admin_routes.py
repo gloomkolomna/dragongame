@@ -39,6 +39,7 @@ def test_create_dragon_with_steps_timeout(client):
     steps_data = [
         {"step_number": 1, "magic_action": "Step 1", "timeout_hours": 2, "timeout_minutes": 30},
         {"step_number": 2, "magic_action": "Step 2", "timeout_hours": 0, "timeout_minutes": 0},
+        {"step_number": 3, "magic_action": "Step 3", "timeout_hours": 0, "timeout_minutes": 15},
     ]
     resp = client.post(
         "/api/admin/dragons",
@@ -54,7 +55,7 @@ def test_create_dragon_with_steps_timeout(client):
     steps_resp = client.get(f"/api/admin/dragons/{dragon_id}/steps")
     assert steps_resp.status_code == 200
     steps = steps_resp.json()
-    assert len(steps) == 2
+    assert len(steps) == 3
 
     step1 = next(s for s in steps if s["step_number"] == 1)
     assert step1["timeout_hours"] == 2
@@ -63,6 +64,10 @@ def test_create_dragon_with_steps_timeout(client):
     step2 = next(s for s in steps if s["step_number"] == 2)
     assert step2["timeout_hours"] == 0
     assert step2["timeout_minutes"] == 0
+
+    step3 = next(s for s in steps if s["step_number"] == 3)
+    assert step3["timeout_hours"] == 0
+    assert step3["timeout_minutes"] == 15
 
 
 def test_save_steps_with_timeout(client):

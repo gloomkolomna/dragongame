@@ -23,28 +23,32 @@ function StepsEditor() {
   }, [id]);
 
   const upd = (i: number, f: keyof Step, v: string) => {
-    const s = [...steps];
-    if (f === 'timeout_hours' || f === 'timeout_minutes') {
-      let val = v === '' ? 0 : parseInt(v, 10) || 0;
-      if (f === 'timeout_minutes') val = Math.max(0, Math.min(59, val));
-      (s[i] as any)[f] = val;
-    } else {
-      (s[i] as any)[f] = v;
-    }
-    setSteps(s);
+    setSteps((prev) => {
+      const s = [...prev];
+      if (f === 'timeout_hours' || f === 'timeout_minutes') {
+        let val = v === '' ? 0 : parseInt(v, 10) || 0;
+        if (f === 'timeout_minutes') val = Math.max(0, Math.min(59, val));
+        (s[i] as any)[f] = val;
+      } else {
+        (s[i] as any)[f] = v;
+      }
+      return s;
+    });
   };
 
   const move = (i: number, d: -1 | 1) => {
-    const n = i + d;
-    if (n < 0 || n >= steps.length) return;
-    const s = [...steps];
-    [s[i], s[n]] = [s[n], s[i]];
-    setSteps(s);
+    setSteps((prev) => {
+      const n = i + d;
+      if (n < 0 || n >= prev.length) return prev;
+      const s = [...prev];
+      [s[i], s[n]] = [s[n], s[i]];
+      return s;
+    });
   };
 
-  const add = () => setSteps([...steps, { id: 0, dragon_id: Number(id), step_number: steps.length + 1, magic_action: '', task_description: '', hint: '', timeout_hours: 0, timeout_minutes: 0 }]);
+  const add = () => setSteps((prev) => [...prev, { id: 0, dragon_id: Number(id), step_number: prev.length + 1, magic_action: '', task_description: '', hint: '', timeout_hours: 0, timeout_minutes: 0 }]);
 
-  const remove = (i: number) => setSteps(steps.filter((_, idx) => idx !== i));
+  const remove = (i: number) => setSteps((prev) => prev.filter((_, idx) => idx !== i));
 
   const save = async () => {
     setSaving(true);
