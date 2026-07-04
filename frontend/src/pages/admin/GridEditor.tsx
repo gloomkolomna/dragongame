@@ -16,7 +16,6 @@ function GridEditor() {
   const [cols, setCols] = useState(10);
   const [rows, setRows] = useState(5);
   const [modalImg, setModalImg] = useState<string | null>(null);
-  const [tabOverflow, setTabOverflow] = useState(false);
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
@@ -34,11 +33,6 @@ function GridEditor() {
       }
     });
   }, [searchParams]);
-
-  useEffect(() => {
-    const el = document.getElementById('family-tabs-grid');
-    if (el && el.scrollWidth > el.clientWidth) setTabOverflow(true); else setTabOverflow(false);
-  }, [families]);
 
   const fetchData = useCallback(async (isInit = false) => {
     if (!familyId) return;
@@ -118,29 +112,21 @@ function GridEditor() {
       <div className="lair-header" style={{ flexWrap: 'wrap', gap: 8, paddingBottom: families.length > 0 ? 8 : 20 }}>
         <h2 style={{ flexShrink: 0 }}>📐 Редактор сетки</h2>
         {families.length > 0 && (
-          <div style={{ flex: '1 1 auto', minWidth: 0, position: 'relative' }}>
+          <div style={{ flex: '1 1 auto', minWidth: 0 }}>
             <div id="family-tabs-grid" style={{
-              display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 4,
-              scrollbarWidth: 'none', msOverflowStyle: 'none',
+              display: 'flex', flexWrap: 'wrap', gap: 6, paddingBottom: 4,
             }}>
               {families.map((fam) => (
                 <button
                   key={fam.id}
                   onClick={() => setFamilyId(fam.id)}
                   className={familyId === fam.id ? 'lair-btn' : 'lair-btn lair-btn-outline'}
-                  style={{ flexShrink: 0, padding: '8px 20px', fontSize: 15, whiteSpace: 'nowrap' }}
+                  style={{ padding: '8px 20px', fontSize: 15, whiteSpace: 'nowrap' }}
                 >
                   {fam.name}
                 </button>
               ))}
             </div>
-            {tabOverflow && (
-              <div style={{
-                position: 'absolute', right: 0, top: 0, bottom: 0, width: 32,
-                background: 'linear-gradient(90deg, transparent, var(--coal))',
-                pointerEvents: 'none',
-              }} />
-            )}
           </div>
         )}
         {familyId && cells.length > 0 && (
@@ -276,7 +262,7 @@ function GridEditor() {
                                   onClick={(e) => { e.stopPropagation(); assignDragon(cell.id, null); }}>✕</button>
                         </div>
                       ) : (
-                        <select style={{ width: '100%', padding: '5px', fontSize: 12, background: 'rgba(21,15,26,0.8)', color: 'var(--parchment)', border: '1px solid var(--bronze)', borderRadius: 4, cursor: 'pointer' }}
+                        <select style={{ width: '100%', padding: '5px', fontSize: 24, background: 'rgba(21,15,26,0.8)', color: 'var(--parchment)', border: '1px solid var(--bronze)', borderRadius: 4, cursor: 'pointer' }}
                                 value="" onChange={(e) => { const v = Number(e.target.value); if (v) assignDragon(cell.id, v); }}>
                           <option value="">+</option>
                           {unassigned.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}

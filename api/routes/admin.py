@@ -199,7 +199,7 @@ def get_grid(family_id: int = Query(...), db: Session = Depends(get_db)):
 
 @router.post("/grid/create")
 def create_grid(family_id: int = Query(...), columns: int = Query(...), rows: int = Query(...), db: Session = Depends(get_db)):
-    db.query(CollectionGrid).filter(CollectionGrid.family_id == family_id).delete()
+    db.query(CollectionGrid).filter(CollectionGrid.family_id == family_id).delete(synchronize_session=False)
     for y in range(rows):
         for x in range(columns):
             cell = CollectionGrid(family_id=family_id, cell_x=x, cell_y=y)

@@ -13,7 +13,7 @@ function FilterInput({ col, value, onChange }: { col: string; value: string; onC
   return (
     <input className="lair-input" value={value}
            onChange={(e) => onChange(col, e.target.value)}
-           placeholder="..." style={{ width: '100%', padding: '4px 8px', fontSize: 12, marginTop: 2 }} />
+           placeholder="..." style={{ width: '100%', padding: '4px 8px', fontSize: 24, marginTop: 2 }} />
   );
 }
 

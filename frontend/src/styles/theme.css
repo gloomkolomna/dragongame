@@ -271,13 +271,13 @@ a:hover { color: var(--molten); }
    ============================================================ */
 .lair-input, .lair-select, .lair-textarea {
   width: 100%;
-  padding: 11px 15px;
+  padding: 16px 20px;
   background: rgba(21, 15, 26, 0.8);
   border: 1px solid var(--bronze);
   border-radius: 8px;
   color: var(--parchment);
   font-family: var(--font-body);
-  font-size: 16px;
+  font-size: 26px;
   transition: all 0.2s;
   outline: none;
 }
@@ -462,7 +462,7 @@ a:hover { color: var(--molten); }
 }
 .lair-grid-cell select {
   width: 100%;
-  font-size: 12px;
+  font-size: 24px;
   padding: 4px;
   background: rgba(21, 15, 26, 0.8);
   color: var(--parchment);

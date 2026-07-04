@@ -31,7 +31,6 @@ function Collection() {
   const [total, setTotal] = useState(0);
   const [collected, setCollected] = useState(0);
   const [load, setLoad] = useState(true);
-  const [tabOverflow, setTabOverflow] = useState(false);
   const [error, setError] = useState('');
   const [gridWidth, setGridWidth] = useState(0);
   const gridWrapRef = useRef<HTMLDivElement>(null);
@@ -59,11 +58,6 @@ function Collection() {
         setCollected(r.data.total_collected);
       });
   }, [vkUserId, selectedFamilyId, bl]);
-
-  useEffect(() => {
-    const el = document.getElementById('family-tabs');
-    if (el && el.scrollWidth > el.clientWidth) setTabOverflow(true);
-  }, [families]);
 
   useLayoutEffect(() => {
     const measure = () => {
@@ -218,15 +212,11 @@ function Collection() {
         </div>
       )}
       {families.length > 0 && (
-        <div style={{
-          marginBottom: 12, position: 'relative',
-        }}>
+        <div style={{ marginBottom: 12 }}>
           <div
             id="family-tabs"
             style={{
-              display: 'flex', gap: 6, overflowX: 'auto', padding: '0 4px 8px',
-              scrollbarWidth: 'none', msOverflowStyle: 'none',
-              WebkitOverflowScrolling: 'touch',
+              display: 'flex', flexWrap: 'wrap', gap: 6, padding: '0 4px 8px',
             }}
           >
             {families.map((fam) => (
@@ -235,7 +225,7 @@ function Collection() {
                 onClick={() => setSelectedFamilyId(fam.id)}
                 className={selectedFamilyId === fam.id ? 'lair-btn' : 'lair-btn lair-btn-outline'}
                 style={{
-                  flexShrink: 0, padding: '8px 20px', fontSize: 15,
+                  padding: '8px 20px', fontSize: 15,
                   letterSpacing: 0.5, whiteSpace: 'nowrap',
                 }}
               >
@@ -243,13 +233,6 @@ function Collection() {
               </button>
             ))}
           </div>
-          {tabOverflow && (
-            <div style={{
-              position: 'absolute', right: 0, top: 0, bottom: 0, width: 32,
-              background: 'linear-gradient(90deg, transparent, var(--coal))',
-              pointerEvents: 'none',
-            }} />
-          )}
         </div>
       )}
 

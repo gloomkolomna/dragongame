@@ -70,7 +70,7 @@ function FamiliesForm() {
                 <input type="color" value={color} onChange={(e) => setColor(e.target.value)}
                   style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', opacity: 0, cursor: 'pointer' }} />
               </label>
-              <input className="lair-input" value={color} onChange={(e) => setColor(e.target.value)} style={{ width: 110, fontFamily: 'var(--font-mono)' }} placeholder="#9b6fc7" />
+              <input className="lair-input" value={color} onChange={(e) => setColor(e.target.value)} style={{ width: 110, fontSize: 16, fontFamily: 'var(--font-mono)' }} placeholder="#9b6fc7" />
             </div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
               {PRESET_COLORS.map((c) => (

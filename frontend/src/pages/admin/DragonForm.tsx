@@ -187,23 +187,23 @@ function DragonForm() {
                   <span style={{ color: 'var(--accent-gold-light)', fontSize: 14, fontWeight: 600 }}>Шаг {i + 1}</span>
                   <button type="button" className="lair-btn lair-btn-sm lair-btn-danger" onClick={() => removeStep(i)}>🗑</button>
                 </div>
-                <input className="lair-input" style={{ marginBottom: 6, fontSize: 14, padding: '7px 10px' }}
+                <input className="lair-input" style={{ marginBottom: 6, fontSize: 28, padding: '7px 10px' }}
                        value={s.magic_action} onChange={(e) => updStep(i, 'magic_action', e.target.value)}
                        placeholder="Магическое действие (Положи яйцо на снег)" />
-                <textarea className="lair-textarea" style={{ marginBottom: 6, fontSize: 14, minHeight: 50, padding: '7px 10px' }}
+                <textarea className="lair-textarea" style={{ marginBottom: 6, fontSize: 28, minHeight: 50, padding: '7px 10px' }}
                           value={s.task_description} onChange={(e) => updStep(i, 'task_description', e.target.value)}
                           placeholder="Задание по вышивке" />
-                <input className="lair-input" style={{ fontSize: 13, padding: '6px 8px' }}
+                <input className="lair-input" style={{ fontSize: 26, padding: '6px 8px' }}
                        value={s.hint} onChange={(e) => updStep(i, 'hint', e.target.value)}
                        placeholder="Подсказка (опционально)" />
                 <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginTop: 6 }}>
                   <input className="lair-input" type="number" min="0" value={s.timeout_hours}
                          onChange={(e) => updStep(i, 'timeout_hours', e.target.value)}
-                         style={{ width: 60, fontSize: 13, padding: '6px 8px' }} placeholder="0" />
+                          style={{ width: 60, fontSize: 26, padding: '6px 8px' }} placeholder="0" />
                   <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>ч</span>
                   <input className="lair-input" type="number" min="0" max="59" value={s.timeout_minutes}
                          onChange={(e) => updStep(i, 'timeout_minutes', e.target.value)}
-                         style={{ width: 60, fontSize: 13, padding: '6px 8px' }} placeholder="0" />
+                         style={{ width: 60, fontSize: 26, padding: '6px 8px' }} placeholder="0" />
                   <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>мин</span>
                 </div>
               </div>
