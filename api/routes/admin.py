@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from typing import Optional
 from db import get_db
 from auth import get_current_admin
-from models import Dragon, DragonStep, User, UserDragon, CollectionGrid, UserProgress, Family
+from models import Dragon, DragonStep, User, UserDragon, CollectionGrid, UserProgress, Family, ErrorLog
 from services.dragon_service import (
     get_dragons, get_dragon, create_dragon, update_dragon, delete_dragon, sync_steps_count,
 )
@@ -730,3 +730,11 @@ def restart_dragon(vk_id: int, dragon_id: int, db: Session = Depends(get_db)):
     steps_msg = _format_step_text(first_step, 1, total)
     _notify_user(vk_id, f"🔄 Администратор возобновил выращивание дракона «{dragon.name}»!\n\n{steps_msg}\n\nПришли 2 фото (до и после) и напиши «вышито» когда выполнишь.")
     return {"ok": True}
+
+
+@router.get("/logs")
+def list_logs(page: int = Query(1, ge=1), per_page: int = Query(50, ge=1, le=200), db: Session = Depends(get_db)):
+    offset = (page - 1) * per_page
+    total = db.query(ErrorLog).count()
+    logs = db.query(ErrorLog).order_by(ErrorLog.id.desc()).offset(offset).limit(per_page).all()
+    return {"logs": logs, "total": total, "page": page, "per_page": per_page}

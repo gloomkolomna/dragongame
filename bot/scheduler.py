@@ -23,6 +23,23 @@ def run_timeout_checker(session_factory, vk, interval=30):
                 db.close()
         except Exception as e:
             logger.error(f"Checker error: {e}")
+            try:
+                from datetime import datetime
+                import traceback
+                db = session_factory()
+                from models import ErrorLog
+                err = ErrorLog(
+                    source="scheduler",
+                    error_type=type(e).__name__,
+                    message=str(e),
+                    traceback_text=traceback.format_exc(),
+                    created_at=datetime.now().isoformat(),
+                )
+                db.add(err)
+                db.commit()
+                db.close()
+            except Exception:
+                pass
         time.sleep(interval)
 
 

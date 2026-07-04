@@ -84,3 +84,14 @@ class UserDragon(Base):
     next_step_available_at = Column(String, nullable=True, default=None)
     timeout_notified = Column(Boolean, default=False)
     __table_args__ = (UniqueConstraint("user_id", "dragon_id"),)
+
+
+class ErrorLog(Base):
+    __tablename__ = "error_logs"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    source = Column(String, default="bot")
+    error_type = Column(String, default="")
+    message = Column(Text, default="")
+    traceback_text = Column(Text, default="")
+    user_id = Column(Integer, nullable=True)
+    created_at = Column(String, default="")

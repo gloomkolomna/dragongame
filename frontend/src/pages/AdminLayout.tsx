@@ -8,6 +8,7 @@ const NAV_ITEMS = [
   { path: '/admin/dragons', label: 'Драконы', icon: '🐉' },
   { path: '/admin/grid', label: 'Сетка', icon: '📐' },
   { path: '/admin/users', label: 'Игроки', icon: '👥' },
+  { path: '/admin/logs', label: 'Логи', icon: '📋' },
 ];
 
 function AdminLayout() {

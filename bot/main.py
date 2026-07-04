@@ -22,6 +22,7 @@ from bot.handlers.grow import handle_grow_message
 from bot.services.user_service import get_or_create_user
 from bot.scheduler import run_timeout_checker
 from bot.keyboard import idle_keyboard, growing_keyboard, await_pin_keyboard, await_garden_keyboard
+from datetime import datetime
 
 
 def get_keyboard(state: str, user=None) -> str:
@@ -189,12 +190,17 @@ def main():
             print(f"Error processing message from {user_id}: {exc}")
             traceback.print_exc()
             try:
-                vk.messages.send(
+                from models import ErrorLog
+                err = ErrorLog(
+                    source="bot",
+                    error_type=type(exc).__name__,
+                    message=str(exc),
+                    traceback_text=traceback.format_exc(),
                     user_id=user_id,
-                    message="Произошла ошибка. Попробуй ещё раз.",
-                    random_id=random.randint(1, 2**31 - 1),
-                    keyboard=idle_keyboard(),
+                    created_at=datetime.now().isoformat(),
                 )
+                db.add(err)
+                db.commit()
             except Exception:
                 pass
         finally:
