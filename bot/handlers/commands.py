@@ -213,7 +213,7 @@ def cancel_garden(user, db, send_message):
         total_secs = int(remaining.total_seconds())
         hours, remainder = divmod(total_secs, 3600)
         minutes = remainder // 60
-        send_message(f"🥚 {label} выращивается.\n⏳ До следующего шага осталось: {hours} ч. {minutes} мин.")
+        send_message(f"🥚 Яйцо «{label}» выращивается.\n⏳ До следующего шага осталось: {hours} ч. {minutes} мин.")
     else:
         msg = f"Остаёмся на «{label}».\n{format_step(step_def, user.current_step, total)}"
         if step_def:
@@ -308,9 +308,11 @@ def switch_dragon(user, num: int, db, send_message):
         total_secs = int(remaining.total_seconds())
         hours, remainder = divmod(total_secs, 3600)
         minutes = remainder // 60
-        msg = f"▸ Переключился на «{dragon.egg_type or dragon.name or '?'}».\n{format_step(next_def, curr_step, total)}"
-        msg += f"\n⏳ Дракон отдыхает. Осталось: {hours} ч. {minutes} мин."
-        send_message(msg)
+        send_message(
+            f"▸ Переключился на «{dragon.egg_type or dragon.name or '?'}».\n"
+            f"🥚 Яйцо «{dragon.egg_type or '?'}» выращивается.\n"
+            f"⏳ Осталось: {hours} ч. {minutes} мин."
+        )
     else:
         msg = f"▸ Переключился на «{dragon.egg_type or dragon.name or '?'}».\n{format_step(next_def, curr_step, total)}"
         if next_def:
@@ -376,9 +378,11 @@ def handle_switch_to(user, dragon_id: int, db, send_message):
         total_secs = int(remaining.total_seconds())
         hours, remainder = divmod(total_secs, 3600)
         minutes = remainder // 60
-        msg = f"▸ Переключился на «{dragon.egg_type or dragon.name or '?'}».\n{format_step(step_def, next_step, total)}"
-        msg += f"\n⏳ Дракон отдыхает. Осталось: {hours} ч. {minutes} мин."
-        send_message(msg)
+        send_message(
+            f"▸ Переключился на «{dragon.egg_type or dragon.name or '?'}».\n"
+            f"🥚 Яйцо «{dragon.egg_type or '?'}» выращивается.\n"
+            f"⏳ Осталось: {hours} ч. {minutes} мин."
+        )
     else:
         msg = f"▸ Переключился на «{dragon.egg_type or dragon.name or '?'}».\n{format_step(step_def, next_step, total)}"
         if step_def:

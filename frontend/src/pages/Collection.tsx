@@ -98,6 +98,7 @@ function Collection() {
   );
 
   const selectedFamily = families.find((f) => f.id === selectedFamilyId);
+  const famColor = selectedFamily?.color || 'var(--accent-gold-light)';
   const familyGrid = grid;
 
   const mx = Math.max(...familyGrid.map((c) => c.x), -1) + 1;
@@ -134,7 +135,7 @@ function Collection() {
             <div style={{
               position: 'absolute', bottom: 0, left: 0, right: 0,
               padding: '4px 6px', background: 'rgba(21,15,26,0.78)',
-              fontSize: 18, color: 'var(--accent-gold-light)', textAlign: 'center',
+              fontSize: 18, color: famColor, textAlign: 'center',
               whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontWeight: 600,
             }} title={c.name}>
               {c.name || '⭐'}
@@ -142,7 +143,7 @@ function Collection() {
           </div>
         );
       }
-      return <span style={{ fontWeight: 700, color: 'var(--accent-gold-light)', fontSize: 18 }}>{c.name?.charAt(0) || '⭐'}</span>;
+      return <span style={{ fontWeight: 700, color: famColor, fontSize: 18 }}>{c.name?.charAt(0) || '⭐'}</span>;
     }
 
     if (c.status === 'growing') {
@@ -159,7 +160,7 @@ function Collection() {
             <div style={{
               position: 'absolute', top: 0, left: 0, right: 0,
               padding: '4px 6px', background: 'rgba(21,15,26,0.78)',
-              fontSize: Math.max(13, cellSize * 0.12), color: 'var(--accent-gold-light)',
+              fontSize: Math.max(13, cellSize * 0.12), color: famColor,
               textAlign: 'center', fontWeight: 600,
               whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
             }} title={c.egg_type}>
@@ -174,11 +175,11 @@ function Collection() {
             <div style={{ width: '100%', height: Math.max(6, cellSize * 0.07), background: 'rgba(21,15,26,0.55)', borderRadius: cellSize * 0.04, overflow: 'hidden' }}>
               <div style={{
                 height: '100%', width: `${c.progress_pct}%`,
-                background: 'linear-gradient(90deg, var(--ember), var(--fire), var(--molten))',
+                background: `linear-gradient(90deg, ${famColor}88, ${famColor})`,
                 borderRadius: cellSize * 0.04, transition: 'width 0.5s',
               }} />
             </div>
-            <div style={{ fontSize: Math.max(12, cellSize * 0.12), color: 'var(--accent-gold)', textAlign: 'center', fontWeight: 700 }}>
+            <div style={{ fontSize: Math.max(12, cellSize * 0.12), color: famColor, textAlign: 'center', fontWeight: 700 }}>
               {c.progress_pct}%
             </div>
           </div>

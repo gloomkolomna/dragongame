@@ -40,7 +40,7 @@ def _handle_growing_chat(user, db, send_message):
         hours, remainder = divmod(total_secs, 3600)
         minutes = remainder // 60
         send_message(
-            f"🥚 {label} выращивается!\n"
+            f"🥚 Яйцо «{label}» выращивается!\n"
             f"⏳ До следующего шага осталось: {hours} ч. {minutes} мин."
         )
     else:
