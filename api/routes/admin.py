@@ -794,6 +794,27 @@ def restart_dragon(vk_id: int, dragon_id: int, db: Session = Depends(get_db)):
     return {"ok": True}
 
 
+@router.delete("/users/{vk_id}/dragons/{dragon_id}")
+def delete_user_dragon(vk_id: int, dragon_id: int, db: Session = Depends(get_db)):
+    ud = db.query(UserDragon).filter(UserDragon.user_id == vk_id, UserDragon.dragon_id == dragon_id).first()
+    if not ud:
+        raise HTTPException(status_code=404, detail="Dragon not found for this user")
+
+    db.query(UserProgress).filter(
+        UserProgress.user_id == vk_id, UserProgress.dragon_id == dragon_id
+    ).delete(synchronize_session=False)
+
+    user = db.query(User).filter(User.vk_id == vk_id).first()
+    if user and user.current_dragon_id == dragon_id:
+        user.current_dragon_id = None
+        user.current_step = 0
+        user.state = "idle"
+
+    db.delete(ud)
+    db.commit()
+    return {"ok": True}
+
+
 @router.get("/logs")
 def list_logs(page: int = Query(1, ge=1), per_page: int = Query(50, ge=1, le=200), db: Session = Depends(get_db)):
     offset = (page - 1) * per_page

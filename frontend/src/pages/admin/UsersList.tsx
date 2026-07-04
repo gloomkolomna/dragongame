@@ -54,6 +54,16 @@ function UsersList() {
     }
   };
 
+  const deleteDragon = async (vkId: number, dragonId: number) => {
+    if (!window.confirm('Удалить этого дракона у игрока? Прогресс будет потерян.')) return;
+    try {
+      await client.delete(`/admin/users/${vkId}/dragons/${dragonId}`);
+      show(vkId);
+    } catch (e: any) {
+      alert(e.response?.data?.detail || 'Ошибка');
+    }
+  };
+
   const profileUrl = (vkId: number) => `https://vk.com/id${vkId}`;
   const chatUrl = (vkId: number) => `https://vk.com/gim${GROUP_ID}?sel=${vkId}`;
 
@@ -113,10 +123,14 @@ function UsersList() {
                   <div key={d.dragon_id} className="lair-grid-cell" style={{ textAlign: 'center', padding: 12 }}>
                     <div style={{ fontWeight: 600, fontSize: 14 }}>{d.name || d.egg_type}</div>
                     <div style={{ fontSize: 12, marginTop: 4 }}>{d.status === 'completed' ? '⭐' : d.status === 'growing' ? `${d.progress_pct}%` : '🔒'}</div>
-                    {d.status === 'completed' && (
-                      <button className="lair-btn lair-btn-sm lair-btn-outline" style={{ marginTop: 6, fontSize: 12 }}
-                              onClick={() => restartDragon(detail.vk_id, d.dragon_id)}>🔄 Заново</button>
-                    )}
+                    <div style={{ display: 'flex', gap: 4, justifyContent: 'center', marginTop: 6 }}>
+                      {d.status === 'completed' && (
+                        <button className="lair-btn lair-btn-sm lair-btn-outline" style={{ fontSize: 11 }}
+                                onClick={() => restartDragon(detail.vk_id, d.dragon_id)}>🔄 Заново</button>
+                      )}
+                      <button className="lair-btn lair-btn-sm lair-btn-danger" style={{ fontSize: 11 }}
+                              onClick={() => deleteDragon(detail.vk_id, d.dragon_id)}>✕ Удалить</button>
+                    </div>
                   </div>
                 ))}
               </div>

@@ -1,6 +1,8 @@
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
+
+MSK = timezone(timedelta(hours=3))
 
 
 async def log_failed_requests(request: Request, call_next):
@@ -15,7 +17,7 @@ async def log_failed_requests(request: Request, call_next):
                 path=str(request.url.path),
                 status_code=response.status_code,
                 client_ip=request.client.host if request.client else "",
-                created_at=datetime.now().isoformat(),
+                created_at=datetime.now(MSK).isoformat(),
             )
             db.add(entry)
             db.commit()

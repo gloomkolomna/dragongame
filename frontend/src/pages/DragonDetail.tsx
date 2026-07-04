@@ -58,7 +58,7 @@ function DragonDetail() {
       </div>
 
       <div className="lair-card">
-        {d.user_progress.steps.map((s) => (
+        {d.user_progress.steps.filter((s) => s.number <= d.user_progress.completed_steps + 1).map((s) => (
           <div key={s.number} style={{
             padding: '12px 16px', marginBottom: 8, borderRadius: 'var(--radius-sm)',
             background: s.completed ? 'var(--success-bg)' : s.number === d.user_progress.completed_steps + 1 ? 'var(--warning-bg)' : 'var(--bg-card)',
