@@ -183,10 +183,10 @@ def _handle_crosses_check(user, text, db, send_message, upload_image=None):
         keyboard = j.dumps({
             "one_time": True,
             "buttons": [
-                [{"action": {"type": "open_link", "label": "📖 Мой Бестиарий", "link": "https://vk.com/app54663330"}}],
                 [{"action": {"type": "text", "label": "🐉 Добавить дракона", "payload": j.dumps({"cmd": "pin"}, ensure_ascii=False)}, "color": "primary"}],
                 [{"action": {"type": "text", "label": "🔄 Сменить дракона", "payload": j.dumps({"cmd": "garden"}, ensure_ascii=False)}, "color": "secondary"},
                  {"action": {"type": "text", "label": "❓ Помощь", "payload": j.dumps({"cmd": "help"}, ensure_ascii=False)}, "color": "secondary"}],
+                [{"action": {"type": "open_link", "label": "📖 Мой Бестиарий", "link": "https://vk.com/app54663330"}}],
             ],
         }, ensure_ascii=False)
 
@@ -215,8 +215,9 @@ def _handle_crosses_check(user, text, db, send_message, upload_image=None):
             msg = f"✅ Шаг {step} выполнен!\n\n"
             if next_def:
                 msg += format_step(next_def, next_step, total)
-                msg += f"\n\nНорма крестиков: {next_def.crosses_norm}\nВыбери режим:"
-            send_message(msg, keyboard=step_buttons_keyboard())
+                msg += f"\n\n🎯 Норма крестиков: {next_def.crosses_norm}"
+            msg += "\n\nНажми «🌱 Перейти к выращиванию» чтобы начать задание."
+            send_message(msg)
 
     db.commit()
     return True

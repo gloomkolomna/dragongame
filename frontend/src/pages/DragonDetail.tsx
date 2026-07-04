@@ -5,7 +5,7 @@ import client from '../api/client';
 import { mediaUrl } from '../api/media';
 
 interface Step { number: number; task: string; completed: boolean; }
-interface Dragon { is_revealed: boolean; name?: string; rarity?: number; egg_type: string; steps_count: number; description?: string; dragon_url?: string; egg_url?: string; user_progress: { status: string; completed_steps: number; steps: Step[] }; }
+interface Dragon { is_revealed: boolean; name?: string; rarity?: number; egg_type: string; steps_count: number; description?: string; dragon_url?: string; egg_url?: string; next_step_available_at?: string; user_progress: { status: string; completed_steps: number; steps: Step[] }; }
 
 function DragonDetail() {
   const { id } = useParams<{ id: string }>();
@@ -58,7 +58,7 @@ function DragonDetail() {
       </div>
 
       <div className="lair-card">
-        {d.user_progress.steps.filter((s) => s.number <= d.user_progress.completed_steps + 1).map((s) => (
+        {d.user_progress.steps.filter((s) => d.next_step_available_at ? s.completed : s.number <= d.user_progress.completed_steps + 1).map((s) => (
           <div key={s.number} style={{
             padding: '12px 16px', marginBottom: 8, borderRadius: 'var(--radius-sm)',
             background: s.completed ? 'var(--success-bg)' : s.number === d.user_progress.completed_steps + 1 ? 'var(--warning-bg)' : 'var(--bg-card)',

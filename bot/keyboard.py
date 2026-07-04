@@ -12,13 +12,6 @@ def _keyboard(buttons, one_time=False):
     }, ensure_ascii=False)
 
 
-def _inline_keyboard(buttons):
-    return json.dumps({
-        "inline": True,
-        "buttons": buttons,
-    }, ensure_ascii=False)
-
-
 def row(*labels_and_payloads):
     btns = []
     for item in labels_and_payloads:
@@ -27,7 +20,7 @@ def row(*labels_and_payloads):
         else:
             label = item
             cmd = label
-        is_primary = ("дракон" in label.lower() or "перейти" in label.lower() or "норма" in label.lower()) and "сменить" not in label.lower() and "штраф" not in label.lower()
+        is_primary = ("перейти" in label.lower() or "норма" in label.lower()) and "сменить" not in label.lower() and "штраф" not in label.lower()
         btns.append({
             "action": {
                 "type": "text",
@@ -52,51 +45,52 @@ def bestiary_link_row():
 def idle_keyboard(has_active=True):
     bottom = [("🔄 Сменить дракона", "garden"), ("❓ Помощь", "help")]
     return _keyboard([
-        bestiary_link_row(),
         row(("🐉 Добавить дракона", "pin")),
         row(*bottom),
+        bestiary_link_row(),
     ])
 
 
 def growing_keyboard():
     return _keyboard([
-        bestiary_link_row(),
+        row(("🌱 Перейти к выращиванию", "grow")),
         row(("📋 Статус", "status")),
         row(("🔄 Сменить дракона", "garden"), ("❓ Помощь", "help")),
+        bestiary_link_row(),
     ])
 
 
 def start_growing_keyboard():
     return _keyboard([
-        bestiary_link_row(),
         row(("🌱 Перейти к выращиванию", "grow")),
         row(("🔄 Сменить дракона", "garden"), ("❓ Помощь", "help")),
+        bestiary_link_row(),
     ])
 
 
 def step_buttons_keyboard():
     return _keyboard([
-        bestiary_link_row(),
         row(("✅ Норма", "norm")),
         row(("⚠ Штраф (x2)", "x2")),
         row(("📋 Статус", "status"), ("🔄 Сменить дракона", "garden")),
+        bestiary_link_row(),
     ])
 
 
 def await_pin_keyboard():
     return _keyboard([
-        bestiary_link_row(),
         row(("🔄 Сменить дракона", "garden"), ("❓ Помощь", "help")),
+        bestiary_link_row(),
     ])
 
 
 def await_garden_keyboard(with_cancel=False):
     buttons = [
-        bestiary_link_row(),
         row(("🐉 Добавить дракона", "pin")),
     ]
     bottom = [("🔄 Сменить дракона", "garden"), ("📋 Статус", "status")]
     if with_cancel:
         bottom.insert(0, ("◀ Не менять", "garden_cancel"))
     buttons.append(row(*bottom))
+    buttons.append(bestiary_link_row())
     return _keyboard(buttons)

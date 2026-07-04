@@ -489,11 +489,11 @@ def get_user_detail(vk_id: int, db: Session = Depends(get_db)):
 def get_user_steps(vk_id: int, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.vk_id == vk_id).first()
     if not user or not user.current_dragon_id:
-        raise HTTPException(status_code=400, detail="No active dragon")
+        return {"dragon_name": "", "total": 0, "current_step": 0, "steps": []}
 
     dragon = db.query(Dragon).filter(Dragon.id == user.current_dragon_id).first()
     if not dragon:
-        raise HTTPException(status_code=400, detail="Dragon not found")
+        return {"dragon_name": "", "total": 0, "current_step": 0, "steps": []}
 
     steps = db.query(DragonStep).filter(DragonStep.dragon_id == dragon.id).order_by(DragonStep.step_number).all()
     result = []

@@ -118,12 +118,12 @@ def _check_expired(db, vk, logger):
             keyboard_json = json.dumps({
                 "one_time": True,
                 "buttons": [
-                    [{"action": {"type": "open_link", "label": "📖 Мой Бестиарий", "link": "https://vk.com/app54663330"}}],
                     [{"action": {"type": "text", "label": "🐉 Добавить дракона", "payload": json.dumps({"cmd": "pin"}, ensure_ascii=False)}, "color": "primary"}],
                     [
                         {"action": {"type": "text", "label": "🔄 Сменить дракона", "payload": json.dumps({"cmd": "garden"}, ensure_ascii=False)}, "color": "secondary"},
                         {"action": {"type": "text", "label": "❓ Помощь", "payload": json.dumps({"cmd": "help"}, ensure_ascii=False)}, "color": "secondary"},
                     ],
+                    [{"action": {"type": "open_link", "label": "📖 Мой Бестиарий", "link": "https://vk.com/app54663330"}}],
                 ],
             }, ensure_ascii=False)
             _send(vk, ud.user_id, msg, keyboard_json, logger)
@@ -141,10 +141,10 @@ def _check_expired(db, vk, logger):
             msg = (
                 f"⏰ Время пришло! Ты можешь продолжить выращивание «{dragon.name}».\n\n"
                 f"{format_step(step_def, next_step_num, total)}"
-                f"\n\n🎯 Норма: {norm} крестиков\nВыбери режим:"
+                f"\n\n🎯 Норма: {norm} крестиков\nНажми «🌱 Перейти к выращиванию» чтобы начать задание."
             )
-            from bot.keyboard import step_buttons_keyboard
-            keyboard_json = step_buttons_keyboard()
+            from bot.keyboard import growing_keyboard
+            keyboard_json = growing_keyboard()
             _send(vk, ud.user_id, msg, keyboard_json, logger)
         else:
             msg = (

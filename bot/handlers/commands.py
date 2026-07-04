@@ -209,8 +209,8 @@ def cancel_garden(user, db, send_message):
     name = dragon.name if dragon else "?"
     msg = f"Остаёмся на «{name}».\n{format_step(step_def, user.current_step, total)}"
     if step_def:
-        msg += f"\n\n🎯 Норма: {step_def.crosses_norm} крестиков\nВыбери режим:"
-    send_message(msg, keyboard=step_buttons_keyboard())
+        msg += f"\n\n🎯 Норма: {step_def.crosses_norm} крестиков\nНажми «🌱 Перейти к выращиванию» чтобы начать задание."
+    send_message(msg)
 
 
 def switch_dragon(user, num: int, db, send_message):
@@ -236,8 +236,8 @@ def switch_dragon(user, num: int, db, send_message):
         step_def = get_dragon_step(db, ud.dragon_id, user.current_step)
         msg = f"Ты уже выращиваешь этого дракона.\n{format_step(step_def, user.current_step, get_total_steps(db, ud.dragon_id))}"
         if step_def:
-            msg += f"\n\n🎯 Норма: {step_def.crosses_norm} крестиков\nВыбери режим:"
-        send_message(msg, keyboard=step_buttons_keyboard())
+            msg += f"\n\n🎯 Норма: {step_def.crosses_norm} крестиков\nНажми «🌱 Перейти к выращиванию» чтобы начать задание."
+        send_message(msg)
         return
 
     if ud.completed_at:
@@ -297,8 +297,8 @@ def switch_dragon(user, num: int, db, send_message):
     else:
         msg = f"▸ Переключился на «{dragon.name}».\n{format_step(next_def, curr_step, total)}"
         if next_def:
-            msg += f"\n\n🎯 Норма: {next_def.crosses_norm} крестиков\nВыбери режим:"
-        send_message(msg, keyboard=step_buttons_keyboard())
+            msg += f"\n\n🎯 Норма: {next_def.crosses_norm} крестиков\nНажми «🌱 Перейти к выращиванию» чтобы начать задание."
+        send_message(msg)
 
 
 def handle_switch_to(user, dragon_id: int, db, send_message):
@@ -364,8 +364,8 @@ def handle_switch_to(user, dragon_id: int, db, send_message):
     else:
         msg = f"▸ Переключился на «{dragon.name}».\n{format_step(step_def, next_step, total)}"
         if step_def:
-            msg += f"\n\n🎯 Норма: {step_def.crosses_norm} крестиков\nВыбери режим:"
-        send_message(msg, keyboard=step_buttons_keyboard())
+            msg += f"\n\n🎯 Норма: {step_def.crosses_norm} крестиков\nНажми «🌱 Перейти к выращиванию» чтобы начать задание."
+        send_message(msg)
 
 
 def _completed_keyboard():
@@ -373,11 +373,11 @@ def _completed_keyboard():
     return json.dumps({
         "one_time": False,
         "buttons": [
-            [{"action": {"type": "open_link", "label": "📖 Мой Бестиарий", "link": "https://vk.com/app54663330"}}],
             [{"action": {"type": "text", "label": "🐉 Добавить дракона", "payload": json.dumps({"cmd": "pin"}, ensure_ascii=False)}, "color": "primary"}],
             [
                 {"action": {"type": "text", "label": "🔄 Сменить дракона", "payload": json.dumps({"cmd": "garden"}, ensure_ascii=False)}, "color": "secondary"},
                 {"action": {"type": "text", "label": "❓ Помощь", "payload": json.dumps({"cmd": "help"}, ensure_ascii=False)}, "color": "secondary"},
             ],
+            [{"action": {"type": "open_link", "label": "📖 Мой Бестиарий", "link": "https://vk.com/app54663330"}}],
         ],
     }, ensure_ascii=False)
