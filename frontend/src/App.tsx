@@ -16,6 +16,7 @@ import DragonForm from './pages/admin/DragonForm';
 import StepsEditor from './pages/admin/StepsEditor';
 import GridEditor from './pages/admin/GridEditor';
 import UsersList from './pages/admin/UsersList';
+import UserDragonProgress from './pages/admin/UserDragonProgress';
 import LogsList from './pages/admin/LogsList';
 
 import ProtectedRoute from './components/ProtectedRoute';
@@ -63,6 +64,7 @@ function App() {
           <Route path="dragons/:id/steps" element={<StepsEditor />} />
           <Route path="grid" element={<GridEditor />} />
           <Route path="users" element={<UsersList />} />
+          <Route path="users/:vkId/dragons/:dragonId/progress" element={<UserDragonProgress />} />
           <Route path="logs" element={<LogsList />} />
         </Route>
 

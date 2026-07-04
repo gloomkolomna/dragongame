@@ -469,7 +469,8 @@ def get_user_detail(vk_id: int, db: Session = Depends(get_db)):
             "completed_at": collected.completed_at if collected else None,
         })
 
-    collected_count = db.query(UserDragon).filter(UserDragon.user_id == vk_id).count()
+    collected_count = db.query(UserDragon).filter(UserDragon.user_id == vk_id, UserDragon.completed_at != "").count()
+    active_count = db.query(UserDragon).filter(UserDragon.user_id == vk_id, UserDragon.completed_at == "").count()
     vk_nm = _resolve_vk_names([vk_id]).get(vk_id, {})
 
     return {
@@ -481,6 +482,7 @@ def get_user_detail(vk_id: int, db: Session = Depends(get_db)):
         "pins": pins,
         "dragons": dragons_list,
         "dragons_collected": collected_count,
+        "dragons_active": active_count,
         "dragons_total": db.query(Dragon).filter(Dragon.is_active == True).count(),
     }
 
@@ -514,19 +516,57 @@ def get_user_steps(vk_id: int, db: Session = Depends(get_db)):
     return {"dragon_name": dragon.name, "total": dragon.steps_count, "current_step": user.current_step, "steps": result}
 
 
-@router.post("/users/{vk_id}/steps/{step_number}/toggle")
-def toggle_user_step(vk_id: int, step_number: int, db: Session = Depends(get_db)):
+@router.get("/users/{vk_id}/dragons/{dragon_id}/steps")
+def get_user_dragon_steps(vk_id: int, dragon_id: int, db: Session = Depends(get_db)):
+    dragon = db.query(Dragon).filter(Dragon.id == dragon_id).first()
+    if not dragon:
+        return {"dragon_name": "", "total": 0, "current_step": 0, "steps": []}
+
     user = db.query(User).filter(User.vk_id == vk_id).first()
-    if not user or not user.current_dragon_id:
-        raise HTTPException(status_code=400, detail="No active dragon")
+    current_step = 0
+    if user and user.current_dragon_id == dragon_id:
+        current_step = user.current_step
+
+    steps = db.query(DragonStep).filter(DragonStep.dragon_id == dragon_id).order_by(DragonStep.step_number).all()
+    result = []
+    for s in steps:
+        progress = db.query(UserProgress).filter(
+            UserProgress.user_id == vk_id,
+            UserProgress.dragon_id == dragon_id,
+            UserProgress.step_number == s.step_number,
+        ).first()
+        result.append({
+            "step_number": s.step_number,
+            "task_description": s.task_description,
+            "magic_action": s.magic_action,
+            "hint": s.hint,
+            "completed": progress.completed if progress else False,
+            "current": s.step_number == current_step,
+        })
+    return {"dragon_name": dragon.name, "total": dragon.steps_count, "current_step": current_step, "steps": result}
+
+
+@router.post("/users/{vk_id}/steps/{step_number}/toggle")
+async def toggle_user_step(vk_id: int, step_number: int, request: Request, db: Session = Depends(get_db)):
+    body = {}
+    try:
+        body = json.loads(await request.body())
+    except Exception:
+        pass
+    dragon_id = body.get("dragon_id")
+    if not dragon_id:
+        user = db.query(User).filter(User.vk_id == vk_id).first()
+        if not user or not user.current_dragon_id:
+            raise HTTPException(status_code=400, detail="No active dragon")
+        dragon_id = user.current_dragon_id
 
     progress = db.query(UserProgress).filter(
         UserProgress.user_id == vk_id,
-        UserProgress.dragon_id == user.current_dragon_id,
+        UserProgress.dragon_id == dragon_id,
         UserProgress.step_number == step_number,
     ).first()
 
-    dragon = db.query(Dragon).filter(Dragon.id == user.current_dragon_id).first()
+    dragon = db.query(Dragon).filter(Dragon.id == dragon_id).first()
     total = dragon.steps_count
 
     if progress:
@@ -690,26 +730,42 @@ def _format_step_text(step_def, step_num: int, total: int) -> str:
 
 
 @router.post("/users/{vk_id}/skip-step")
-def skip_step(vk_id: int, db: Session = Depends(get_db)):
+async def skip_step(vk_id: int, request: Request, db: Session = Depends(get_db)):
+    body = {}
+    try:
+        body = json.loads(await request.body())
+    except Exception:
+        pass
+    dragon_id = body.get("dragon_id")
+
     user = db.query(User).filter(User.vk_id == vk_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
-    if not user.current_dragon_id:
-        raise HTTPException(status_code=400, detail="No active dragon — игрок сейчас не выращивает дракона")
+    if not dragon_id:
+        if not user.current_dragon_id:
+            raise HTTPException(status_code=400, detail="No active dragon — игрок сейчас не выращивает дракона")
+        dragon_id = user.current_dragon_id
 
-    dragon = db.query(Dragon).filter(Dragon.id == user.current_dragon_id).first()
+    dragon = db.query(Dragon).filter(Dragon.id == dragon_id).first()
     if not dragon:
         raise HTTPException(status_code=400, detail="Dragon not found")
 
     total = dragon.steps_count
 
+    completed = db.query(UserProgress).filter(
+        UserProgress.user_id == vk_id,
+        UserProgress.dragon_id == dragon_id,
+        UserProgress.completed == True,
+    ).count()
+    next_step = completed + 1
+
     existing = db.query(UserProgress).filter(
         UserProgress.user_id == vk_id,
-        UserProgress.dragon_id == user.current_dragon_id,
-        UserProgress.step_number == user.current_step,
+        UserProgress.dragon_id == dragon_id,
+        UserProgress.step_number == next_step,
     ).first()
     if not existing:
-        up = UserProgress(user_id=vk_id, dragon_id=user.current_dragon_id, step_number=user.current_step, completed=True)
+        up = UserProgress(user_id=vk_id, dragon_id=dragon_id, step_number=next_step, completed=True)
         db.add(up)
 
     ud = db.query(UserDragon).filter(UserDragon.user_id == vk_id, UserDragon.dragon_id == dragon.id).first()
@@ -717,44 +773,59 @@ def skip_step(vk_id: int, db: Session = Depends(get_db)):
         ud.next_step_available_at = None
         ud.timeout_notified = False
 
-    if user.current_step >= total:
+    if next_step >= total:
         if ud and not ud.completed_at:
             ud.completed_at = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
-        user.state = "idle"
-        user.current_dragon_id = None
-        user.current_step = 0
-    else:
-        user.current_step += 1
-        user.state = f"grow_step_{user.current_step}"
+        if user.current_dragon_id == dragon_id:
+            user.state = "idle"
+            user.current_dragon_id = None
+            user.current_step = 0
+        db.commit()
+        return {"ok": True, "new_step": 0}
+
+    new_step = next_step + 1
+    if user.current_dragon_id == dragon_id:
+        user.current_step = new_step
+        user.state = f"grow_step_{new_step}"
 
     db.commit()
-    return {"ok": True, "new_step": user.current_step}
+    return {"ok": True, "new_step": new_step}
 
 
 @router.post("/users/{vk_id}/reset-dragon")
-def reset_dragon(vk_id: int, db: Session = Depends(get_db)):
+async def reset_dragon(vk_id: int, request: Request, db: Session = Depends(get_db)):
+    body = {}
+    try:
+        body = json.loads(await request.body())
+    except Exception:
+        pass
+    dragon_id = body.get("dragon_id")
+
     user = db.query(User).filter(User.vk_id == vk_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
-    if not user.current_dragon_id:
-        raise HTTPException(status_code=400, detail="No active dragon — игрок сейчас не выращивает дракона")
+    if not dragon_id:
+        if not user.current_dragon_id:
+            raise HTTPException(status_code=400, detail="No active dragon — игрок сейчас не выращивает дракона")
+        dragon_id = user.current_dragon_id
 
-    dragon_name = db.query(Dragon).filter(Dragon.id == user.current_dragon_id).first().name
-    ud = db.query(UserDragon).filter(
-        UserDragon.user_id == vk_id, UserDragon.dragon_id == user.current_dragon_id
-    ).first()
+    dragon = db.query(Dragon).filter(Dragon.id == dragon_id).first()
+    if not dragon:
+        raise HTTPException(status_code=400, detail="Dragon not found")
+    dragon_name = dragon.name
+    ud = db.query(UserDragon).filter(UserDragon.user_id == vk_id, UserDragon.dragon_id == dragon_id).first()
+    db.query(UserProgress).filter(
+        UserProgress.user_id == vk_id, UserProgress.dragon_id == dragon_id
+    ).delete(synchronize_session=False)
     if ud:
         ud.next_step_available_at = None
         ud.timeout_notified = False
-    db.query(UserProgress).filter(
-        UserProgress.user_id == vk_id, UserProgress.dragon_id == user.current_dragon_id
-    ).delete()
-    user.current_dragon_id = None
-    user.current_step = 0
-    user.state = "idle"
-    user.state_data = "{}"
+    if user.current_dragon_id == dragon_id:
+        user.state = "idle"
+        user.current_dragon_id = None
+        user.current_step = 0
     db.commit()
-    _notify_user(vk_id, f"🔄 Администратор сбросил прогресс выращивания дракона «{dragon_name}». Дракон остался в твоём бестиарии — нажми «🔄 Сменить дракона» чтобы переключиться на него и начать заново.")
+    _notify_user(vk_id, f"🔄 Администратор сбросил прогресс дракона «{dragon_name}».")
     return {"ok": True}
 
 
