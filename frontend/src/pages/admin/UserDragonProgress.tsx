@@ -84,7 +84,7 @@ function UserDragonProgress() {
 
   return (
     <div style={{ padding: 20 }}>
-      <button onClick={() => navigate(-1)} className="lair-btn lair-btn-outline lair-btn-sm"
+      <button onClick={() => navigate('/admin/users')} className="lair-btn lair-btn-outline lair-btn-sm"
               style={{ marginBottom: 12, fontSize: 15, padding: '8px 18px' }}>
         ← Назад
       </button>

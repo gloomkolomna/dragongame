@@ -5,7 +5,7 @@ import client from '../../api/client';
 const GROUP_ID = 239999455;
 
 interface User { vk_id: number; first_name: string; last_name: string; state: string; registered_at: string; pins_activated: number; last_pin_code: string | null; dragons_collected: number; current_dragon_id: number | null; current_step: number; }
-interface Detail { vk_id: number; registered_at: string; pins_activated: number; pins: { code: string; dragon_name: string; egg_type: string; status: string; activated_at: string }[]; dragons: { dragon_id: number; name: string | null; egg_type: string; status: string; progress_pct: number; completed_at: string | null }[]; dragons_collected: number; dragons_active: number; dragons_total: number; }
+interface Detail { vk_id: number; first_name: string; last_name: string; registered_at: string; pins_activated: number; pins: { code: string; dragon_name: string; egg_type: string; status: string; activated_at: string }[]; dragons: { dragon_id: number; name: string | null; egg_type: string; status: string; progress_pct: number; completed_at: string | null }[]; dragons_collected: number; dragons_active: number; dragons_total: number; }
 
 function UsersList() {
   const [users, setUsers] = useState<User[]>([]);
@@ -51,11 +51,14 @@ function UsersList() {
           <div className="lair-rise">
             <button className="lair-btn lair-btn-outline lair-btn-sm" onClick={() => setDetail(null)} style={{ marginBottom: 16 }}>← Назад</button>
             <div className="lair-card" style={{ marginBottom: 16 }}>
-              <h3 style={{ color: 'var(--gold)', margin: '0 0 12px' }}>
-                Игрок{' '}
-                <a href={profileUrl(detail.vk_id)} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--gold)' }}>
-                  VK ID: {detail.vk_id}
+              <h3 style={{ color: 'var(--gold)', margin: '0 0 12px', display: 'flex', alignItems: 'center', gap: 8 }}>
+                <a href={profileUrl(detail.vk_id)} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--gold)', textDecoration: 'none' }}>
+                  {[detail.last_name, detail.first_name].filter(Boolean).join(' ') || `id${detail.vk_id}`}
                 </a>
+                <a href={chatUrl(detail.vk_id)} target="_blank" rel="noopener noreferrer"
+                   className="lair-btn lair-btn-sm lair-btn-outline"
+                   style={{ textDecoration: 'none', fontSize: 13, padding: '2px 8px' }}
+                   title="Чат в боте">💬</a>
               </h3>
               <p style={{ color: 'var(--parchment-dim)', fontSize: 14 }}>
                 🥚 Активно: {detail.dragons_active} &nbsp;|&nbsp; ⭐ Выращено: {detail.dragons_collected} &nbsp;|&nbsp; 🐉 Всего: {detail.dragons_total}
