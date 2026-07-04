@@ -16,18 +16,39 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    connection = op.get_bind()
-
-    indexes = connection.execute(sa.text("PRAGMA index_list('collection_grid')")).fetchall()
-    for idx in indexes:
-        if idx[2] == 1:
-            cols = connection.execute(sa.text(f"PRAGMA index_info('{idx[1]}')")).fetchall()
-            col_names = [c[2] for c in cols]
-            if sorted(col_names) == ['cell_x', 'cell_y']:
-                op.execute(sa.text(f"DROP INDEX {idx[1]}"))
-                break
+    op.execute("""
+        CREATE TABLE _collection_grid_new (
+            id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+            family_id INTEGER NOT NULL,
+            cell_x INTEGER NOT NULL,
+            cell_y INTEGER NOT NULL,
+            dragon_id INTEGER,
+            FOREIGN KEY (family_id) REFERENCES families (id) ON DELETE CASCADE,
+            FOREIGN KEY (dragon_id) REFERENCES dragons (id) ON DELETE SET NULL,
+            UNIQUE (family_id, cell_x, cell_y),
+            UNIQUE (dragon_id)
+        )
+    """)
+    op.execute("INSERT INTO _collection_grid_new SELECT id, family_id, cell_x, cell_y, dragon_id FROM collection_grid")
+    op.execute("DROP TABLE collection_grid")
+    op.execute("ALTER TABLE _collection_grid_new RENAME TO collection_grid")
 
 
 def downgrade() -> None:
-    with op.batch_alter_table('collection_grid', schema=None) as batch_op:
-        batch_op.create_unique_constraint(None, ['cell_x', 'cell_y'])
+    op.execute("""
+        CREATE TABLE _collection_grid_old (
+            id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+            family_id INTEGER NOT NULL,
+            cell_x INTEGER NOT NULL,
+            cell_y INTEGER NOT NULL,
+            dragon_id INTEGER,
+            FOREIGN KEY (family_id) REFERENCES families (id) ON DELETE CASCADE,
+            FOREIGN KEY (dragon_id) REFERENCES dragons (id) ON DELETE SET NULL,
+            UNIQUE (family_id, cell_x, cell_y),
+            UNIQUE (cell_x, cell_y),
+            UNIQUE (dragon_id)
+        )
+    """)
+    op.execute("INSERT INTO _collection_grid_old SELECT id, family_id, cell_x, cell_y, dragon_id FROM collection_grid")
+    op.execute("DROP TABLE collection_grid")
+    op.execute("ALTER TABLE _collection_grid_old RENAME TO collection_grid")
