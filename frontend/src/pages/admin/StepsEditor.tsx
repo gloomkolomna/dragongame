@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import client from '../../api/client';
 
-interface Step { id: number; dragon_id: number; step_number: number; magic_action: string; task_description: string; hint: string; timeout_hours: number; timeout_minutes: number; }
+interface Step { id: number; dragon_id: number; step_number: number; magic_action: string; task_description: string; hint: string; timeout_hours: number; timeout_minutes: number; crosses_norm: number; }
 
 function StepsEditor() {
   const { id } = useParams<{ id: string }>();
@@ -25,9 +25,10 @@ function StepsEditor() {
   const upd = (i: number, f: keyof Step, v: string) => {
     setSteps((prev) => {
       const s = [...prev];
-      if (f === 'timeout_hours' || f === 'timeout_minutes') {
-        let val = v === '' ? 0 : parseInt(v, 10) || 0;
+      if (f === 'timeout_hours' || f === 'timeout_minutes' || f === 'crosses_norm') {
+        let val = v === '' ? (f === 'crosses_norm' ? 1000 : 0) : parseInt(v, 10) || 0;
         if (f === 'timeout_minutes') val = Math.max(0, Math.min(59, val));
+        if (f === 'crosses_norm') val = Math.max(1, val);
         (s[i] as any)[f] = val;
       } else {
         (s[i] as any)[f] = v;
@@ -46,7 +47,7 @@ function StepsEditor() {
     });
   };
 
-  const add = () => setSteps((prev) => [...prev, { id: 0, dragon_id: Number(id), step_number: prev.length + 1, magic_action: '', task_description: '', hint: '', timeout_hours: 0, timeout_minutes: 0 }]);
+  const add = () => setSteps((prev) => [...prev, { id: 0, dragon_id: Number(id), step_number: prev.length + 1, magic_action: '', task_description: '', hint: '', timeout_hours: 0, timeout_minutes: 0, crosses_norm: 1000 }]);
 
   const remove = (i: number) => setSteps((prev) => prev.filter((_, idx) => idx !== i));
 
@@ -110,6 +111,12 @@ function StepsEditor() {
                   <span style={{ color: 'var(--text-muted)', fontSize: 12, marginLeft: 4 }}>Без ожидания</span>
                 )}
               </div>
+            </div>
+            <div className="lair-form-group">
+              <label className="lair-label">Норма крестиков</label>
+              <input className="lair-input" type="number" min="1" value={s.crosses_norm}
+                     onChange={(e) => upd(i, 'crosses_norm', e.target.value)}
+                     style={{ width: 120 }} placeholder="1000" />
             </div>
           </div>
         ))}

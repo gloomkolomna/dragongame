@@ -3,14 +3,12 @@
 import os
 from bot.fsm import AWAIT_PIN, IDLE, grow_state
 from bot.services.pin_service import validate_pin_code, activate_pin
-from bot.services.grow_service import get_dragon_step
-from bot.handlers.grow import format_step
+from bot.keyboard import start_growing_keyboard
 
 _IMAGES = os.path.join(os.path.dirname(__file__), "..", "..", "images", "dragons")
 
 
 def handle_pin_command(user, db, send_message):
-    """Start PIN entry flow."""
     was_growing = user.current_dragon_id is not None
     user.state = AWAIT_PIN
     db.commit()
@@ -22,7 +20,6 @@ def handle_pin_command(user, db, send_message):
 
 
 def handle_pin_entry(user, text, db, send_message, upload_image=None):
-    """Handle PIN code input (5 chars, uppercase A-Z + 0-9) when user is in await_pin state."""
     code = text.strip().upper()
 
     if len(code) != 5 or not code.isalnum():
@@ -49,17 +46,14 @@ def handle_pin_entry(user, text, db, send_message, upload_image=None):
     user.state = grow_state(1)
     db.commit()
 
-    total = dragon.steps_count
-    first_step = get_dragon_step(db, dragon.id, 1)
-
-    msg = f"🥚 Новый дракон — «{dragon.name}»!\n\n"
-    if first_step:
-        msg += format_step(first_step, 1, total) + "\n"
-    msg += "\nВыполни задание, сфотографируй ДО и ПОСЛЕ (2 фото) и напиши «вышито»."
+    msg = f"🥚 В твоей коллекции появилось новое яйцо!\n\n"
+    if dragon.egg_type:
+        msg += f"Тип: {dragon.egg_type}\n"
 
     attachment = ""
     if upload_image and dragon.egg_path:
         filepath = os.path.join(_IMAGES, os.path.basename(dragon.egg_path))
         attachment = upload_image(filepath)
 
-    send_message(msg, attachment=attachment)
+    keyboard = start_growing_keyboard()
+    send_message(msg, attachment=attachment, keyboard=keyboard)

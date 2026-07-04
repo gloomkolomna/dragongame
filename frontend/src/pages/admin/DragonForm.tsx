@@ -12,6 +12,7 @@ interface Step {
   id: number; dragon_id: number; step_number: number;
   magic_action: string; task_description: string; hint: string;
   timeout_hours: number; timeout_minutes: number;
+  crosses_norm: number;
 }
 
 function DragonForm() {
@@ -86,14 +87,15 @@ function DragonForm() {
     finally { setSaving(false); }
   };
 
-  const addStep = () => setSteps((prev) => [...prev, { id: 0, dragon_id: Number(id) || 0, step_number: prev.length + 1, magic_action: '', task_description: '', hint: '', timeout_hours: 0, timeout_minutes: 0 }]);
+  const addStep = () => setSteps((prev) => [...prev, { id: 0, dragon_id: Number(id) || 0, step_number: prev.length + 1, magic_action: '', task_description: '', hint: '', timeout_hours: 0, timeout_minutes: 0, crosses_norm: 1000 }]);
   const removeStep = (i: number) => setSteps((prev) => prev.filter((_, idx) => idx !== i));
   const updStep = (i: number, f: keyof Step, v: string) => {
     setSteps((prev) => {
       const s = [...prev];
-      if (f === 'timeout_hours' || f === 'timeout_minutes') {
-        let val = v === '' ? 0 : parseInt(v, 10) || 0;
+      if (f === 'timeout_hours' || f === 'timeout_minutes' || f === 'crosses_norm') {
+        let val = v === '' ? (f === 'crosses_norm' ? 1000 : 0) : parseInt(v, 10) || 0;
         if (f === 'timeout_minutes') val = Math.max(0, Math.min(59, val));
+        if (f === 'crosses_norm') val = Math.max(1, val);
         (s[i] as any)[f] = val;
       } else {
         (s[i] as any)[f] = v;
@@ -207,6 +209,11 @@ function DragonForm() {
                          onChange={(e) => updStep(i, 'timeout_minutes', e.target.value)}
                          style={{ width: 60, fontSize: 26, padding: '6px 8px' }} placeholder="0" />
                   <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>мин</span>
+                  <span style={{ marginLeft: 12, color: 'var(--text-muted)', fontSize: 12 }}>Норма:</span>
+                  <input className="lair-input" type="number" min="1" value={s.crosses_norm}
+                         onChange={(e) => updStep(i, 'crosses_norm', e.target.value)}
+                         style={{ width: 80, fontSize: 26, padding: '6px 8px' }} placeholder="1000" />
+                  <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>крест.</span>
                 </div>
               </div>
             ))}

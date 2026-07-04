@@ -15,13 +15,13 @@ sys.path.insert(0, os.path.join(_root, "api"))
 
 import config
 from db import SessionLocal
-from bot.fsm import IDLE, AWAIT_PIN, AWAIT_GARDEN, is_growing
+from bot.fsm import IDLE, AWAIT_PIN, AWAIT_GARDEN, is_growing, is_waiting_text, grow_state, step_from_state
 from bot.handlers.commands import handle_start, handle_help, handle_status, handle_garden, switch_dragon, cancel_garden, handle_switch_to
 from bot.handlers.pin import handle_pin_command, handle_pin_entry
-from bot.handlers.grow import handle_grow_message
+from bot.handlers.grow import handle_grow_message, handle_grow_command, handle_norm_command, handle_x2_command
 from bot.services.user_service import get_or_create_user
 from bot.scheduler import run_timeout_checker
-from bot.keyboard import idle_keyboard, growing_keyboard, await_pin_keyboard, await_garden_keyboard
+from bot.keyboard import idle_keyboard, growing_keyboard, start_growing_keyboard, step_buttons_keyboard, await_pin_keyboard, await_garden_keyboard
 from datetime import datetime
 
 
@@ -31,12 +31,13 @@ def get_keyboard(state: str, user=None) -> str:
     if state == AWAIT_GARDEN:
         return await_garden_keyboard()
     if is_growing(state):
-        return growing_keyboard()
+        if is_waiting_text(state):
+            return growing_keyboard()
+        return step_buttons_keyboard()
     return idle_keyboard(has_active=bool(user and user.current_dragon_id))
 
 
 def extract_cmd(text: str, payload_str: str) -> str | None:
-    """Extract command from button payload or text."""
     if payload_str:
         try:
             payload = json.loads(payload_str)
@@ -47,7 +48,6 @@ def extract_cmd(text: str, payload_str: str) -> str | None:
             pass
     t = text.strip().lower()
 
-    # Payload-based commands from keyboard buttons
     if "дракона" in t or "/pin" in t:
         return "pin"
     if "/start" in t or "выращивать" in t:
@@ -58,6 +58,12 @@ def extract_cmd(text: str, payload_str: str) -> str | None:
         return "help"
     if "бестиарий" in t or "сменить" in t or "/garden" in t:
         return "garden"
+    if "выращиванию" in t:
+        return "grow"
+    if t in ("норма", "норма"):
+        return "norm"
+    if t in ("штраф", "штраф (x2)", "x2"):
+        return "x2"
     return None
 
 
@@ -84,7 +90,6 @@ def main():
     print("Timeout scheduler started")
 
     def upload_image(filepath: str) -> str:
-        """Upload local image to VK and return attachment string."""
         try:
             if not os.path.isfile(filepath):
                 return ""
@@ -135,7 +140,6 @@ def main():
 
             cmd = extract_cmd(text, payload_str)
 
-            # AWAIT_GARDEN: expect number for switching, or 0/"не менять" to cancel
             if user.state == AWAIT_GARDEN and not cmd:
                 t = text.strip().lower()
                 if t in ("0", "не менять"):
@@ -145,7 +149,6 @@ def main():
                     switch_dragon(user, int(t), db, send_message)
                     continue
 
-            # switch_to: parse dragon_id from payload
             if cmd == "switch_to":
                 try:
                     payload = json.loads(payload_str) if payload_str else {}
@@ -170,16 +173,19 @@ def main():
                 cancel_garden(user, db, send_message)
             elif cmd == "pin":
                 handle_pin_command(user, db, send_message)
+            elif cmd == "grow":
+                handle_grow_command(user, db, send_message, upload_image)
+            elif cmd == "norm":
+                handle_norm_command(user, db, send_message)
+            elif cmd == "x2":
+                handle_x2_command(user, db, send_message)
 
-            # AWAIT_PIN: check for 4-digit PIN
             elif user.state == AWAIT_PIN and text and not cmd:
                 handle_pin_entry(user, text, db, send_message, upload_image)
 
-            # GROWING: photo + keyword
-            elif is_growing(user.state) and user.current_dragon_id:
+            elif is_waiting_text(user.state) and user.current_dragon_id:
                 handle_grow_message(user, text, attachments, db, send_message, upload_image)
 
-            # IDLE: anything else → prompt
             elif user.state == IDLE and text and not cmd:
                 from models import UserDragon
                 has_any = db.query(UserDragon).filter(UserDragon.user_id == user_id).first() is not None

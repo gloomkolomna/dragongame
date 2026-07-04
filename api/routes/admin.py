@@ -68,15 +68,17 @@ def create_dragon_route(
         for s in steps_data:
             th = max(0, int(s.get("timeout_hours", 0) or 0))
             tm = max(0, min(59, int(s.get("timeout_minutes", 0) or 0)))
+            cn = max(1, int(s.get("crosses_norm", 1000) or 1000))
             db.add(DragonStep(
                 dragon_id=dragon.id,
                 step_number=s.get("step_number", 0),
                 magic_action=s.get("magic_action", ""),
                 task_description=s.get("task_description", ""),
                 hint=s.get("hint", ""),
-                keyword="\u0432\u044B\u0448\u0438\u0442\u043E",
+                keyword="вышито",
                 timeout_hours=th,
                 timeout_minutes=tm,
+                crosses_norm=cn,
             ))
         db.commit()
         sync_steps_count(db, dragon.id)
@@ -122,13 +124,15 @@ def update_dragon_route(
         for s in steps_data:
             th = max(0, int(s.get("timeout_hours", 0) or 0))
             tm = max(0, min(59, int(s.get("timeout_minutes", 0) or 0)))
+            cn = max(1, int(s.get("crosses_norm", 1000) or 1000))
             sid = s.get("id", 0)
             if sid == 0:
                 step = DragonStep(dragon_id=dragon_id, step_number=s.get("step_number", 0),
                                   magic_action=s.get("magic_action", ""),
                                   task_description=s.get("task_description", ""),
                                   hint=s.get("hint", ""), keyword="вышито",
-                                  timeout_hours=th, timeout_minutes=tm)
+                                  timeout_hours=th, timeout_minutes=tm,
+                                  crosses_norm=cn)
                 db.add(step)
             else:
                 step = db.query(DragonStep).filter(DragonStep.id == sid, DragonStep.dragon_id == dragon_id).first()
@@ -140,6 +144,7 @@ def update_dragon_route(
                     step.keyword = "вышито"
                     step.timeout_hours = th
                     step.timeout_minutes = tm
+                    step.crosses_norm = cn
         db.commit()
         sync_steps_count(db, dragon_id)
 
@@ -185,13 +190,15 @@ async def save_steps(dragon_id: int, request: Request, db: Session = Depends(get
     for s in steps_data:
         th = max(0, int(s.get("timeout_hours", 0) or 0))
         tm = max(0, min(59, int(s.get("timeout_minutes", 0) or 0)))
+        cn = max(1, int(s.get("crosses_norm", 1000) or 1000))
         sid = s.get("id", 0)
         if sid == 0:
             step = DragonStep(dragon_id=dragon_id, step_number=s.get("step_number", 0),
                               magic_action=s.get("magic_action", ""),
                               task_description=s.get("task_description", ""),
                               hint=s.get("hint", ""), keyword="вышито",
-                              timeout_hours=th, timeout_minutes=tm)
+                              timeout_hours=th, timeout_minutes=tm,
+                              crosses_norm=cn)
             db.add(step)
         else:
             step = db.query(DragonStep).filter(DragonStep.id == sid, DragonStep.dragon_id == dragon_id).first()
@@ -203,6 +210,7 @@ async def save_steps(dragon_id: int, request: Request, db: Session = Depends(get
                 step.keyword = "вышито"
                 step.timeout_hours = th
                 step.timeout_minutes = tm
+                step.crosses_norm = cn
     db.commit()
     sync_steps_count(db, dragon_id)
     return {"ok": True, "saved": len(steps_data)}
@@ -214,7 +222,7 @@ def add_step(dragon_id: int, db: Session = Depends(get_db)):
     if not dragon:
         raise HTTPException(status_code=404, detail="Dragon not found")
     max_number = db.query(DragonStep).filter(DragonStep.dragon_id == dragon_id).count()
-    step = DragonStep(dragon_id=dragon_id, step_number=max_number + 1, magic_action="", task_description="", hint="", timeout_hours=0, timeout_minutes=0)
+    step = DragonStep(dragon_id=dragon_id, step_number=max_number + 1, magic_action="", task_description="", hint="", timeout_hours=0, timeout_minutes=0, crosses_norm=1000)
     db.add(step)
     db.commit()
     sync_steps_count(db, dragon_id)

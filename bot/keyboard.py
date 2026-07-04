@@ -12,6 +12,13 @@ def _keyboard(buttons, one_time=False):
     }, ensure_ascii=False)
 
 
+def _inline_keyboard(buttons):
+    return json.dumps({
+        "inline": True,
+        "buttons": buttons,
+    }, ensure_ascii=False)
+
+
 def row(*labels_and_payloads):
     btns = []
     for item in labels_and_payloads:
@@ -20,7 +27,7 @@ def row(*labels_and_payloads):
         else:
             label = item
             cmd = label
-        is_primary = ("дракон" in label.lower() or "подтвердить" in label.lower()) and "сменить" not in label.lower()
+        is_primary = ("дракон" in label.lower() or "перейти" in label.lower() or "норма" in label.lower()) and "сменить" not in label.lower() and "штраф" not in label.lower()
         btns.append({
             "action": {
                 "type": "text",
@@ -56,6 +63,23 @@ def growing_keyboard():
         bestiary_link_row(),
         row(("📋 Статус", "status")),
         row(("🔄 Сменить дракона", "garden"), ("❓ Помощь", "help")),
+    ])
+
+
+def start_growing_keyboard():
+    return _keyboard([
+        bestiary_link_row(),
+        row(("🌱 Перейти к выращиванию", "grow")),
+        row(("🔄 Сменить дракона", "garden"), ("❓ Помощь", "help")),
+    ])
+
+
+def step_buttons_keyboard():
+    return _keyboard([
+        bestiary_link_row(),
+        row(("✅ Норма", "norm")),
+        row(("⚠ Штраф (x2)", "x2")),
+        row(("📋 Статус", "status"), ("🔄 Сменить дракона", "garden")),
     ])
 
 

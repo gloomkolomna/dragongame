@@ -39,6 +39,7 @@ class DragonStep(Base):
     keyword = Column(String, default="вышито")
     timeout_hours = Column(Integer, default=0)
     timeout_minutes = Column(Integer, default=0)
+    crosses_norm = Column(Integer, default=1000)
 
 
 class CollectionGrid(Base):

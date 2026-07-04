@@ -4,6 +4,7 @@ from models import Dragon, UserDragon, UserProgress
 from bot.fsm import IDLE, GROW_STEP, AWAIT_GARDEN, step_from_state, grow_state
 from bot.services.grow_service import get_total_steps, get_dragon_step, get_timeout_remaining
 from bot.handlers.grow import format_step
+from bot.keyboard import step_buttons_keyboard
 
 
 def handle_start(user, db, send_message):
@@ -34,7 +35,6 @@ def handle_start(user, db, send_message):
                 keyboard=idle_keyboard(has_active=False),
             )
             return
-        name = dragon.name
         step = user.current_step
         remaining = get_timeout_remaining(db, user.vk_id, user.current_dragon_id)
         timeout_line = ""
@@ -45,11 +45,13 @@ def handle_start(user, db, send_message):
             timeout_line = f"\n⏳ Следующий шаг будет доступен через: {hours} ч. {minutes} мин."
         else:
             timeout_line = "\n✅ Готов к следующему шагу!"
+        step_def = get_dragon_step(db, user.current_dragon_id, step)
+        norm = step_def.crosses_norm if step_def else "?"
         send_message(
-            f"🪴 Ты выращиваешь: {name}\n"
+            f"🪴 Ты выращиваешь: {dragon.name}\n"
             f"📋 Текущий шаг: {step}\n"
-            f"{timeout_line}\n\n"
-            f"Пришли 2 фото (до и после) и напиши «вышито» чтобы продолжить."
+            f"🎯 Норма крестиков: {norm}\n"
+            f"{timeout_line}"
         )
 
 
@@ -58,14 +60,15 @@ def handle_help(send_message):
         "🐉 Добро пожаловать в Бестиарий драконьих легенд!\n\n"
         "📖 Мой Бестиарий — открыть коллекцию в мини-приложении ВК\n"
         "🐉 Добавить дракона — ввести PIN-код с яйца и начать выращивание\n"
-        "🔄 Сменить дракона — посмотреть всех драконов и переключиться на другого\n"
+        "🌱 Перейти к выращиванию — начать/продолжить текущий шаг\n"
+        "🔄 Сменить дракона — посмотреть всех драконов и переключиться\n"
         "📋 Статус — узнать текущий шаг и прогресс\n"
         "❓ Помощь — эта справка\n\n"
         "📸 Как проходить шаги:\n"
-        "1. Сфотографируй вышивку ДО и ПОСЛЕ\n"
-        "2. Отправь оба фото в чат одним сообщением\n"
-        "3. В этом же сообщении напиши «вышито»\n\n"
-        "🌱 Если передумал менять дракона — напиши «не менять» или нажми кнопку"
+        "1. Нажми «🌱 Перейти к выращиванию»\n"
+        "2. Выбери «✅ Норма» или «⚠ Штраф (x2)»\n"
+        "3. Вышей нужное количество крестиков\n"
+        "4. Отправь сообщение «вышито 1000» (своё число)"
     )
 
 
@@ -95,9 +98,9 @@ def handle_status(user, db, send_message):
 
     total = get_total_steps(db, user.current_dragon_id)
     current = user.current_step
-    pct = round((current / max(total, 1)) * 100) if total else 0
+    pct = round(((current - 1) / max(total, 1)) * 100) if total else 0
     bar_len = 10
-    filled = round((current / max(total, 1)) * bar_len) if total else 0
+    filled = round(((current - 1) / max(total, 1)) * bar_len) if total else 0
     bar = "█" * filled + "░" * (bar_len - filled)
 
     remaining = get_timeout_remaining(db, user.vk_id, user.current_dragon_id)
@@ -110,24 +113,24 @@ def handle_status(user, db, send_message):
     else:
         timeout_line = "\n✅ Готов к следующему шагу!"
 
+    step_def = get_dragon_step(db, user.current_dragon_id, current)
+    norm = step_def.crosses_norm if step_def else "?"
+
     send_message(
         f"🥚 {dragon.name}\n"
         f"📋 Шаг {current} из {total}\n"
         f"{bar} {pct}%\n"
+        f"🎯 Норма: {norm} крестиков\n"
         f"{timeout_line}"
     )
 
 
 def handle_garden(user, db, send_message):
-    """Show all user dragons with progress, allow switching by number."""
-
-    # Get all active (non-completed) UserDragon entries
     entries = db.query(UserDragon).filter(
         UserDragon.user_id == user.vk_id,
         UserDragon.completed_at == "",
     ).all()
 
-    # Get completed entries too
     completed_entries = db.query(UserDragon).filter(
         UserDragon.user_id == user.vk_id,
         UserDragon.completed_at != "",
@@ -144,14 +147,12 @@ def handle_garden(user, db, send_message):
         return
 
     lines = ["🔄 Твои драконы:\n"]
-
     all_dragons = entries + completed_entries
     for i, ud in enumerate(all_dragons):
         dragon = db.query(Dragon).filter(Dragon.id == ud.dragon_id).first()
         if not dragon:
             continue
         is_current = user.current_dragon_id == ud.dragon_id
-
         if ud.completed_at:
             pct = 100
             bar = "█" * 10
@@ -167,7 +168,6 @@ def handle_garden(user, db, send_message):
             filled = round((completed / max(total, 1)) * 10) if total else 0
             bar = "█" * filled + "░" * (10 - filled)
             status = "🥚"
-
         marker = " ← сейчас" if is_current else ""
         lines.append(f"{i + 1}. {status} {dragon.name} {bar} {pct}%{marker}")
 
@@ -192,7 +192,6 @@ def handle_garden(user, db, send_message):
 
 
 def cancel_garden(user, db, send_message):
-    """Cancel dragon switching — restore to growing/idle state."""
     if not user.current_dragon_id:
         user.state = IDLE
         db.commit()
@@ -201,18 +200,20 @@ def cancel_garden(user, db, send_message):
             keyboard=idle_keyboard(has_active=False),
         )
         return
-    
+
     total = get_total_steps(db, user.current_dragon_id)
     user.state = grow_state(user.current_step)
     db.commit()
     step_def = get_dragon_step(db, user.current_dragon_id, user.current_step)
     dragon = db.query(Dragon).filter(Dragon.id == user.current_dragon_id).first()
     name = dragon.name if dragon else "?"
-    send_message(f"Остаёмся на «{name}».\n{format_step(step_def, user.current_step, total)}\n\nПришли фото и напиши «вышито» когда выполнишь.")
+    msg = f"Остаёмся на «{name}».\n{format_step(step_def, user.current_step, total)}"
+    if step_def:
+        msg += f"\n\n🎯 Норма: {step_def.crosses_norm} крестиков\nВыбери режим:"
+    send_message(msg, keyboard=step_buttons_keyboard())
 
 
 def switch_dragon(user, num: int, db, send_message):
-    """Switch active dragon by garden list number."""
     active = db.query(UserDragon).filter(
         UserDragon.user_id == user.vk_id,
         UserDragon.completed_at == "",
@@ -234,8 +235,9 @@ def switch_dragon(user, num: int, db, send_message):
         db.commit()
         step_def = get_dragon_step(db, ud.dragon_id, user.current_step)
         msg = f"Ты уже выращиваешь этого дракона.\n{format_step(step_def, user.current_step, get_total_steps(db, ud.dragon_id))}"
-        msg += "\n\nПришли 2 фото и напиши «вышито» когда выполнишь."
-        send_message(msg)
+        if step_def:
+            msg += f"\n\n🎯 Норма: {step_def.crosses_norm} крестиков\nВыбери режим:"
+        send_message(msg, keyboard=step_buttons_keyboard())
         return
 
     if ud.completed_at:
@@ -291,11 +293,12 @@ def switch_dragon(user, num: int, db, send_message):
         minutes = remainder // 60
         msg = f"▸ Переключился на «{dragon.name}».\n{format_step(next_def, curr_step, total)}"
         msg += f"\n⏳ Дракон отдыхает. Осталось: {hours} ч. {minutes} мин."
+        send_message(msg)
     else:
         msg = f"▸ Переключился на «{dragon.name}».\n{format_step(next_def, curr_step, total)}"
-        msg += "\n\nПришли фото и напиши «вышито» когда выполнишь."
-
-    send_message(msg)
+        if next_def:
+            msg += f"\n\n🎯 Норма: {next_def.crosses_norm} крестиков\nВыбери режим:"
+        send_message(msg, keyboard=step_buttons_keyboard())
 
 
 def handle_switch_to(user, dragon_id: int, db, send_message):
@@ -357,11 +360,12 @@ def handle_switch_to(user, dragon_id: int, db, send_message):
         minutes = remainder // 60
         msg = f"▸ Переключился на «{dragon.name}».\n{format_step(step_def, next_step, total)}"
         msg += f"\n⏳ Дракон отдыхает. Осталось: {hours} ч. {minutes} мин."
+        send_message(msg)
     else:
         msg = f"▸ Переключился на «{dragon.name}».\n{format_step(step_def, next_step, total)}"
-        msg += "\n\nПришли 2 фото и напиши «вышито» когда выполнишь."
-
-    send_message(msg)
+        if step_def:
+            msg += f"\n\n🎯 Норма: {step_def.crosses_norm} крестиков\nВыбери режим:"
+        send_message(msg, keyboard=step_buttons_keyboard())
 
 
 def _completed_keyboard():

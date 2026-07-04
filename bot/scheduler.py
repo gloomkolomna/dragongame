@@ -137,12 +137,14 @@ def _check_expired(db, vk, logger):
 
         if same_dragon:
             step_def = get_dragon_step(db, ud.dragon_id, next_step_num)
+            norm = step_def.crosses_norm if step_def else "?"
             msg = (
                 f"⏰ Время пришло! Ты можешь продолжить выращивание «{dragon.name}».\n\n"
                 f"{format_step(step_def, next_step_num, total)}"
-                f"\n\nПришли 2 фото и напиши «вышито» когда выполнишь."
+                f"\n\n🎯 Норма: {norm} крестиков\nВыбери режим:"
             )
-            keyboard_json = _growing_keyboard()
+            from bot.keyboard import step_buttons_keyboard
+            keyboard_json = step_buttons_keyboard()
             _send(vk, ud.user_id, msg, keyboard_json, logger)
         else:
             msg = (

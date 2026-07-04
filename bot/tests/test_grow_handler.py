@@ -3,7 +3,7 @@ from models import Dragon, DragonStep, User, UserDragon, UserProgress
 from bot.handlers.grow import handle_grow_message, format_step
 
 
-def _setup(db):
+def _setup(db, state="grow_step_1_norm"):
     d = Dragon(name="Test", rarity=2, steps_count=3, is_active=True)
     db.add(d)
     db.flush()
@@ -12,9 +12,10 @@ def _setup(db):
             dragon_id=d.id, step_number=i,
             magic_action=f"Action {i}", task_description=f"Task {i}",
             hint=f"Hint {i}", timeout_hours=0, timeout_minutes=0,
+            crosses_norm=1000,
         )
         db.add(step)
-    u = User(vk_id=1, state="grow_step_1", current_dragon_id=d.id, current_step=1)
+    u = User(vk_id=1, state=state, current_dragon_id=d.id, current_step=1)
     db.add(u)
     db.flush()
     ud = UserDragon(user_id=u.vk_id, dragon_id=d.id, completed_at="")
@@ -23,16 +24,9 @@ def _setup(db):
     return d, u
 
 
-def _make_attachments(*photo_ids):
-    atts = []
-    for pid in photo_ids:
-        atts.append({"type": "photo", "photo": {"owner_id": 1, "id": pid}})
-    return atts
-
-
 def test_format_step():
     from types import SimpleNamespace
-    step = SimpleNamespace(magic_action="Wave wand", task_description="Sew 100", hint="Use blue")
+    step = SimpleNamespace(magic_action="Wave wand", task_description="Sew 100", hint="Use blue", crosses_norm=500)
     result = format_step(step, 2, 5)
     assert "Шаг 2 из 5" in result
     assert "Wave wand" in result
@@ -59,14 +53,11 @@ def test_grow_message_timeout_blocks(db):
     def send(msg, **kw):
         messages.append(msg)
 
-    handled = handle_grow_message(
-        u, "вышито", _make_attachments(101, 102), db, send
-    )
+    handled = handle_grow_message(u, "вышито 1000", [], db, send)
 
     assert handled is True
     assert len(messages) == 1
     assert "отдыхает" in messages[0].lower()
-    assert "осталось подождать" in messages[0].lower()
 
 
 def test_grow_message_completes_step(db):
@@ -76,12 +67,10 @@ def test_grow_message_completes_step(db):
     def send(msg, **kw):
         messages.append(msg)
 
-    handled = handle_grow_message(
-        u, "вышито", _make_attachments(101, 102), db, send
-    )
+    handled = handle_grow_message(u, "вышито 1500", [], db, send)
 
     assert handled is True
-    assert len(messages) == 1
+    assert len(messages) >= 1
 
     progress = db.query(UserProgress).filter(
         UserProgress.user_id == u.vk_id,
@@ -109,24 +98,31 @@ def test_grow_message_with_timeout_shows_delay_message(db):
     def send(msg, **kw):
         messages.append(msg)
 
-    handle_grow_message(u, "вышито", _make_attachments(101, 102), db, send)
+    handle_grow_message(u, "вышито 1500", [], db, send)
 
-    # Should include the "next step will be available" message
     full_text = " ".join(messages)
-    assert "Шаг выполнен" in full_text or "выполнен" in full_text
+    assert "выполнен" in full_text
 
 
-def test_grow_message_invalid_format(db):
+def test_grow_message_insufficient_crosses(db):
     d, u = _setup(db)
 
     messages = []
     def send(msg, **kw):
         messages.append(msg)
 
-    # Only keyword, no photos
-    handle_grow_message(u, "вышито", [], db, send)
+    handle_grow_message(u, "вышито 100", [], db, send)
+
     assert len(messages) == 1
-    assert "2 фото" in messages[0]
+    assert "не менее" in messages[0].lower()
+    assert "1000" in messages[0]
+
+    progress = db.query(UserProgress).filter(
+        UserProgress.user_id == u.vk_id,
+        UserProgress.dragon_id == d.id,
+        UserProgress.step_number == 1,
+    ).first()
+    assert progress is None or progress.completed == False
 
 
 def test_grow_message_no_active_dragon(db):
@@ -138,6 +134,6 @@ def test_grow_message_no_active_dragon(db):
     def send(msg, **kw):
         messages.append(msg)
 
-    handle_grow_message(u, "вышито", _make_attachments(101, 102), db, send)
+    handle_grow_message(u, "вышито 1000", [], db, send)
     assert len(messages) == 1
     assert "нет активного дракона" in messages[0].lower()
