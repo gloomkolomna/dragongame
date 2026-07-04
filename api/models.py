@@ -100,6 +100,9 @@ class ErrorLog(Base):
 class ServiceHeartbeat(Base):
     __tablename__ = "service_heartbeats"
     id = Column(Integer, primary_key=True, autoincrement=True)
+    service_name = Column(String, unique=True, nullable=False)
+    last_seen = Column(String, default="")
+    status = Column(String, default="unknown")
 
 
 class ApiRequestLog(Base):
@@ -110,6 +113,3 @@ class ApiRequestLog(Base):
     status_code = Column(Integer, default=0)
     client_ip = Column(String, default="")
     created_at = Column(String, default="")
-    service_name = Column(String, unique=True, nullable=False)
-    last_seen = Column(String, default="")
-    status = Column(String, default="unknown")
