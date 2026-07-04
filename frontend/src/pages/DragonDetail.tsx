@@ -49,7 +49,7 @@ function DragonDetail() {
         {d.is_revealed && d.description && <p style={{ color: 'var(--text-secondary)', fontSize: 16, fontStyle: 'italic' }}>{d.description}</p>}
       </div>
 
-      {!d.is_revealed && (
+      {!d.is_revealed && d.user_progress.completed_steps > 0 && (
       <>
       <div className="lair-card" style={{ marginBottom: 16 }}>
         <div style={{ marginTop: 0, background: 'var(--bg-card-hover)', borderRadius: 'var(--radius-sm)', height: 10, overflow: 'hidden' }}>
