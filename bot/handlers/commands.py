@@ -45,14 +45,28 @@ def handle_start(user, db, send_message):
             timeout_line = f"\n⏳ Следующий шаг будет доступен через: {hours} ч. {minutes} мин."
         else:
             timeout_line = "\n✅ Готов к следующему шагу!"
-        step_def = get_dragon_step(db, user.current_dragon_id, step)
-        norm = step_def.crosses_norm if step_def else "?"
-        send_message(
-            f"🪴 Ты выращиваешь: {dragon.egg_type or 'яйцо'}\n"
-            f"📋 Текущий шаг: {step}\n"
-            f"🎯 Норма крестиков: {norm}\n"
-            f"{timeout_line}"
-        )
+        if remaining is not None:
+            from models import UserProgress
+            completed = db.query(UserProgress).filter(
+                UserProgress.user_id == user.vk_id,
+                UserProgress.dragon_id == user.current_dragon_id,
+                UserProgress.completed == True,
+            ).count()
+            total = get_total_steps(db, user.current_dragon_id)
+            send_message(
+                f"🪴 Ты выращиваешь: {dragon.egg_type or 'яйцо'}\n"
+                f"📋 Завершено шагов: {completed} из {total}\n"
+                f"{timeout_line}"
+            )
+        else:
+            step_def = get_dragon_step(db, user.current_dragon_id, step)
+            norm = step_def.crosses_norm if step_def else "?"
+            send_message(
+                f"🪴 Ты выращиваешь: {dragon.egg_type or 'яйцо'}\n"
+                f"📋 Текущий шаг: {step}\n"
+                f"🎯 Норма крестиков: {norm}\n"
+                f"{timeout_line}"
+            )
 
 
 def handle_help(send_message):
@@ -96,11 +110,16 @@ def handle_status(user, db, send_message):
         )
         return
 
+    from models import UserProgress
     total = get_total_steps(db, user.current_dragon_id)
-    current = user.current_step
-    pct = round(((current - 1) / max(total, 1)) * 100) if total else 0
+    completed = db.query(UserProgress).filter(
+        UserProgress.user_id == user.vk_id,
+        UserProgress.dragon_id == user.current_dragon_id,
+        UserProgress.completed == True,
+    ).count()
+    pct = round((completed / max(total, 1)) * 100) if total else 0
     bar_len = 10
-    filled = round(((current - 1) / max(total, 1)) * bar_len) if total else 0
+    filled = round((completed / max(total, 1)) * bar_len) if total else 0
     bar = "█" * filled + "░" * (bar_len - filled)
 
     remaining = get_timeout_remaining(db, user.vk_id, user.current_dragon_id)
@@ -113,16 +132,23 @@ def handle_status(user, db, send_message):
     else:
         timeout_line = "\n✅ Готов к следующему шагу!"
 
-    step_def = get_dragon_step(db, user.current_dragon_id, current)
-    norm = step_def.crosses_norm if step_def else "?"
-
-    send_message(
-        f"🥚 {dragon.egg_type or 'яйцо'}\n"
-        f"📋 Шаг {current} из {total}\n"
-        f"{bar} {pct}%\n"
-        f"🎯 Норма: {norm} крестиков\n"
-        f"{timeout_line}"
-    )
+    if remaining is not None:
+        send_message(
+            f"🥚 {dragon.egg_type or 'яйцо'}\n"
+            f"📋 Завершено шагов: {completed} из {total}\n"
+            f"{bar} {pct}%\n"
+            f"{timeout_line}"
+        )
+    else:
+        step_def = get_dragon_step(db, user.current_dragon_id, user.current_step)
+        norm = step_def.crosses_norm if step_def else "?"
+        send_message(
+            f"🥚 {dragon.egg_type or 'яйцо'}\n"
+            f"📋 Шаг {user.current_step} из {total}\n"
+            f"{bar} {pct}%\n"
+            f"🎯 Норма: {norm} крестиков\n"
+            f"{timeout_line}"
+        )
 
 
 def handle_garden(user, db, send_message):
