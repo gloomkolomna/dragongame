@@ -4,7 +4,7 @@ from models import Dragon, UserDragon, UserProgress
 from bot.fsm import IDLE, GROW_STEP, AWAIT_GARDEN, step_from_state, grow_state
 from bot.services.grow_service import get_total_steps, get_dragon_step, get_timeout_remaining
 from bot.handlers.grow import format_step
-from bot.keyboard import step_buttons_keyboard
+from bot.keyboard import step_buttons_keyboard, start_growing_keyboard
 
 
 def handle_start(user, db, send_message):
@@ -44,7 +44,7 @@ def handle_start(user, db, send_message):
             minutes = remainder // 60
             timeout_line = f"\n⏳ Следующий шаг будет доступен через: {hours} ч. {minutes} мин."
         else:
-            timeout_line = "\n✅ Готов к следующему шагу!"
+            timeout_line = "\n✅ Готов к следующему этапу выращивания!"
         if remaining is not None:
             from models import UserProgress
             completed = db.query(UserProgress).filter(
@@ -65,7 +65,8 @@ def handle_start(user, db, send_message):
                 f"🪴 Ты выращиваешь: {dragon.egg_type or 'яйцо'}\n"
                 f"📋 Текущий шаг: {step}\n"
                 f"🎯 Норма крестиков: {norm}\n"
-                f"{timeout_line}"
+                f"{timeout_line}",
+                keyboard=start_growing_keyboard(),
             )
 
 
@@ -130,7 +131,7 @@ def handle_status(user, db, send_message):
         minutes = remainder // 60
         timeout_line = f"\n⏳ Следующий шаг будет доступен через: {hours} ч. {minutes} мин."
     else:
-        timeout_line = "\n✅ Готов к следующему шагу!"
+        timeout_line = "\n✅ Готов к следующему этапу выращивания!"
 
     if remaining is not None:
         send_message(
@@ -147,7 +148,8 @@ def handle_status(user, db, send_message):
             f"📋 Шаг {user.current_step} из {total}\n"
             f"{bar} {pct}%\n"
             f"🎯 Норма: {norm} крестиков\n"
-            f"{timeout_line}"
+            f"{timeout_line}",
+            keyboard=start_growing_keyboard(),
         )
 
 
