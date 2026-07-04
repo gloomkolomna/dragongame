@@ -37,7 +37,7 @@ def handle_grow_command(user, db, send_message, upload_image=None):
         hours, remainder = divmod(total_secs, 3600)
         minutes = remainder // 60
         send_message(
-            f"⏳ Дракон отдыхает. Осталось: {hours} ч. {minutes} мин."
+            f"⏳ Яйцо в процессе выращивания. Осталось: {hours} ч. {minutes} мин."
         )
         return
 
@@ -62,6 +62,16 @@ def handle_norm_command(user, db, send_message):
         send_message("Нет активного дракона.")
         return
 
+    remaining = get_timeout_remaining(db, user.vk_id, user.current_dragon_id)
+    if remaining is not None:
+        total_secs = int(remaining.total_seconds())
+        hours, remainder = divmod(total_secs, 3600)
+        minutes = remainder // 60
+        send_message(
+            f"⏳ Яйцо в процессе выращивания. Осталось: {hours} ч. {minutes} мин."
+        )
+        return
+
     user.state = grow_state(user.current_step, "norm")
     db.commit()
 
@@ -76,6 +86,16 @@ def handle_norm_command(user, db, send_message):
 def handle_x2_command(user, db, send_message):
     if not user.current_dragon_id:
         send_message("Нет активного дракона.")
+        return
+
+    remaining = get_timeout_remaining(db, user.vk_id, user.current_dragon_id)
+    if remaining is not None:
+        total_secs = int(remaining.total_seconds())
+        hours, remainder = divmod(total_secs, 3600)
+        minutes = remainder // 60
+        send_message(
+            f"⏳ Яйцо в процессе выращивания. Осталось: {hours} ч. {minutes} мин."
+        )
         return
 
     user.state = grow_state(user.current_step, "x2")
@@ -114,7 +134,7 @@ def _handle_crosses_check(user, text, db, send_message, upload_image=None):
         hours, remainder = divmod(total_secs, 3600)
         minutes = remainder // 60
         send_message(
-            f"⏳ Этот дракон ещё отдыхает после предыдущего этапа. "
+            f"⏳ Яйцо выращивается."
             f"Осталось подождать: {hours} ч. {minutes} мин. Вернитесь позже!"
         )
         db.commit()
@@ -160,7 +180,8 @@ def _handle_crosses_check(user, text, db, send_message, upload_image=None):
             user.state = grow_state(next_step)
             user.current_step = next_step
             send_message(
-                f"✅ Шаг {step} выполнен! Дракон будет готов через {step_hours} ч. {step_minutes} мин. Я уведомлю тебя."
+                f"✅ Шаг {step} выполнен! Дракон будет готов через {step_hours} ч. {step_minutes} мин. Я уведомлю тебя.",
+                keyboard=growing_keyboard(),
             )
             db.commit()
             return True
@@ -207,7 +228,8 @@ def _handle_crosses_check(user, text, db, send_message, upload_image=None):
             set_step_timeout(db, user.vk_id, dragon_id, step)
             user.state = grow_state(next_step)
             send_message(
-                f"✅ Шаг {step} выполнен! Следующий этап будет доступен через {step_hours} ч. {step_minutes} мин."
+                f"✅ Шаг {step} выполнен! Следующий этап будет доступен через {step_hours} ч. {step_minutes} мин.",
+                keyboard=growing_keyboard(),
             )
         else:
             user.state = grow_state(next_step)
@@ -216,7 +238,7 @@ def _handle_crosses_check(user, text, db, send_message, upload_image=None):
             if next_def:
                 msg += format_step(next_def, next_step, total)
                 msg += f"\n\n🎯 Норма крестиков: {next_def.crosses_norm}\nВыбери режим:"
-            send_message(msg)
+            send_message(msg, keyboard=step_buttons_keyboard())
 
     db.commit()
     return True

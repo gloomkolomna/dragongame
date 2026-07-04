@@ -210,7 +210,7 @@ def cancel_garden(user, db, send_message):
     msg = f"Остаёмся на «{name}».\n{format_step(step_def, user.current_step, total)}"
     if step_def:
         msg += f"\n\n🎯 Норма: {step_def.crosses_norm} крестиков\nВыбери режим:"
-    send_message(msg)
+    send_message(msg, keyboard=step_buttons_keyboard())
 
 
 def switch_dragon(user, num: int, db, send_message):
@@ -237,7 +237,7 @@ def switch_dragon(user, num: int, db, send_message):
         msg = f"Ты уже выращиваешь этого дракона.\n{format_step(step_def, user.current_step, get_total_steps(db, ud.dragon_id))}"
         if step_def:
             msg += f"\n\n🎯 Норма: {step_def.crosses_norm} крестиков\nВыбери режим:"
-        send_message(msg)
+        send_message(msg, keyboard=step_buttons_keyboard())
         return
 
     if ud.completed_at:
@@ -298,7 +298,8 @@ def switch_dragon(user, num: int, db, send_message):
         msg = f"▸ Переключился на «{dragon.name}».\n{format_step(next_def, curr_step, total)}"
         if next_def:
             msg += f"\n\n🎯 Норма: {next_def.crosses_norm} крестиков\nВыбери режим:"
-        send_message(msg)
+        send_message(msg, keyboard=step_buttons_keyboard())
+
 
 
 def handle_switch_to(user, dragon_id: int, db, send_message):
@@ -365,7 +366,7 @@ def handle_switch_to(user, dragon_id: int, db, send_message):
         msg = f"▸ Переключился на «{dragon.name}».\n{format_step(step_def, next_step, total)}"
         if step_def:
             msg += f"\n\n🎯 Норма: {step_def.crosses_norm} крестиков\nВыбери режим:"
-        send_message(msg)
+        send_message(msg, keyboard=step_buttons_keyboard())
 
 
 def _completed_keyboard():
