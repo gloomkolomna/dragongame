@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import client from '../../api/client';
 
 interface ErrorLog {
@@ -11,7 +11,16 @@ interface ErrorLog {
   created_at: string;
 }
 
+type Tab = 'db' | 'api';
+
+interface ApiLogState {
+  lines: string[];
+  total: number;
+  page: number;
+}
+
 function LogsList() {
+  const [tab, setTab] = useState<Tab>('db');
   const [logs, setLogs] = useState<ErrorLog[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -19,7 +28,9 @@ function LogsList() {
   const [expanded, setExpanded] = useState<number | null>(null);
   const perPage = 50;
 
-  const fetchLogs = (p: number) => {
+  const [api, setApi] = useState<ApiLogState>({ lines: [], total: 0, page: 1 });
+
+  const fetchDbLogs = useCallback((p: number) => {
     setLoad(true);
     client.get('/admin/logs', { params: { page: p, per_page: perPage } })
       .then((r) => {
@@ -28,20 +39,58 @@ function LogsList() {
         setPage(r.data.page);
       })
       .finally(() => setLoad(false));
+  }, []);
+
+  const fetchApiLogs = useCallback((p: number) => {
+    setLoad(true);
+    client.get('/admin/logs/api', { params: { page: p, per_page: perPage } })
+      .then((r) => {
+        setApi({ lines: r.data.lines, total: r.data.total, page: r.data.page });
+      })
+      .finally(() => setLoad(false));
+  }, []);
+
+  useEffect(() => { fetchDbLogs(1); }, [fetchDbLogs]);
+
+  const switchTab = (t: Tab) => {
+    setTab(t);
+    setExpanded(null);
+    if (t === 'api' && api.lines.length === 0) fetchApiLogs(1);
   };
 
-  useEffect(() => { fetchLogs(1); }, []);
-
-  const totalPages = Math.ceil(total / perPage);
+  const totalPages = Math.ceil((tab === 'db' ? total : api.total) / perPage);
   const formatDate = (s: string) => s ? new Date(s).toLocaleString('ru-RU') : '—';
+
+  const goPage = (p: number) => {
+    if (tab === 'db') fetchDbLogs(p);
+    else fetchApiLogs(p);
+  };
 
   return (
     <>
-      <div className="lair-header"><h2>📋 Логи ошибок</h2></div>
+      <div className="lair-header" style={{ flexWrap: 'wrap', gap: 8, paddingBottom: 12 }}>
+        <h2 style={{ flexShrink: 0 }}>📋 Логи</h2>
+        <div style={{ display: 'flex', gap: 6 }}>
+          <button
+            className={tab === 'db' ? 'lair-btn' : 'lair-btn lair-btn-outline'}
+            style={{ fontSize: 15 }}
+            onClick={() => switchTab('db')}
+          >
+            Логи БД
+          </button>
+          <button
+            className={tab === 'api' ? 'lair-btn' : 'lair-btn lair-btn-outline'}
+            style={{ fontSize: 15 }}
+            onClick={() => switchTab('api')}
+          >
+            Логи API
+          </button>
+        </div>
+      </div>
       <div className="lair-content">
         {load ? (
           <div className="lair-skeleton" />
-        ) : (
+        ) : tab === 'db' ? (
           <>
             <div style={{ marginBottom: 12, color: 'var(--parchment-faded)', fontSize: 14 }}>
               Всего: {total}
@@ -93,24 +142,54 @@ function LogsList() {
                 </tbody>
               </table>
             </div>
-            {totalPages > 1 && (
-              <div style={{ display: 'flex', justifyContent: 'center', gap: 8, marginTop: 16 }}>
-                <button
-                  className="lair-btn lair-btn-sm lair-btn-outline"
-                  disabled={page <= 1}
-                  onClick={() => fetchLogs(page - 1)}
-                >← Назад</button>
-                <span style={{ color: 'var(--parchment-dim)', fontSize: 14, padding: '4px 12px' }}>
-                  {page} / {totalPages}
-                </span>
-                <button
-                  className="lair-btn lair-btn-sm lair-btn-outline"
-                  disabled={page >= totalPages}
-                  onClick={() => fetchLogs(page + 1)}
-                >Вперёд →</button>
-              </div>
-            )}
           </>
+        ) : (
+          <>
+            <div style={{ marginBottom: 12, color: 'var(--parchment-faded)', fontSize: 14 }}>
+              Строк в логе: {api.total}
+            </div>
+            <div className="lair-card" style={{ padding: 0, overflow: 'hidden' }}>
+              {api.lines.length > 0 ? (
+                <pre style={{
+                  margin: 0, padding: '16px 20px',
+                  fontSize: 13, lineHeight: 1.6,
+                  color: 'var(--parchment-dim)', whiteSpace: 'pre-wrap',
+                  wordBreak: 'break-all', maxHeight: 'calc(100vh - 320px)',
+                  overflowY: 'auto', fontFamily: 'var(--font-mono)',
+                }}>
+                  {api.lines.map((line, i) => (
+                    <div key={i} style={{
+                      color: line.includes('Error') || line.includes('Traceback') || line.includes('ERROR') ? 'var(--fire)' :
+                             line.includes('WARN') || line.includes('warning') ? 'var(--ember)' : undefined,
+                    }}>
+                      {line.trimEnd()}
+                    </div>
+                  ))}
+                </pre>
+              ) : (
+                <div style={{ textAlign: 'center', padding: 32, color: 'var(--parchment-faded)' }}>
+                  Лог-файл пуст или недоступен
+                </div>
+              )}
+            </div>
+          </>
+        )}
+        {totalPages > 1 && (
+          <div style={{ display: 'flex', justifyContent: 'center', gap: 8, marginTop: 16 }}>
+            <button
+              className="lair-btn lair-btn-sm lair-btn-outline"
+              disabled={(tab === 'db' ? page : api.page) <= 1}
+              onClick={() => goPage((tab === 'db' ? page : api.page) - 1)}
+            >← Назад</button>
+            <span style={{ color: 'var(--parchment-dim)', fontSize: 14, padding: '4px 12px' }}>
+              {tab === 'db' ? page : api.page} / {totalPages}
+            </span>
+            <button
+              className="lair-btn lair-btn-sm lair-btn-outline"
+              disabled={(tab === 'db' ? page : api.page) >= totalPages}
+              onClick={() => goPage((tab === 'db' ? page : api.page) + 1)}
+            >Вперёд →</button>
+          </div>
         )}
       </div>
     </>

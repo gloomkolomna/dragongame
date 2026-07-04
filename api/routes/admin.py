@@ -8,6 +8,7 @@ from typing import Optional
 from db import get_db
 from auth import get_current_admin
 from models import Dragon, DragonStep, User, UserDragon, CollectionGrid, UserProgress, Family, ErrorLog, ServiceHeartbeat
+from config import API_ERROR_LOG
 from services.dragon_service import (
     get_dragons, get_dragon, create_dragon, update_dragon, delete_dragon, sync_steps_count,
 )
@@ -744,6 +745,22 @@ def list_logs(page: int = Query(1, ge=1), per_page: int = Query(50, ge=1, le=200
     total = db.query(ErrorLog).count()
     logs = db.query(ErrorLog).order_by(ErrorLog.id.desc()).offset(offset).limit(per_page).all()
     return {"logs": logs, "total": total, "page": page, "per_page": per_page}
+
+
+@router.get("/logs/api")
+def list_api_logs(page: int = Query(1, ge=1), per_page: int = Query(50, ge=1, le=200)):
+    if not os.path.isfile(API_ERROR_LOG):
+        return {"lines": [], "total": 0, "page": page, "per_page": per_page}
+    try:
+        with open(API_ERROR_LOG, "r", encoding="utf-8", errors="replace") as f:
+            all_lines = f.readlines()
+    except Exception:
+        return {"lines": [], "total": 0, "page": page, "per_page": per_page}
+    all_lines.reverse()
+    total = len(all_lines)
+    offset = (page - 1) * per_page
+    chunk = all_lines[offset:offset + per_page]
+    return {"lines": chunk, "total": total, "page": page, "per_page": per_page}
 
 
 @router.get("/health")

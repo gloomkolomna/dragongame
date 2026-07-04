@@ -25,6 +25,8 @@ VK_APP_SECRET = os.getenv("VK_APP_SECRET", "")
 VK_GROUP_TOKEN = os.getenv("VK_GROUP_TOKEN", "")
 VK_GROUP_ID = int(os.getenv("VK_GROUP_ID", "0"))
 
+API_ERROR_LOG = os.getenv("API_ERROR_LOG", "/var/log/dragons/api-error.log")
+
 
 def get_allowed_vk_ids() -> set[int]:
     raw = os.getenv("VK_ALLOWED_IDS", "")
