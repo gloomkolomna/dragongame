@@ -1,6 +1,7 @@
 import os
 import secrets
 import string
+from time import time
 from sqlalchemy.orm import Session
 from fastapi import UploadFile
 from models import Dragon, DragonStep
@@ -19,11 +20,12 @@ def _generate_pin_code(db: Session) -> str:
 def _save_upload(file: UploadFile, folder: str, prefix: str) -> str:
     os.makedirs(folder, exist_ok=True)
     ext = os.path.splitext(file.filename or ".png")[1].lower() or ".png"
-    filename = f"{prefix}{ext}"
+    ts = int(time())
+    filename = f"{prefix}_{ts}{ext}"
     path = os.path.join(folder, filename)
     with open(path, "wb") as f:
         f.write(file.file.read())
-    return ext
+    return filename
 
 def get_dragons(db: Session) -> list[Dragon]:
     return db.query(Dragon).order_by(Dragon.id).all()
@@ -51,11 +53,11 @@ def create_dragon(
     db.flush()
 
     if image and image.filename:
-        ext = _save_upload(image, IMAGES_DIR, str(dragon.id))
-        dragon.egg_path = f"dragons/{dragon.id}{ext}"
+        filename = _save_upload(image, IMAGES_DIR, str(dragon.id))
+        dragon.egg_path = f"dragons/{filename}"
     if silhouette and silhouette.filename:
-        ext = _save_upload(silhouette, IMAGES_DIR, f"{dragon.id}_silhouette")
-        dragon.dragon_path = f"dragons/{dragon.id}_silhouette{ext}"
+        filename = _save_upload(silhouette, IMAGES_DIR, f"{dragon.id}_silhouette")
+        dragon.dragon_path = f"dragons/{filename}"
 
     db.commit()
     db.refresh(dragon)
@@ -86,12 +88,12 @@ def update_dragon(
 
     if image and image.filename:
         _cleanup_old(IMAGES_DIR, str(dragon.id), dragon.egg_path)
-        ext = _save_upload(image, IMAGES_DIR, str(dragon.id))
-        dragon.egg_path = f"dragons/{dragon.id}{ext}"
+        filename = _save_upload(image, IMAGES_DIR, str(dragon.id))
+        dragon.egg_path = f"dragons/{filename}"
     if silhouette and silhouette.filename:
         _cleanup_old(IMAGES_DIR, f"{dragon.id}_silhouette", dragon.dragon_path)
-        ext = _save_upload(silhouette, IMAGES_DIR, f"{dragon.id}_silhouette")
-        dragon.dragon_path = f"dragons/{dragon.id}_silhouette{ext}"
+        filename = _save_upload(silhouette, IMAGES_DIR, f"{dragon.id}_silhouette")
+        dragon.dragon_path = f"dragons/{filename}"
 
     db.commit()
     db.refresh(dragon)
