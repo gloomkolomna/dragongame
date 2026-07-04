@@ -5,6 +5,7 @@ import os
 import json
 import random
 import threading
+import traceback
 import vk_api
 from vk_api.bot_longpoll import VkBotLongPoll, VkBotEventType
 
@@ -186,6 +187,7 @@ def main():
 
         except Exception as exc:
             print(f"Error processing message from {user_id}: {exc}")
+            traceback.print_exc()
             try:
                 vk.messages.send(
                     user_id=user_id,
