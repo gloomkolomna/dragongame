@@ -20,6 +20,9 @@ def handle_pin_command(user, db, send_message):
 
 
 def handle_pin_entry(user, text, db, send_message, upload_image=None):
+    from datetime import datetime
+    from models import ErrorLog
+
     code = text.strip().upper()
 
     if len(code) != 5 or not code.isalnum():
@@ -51,13 +54,21 @@ def handle_pin_entry(user, text, db, send_message, upload_image=None):
         msg += f"Тип: {dragon.egg_type}\n"
 
     attachment = ""
-    if upload_image and dragon.egg_path:
+    if not upload_image:
+        db.add(ErrorLog(source="bot", error_type="PIN", message=f"upload_image not provided (egg_path={dragon.egg_path})", user_id=user.vk_id, created_at=datetime.now().isoformat()))
+        db.commit()
+    elif not dragon.egg_path:
+        db.add(ErrorLog(source="bot", error_type="PIN", message=f"egg_path is empty for dragon {dragon.id}", user_id=user.vk_id, created_at=datetime.now().isoformat()))
+        db.commit()
+    else:
         filepath = os.path.join(_IMAGES, os.path.basename(dragon.egg_path))
         if not os.path.isfile(filepath):
-            print(f"[PIN] Image not found: {filepath} (egg_path={dragon.egg_path})")
+            db.add(ErrorLog(source="bot", error_type="PIN", message=f"Image not found: {filepath} (egg_path={dragon.egg_path})", user_id=user.vk_id, created_at=datetime.now().isoformat()))
+            db.commit()
         attachment = upload_image(filepath)
         if not attachment:
-            print(f"[PIN] Upload failed for: {filepath}")
+            db.add(ErrorLog(source="bot", error_type="PIN", message=f"Upload failed for: {filepath}", user_id=user.vk_id, created_at=datetime.now().isoformat()))
+            db.commit()
 
     keyboard = start_growing_keyboard()
     send_message(msg, attachment=attachment, keyboard=keyboard)
