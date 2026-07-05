@@ -26,7 +26,7 @@ def _attach_egg(db, user, dragon, upload_image):
         from models import ErrorLog
         db.add(ErrorLog(source="bot", error_type="UPLOAD", message=f"{msg} (file={filepath})", user_id=user.vk_id, created_at=datetime.now().isoformat()))
         db.commit()
-    return upload_image(filepath, log_error=log_err)
+    return upload_image(filepath, log_error=log_err, peer_id=user.vk_id)
 
 
 def handle_start(user, db, send_message):

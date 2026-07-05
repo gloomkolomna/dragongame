@@ -64,7 +64,7 @@ def handle_grow_command(user, db, send_message, upload_image=None):
                 from models import ErrorLog
                 db.add(ErrorLog(source="bot", error_type="UPLOAD", message=f"{msg} (file={filepath})", user_id=user.vk_id, created_at=datetime.now().isoformat()))
                 db.commit()
-            attachment = upload_image(filepath, log_error=log_err)
+            attachment = upload_image(filepath, log_error=log_err, peer_id=user.vk_id)
 
     send_message(msg, attachment=attachment, keyboard=step_buttons_keyboard())
 
@@ -251,7 +251,7 @@ def _handle_crosses_check(user, text, attachments, db, send_message, upload_imag
                 from models import ErrorLog
                 db.add(ErrorLog(source="bot", error_type="UPLOAD", message=f"{msg} (file={filepath})", user_id=user.vk_id, created_at=datetime.now().isoformat()))
                 db.commit()
-            attachment = upload_image(filepath, log_error=log_err)
+            attachment = upload_image(filepath, log_error=log_err, peer_id=user.vk_id)
 
         send_message(msg, attachment=attachment, keyboard=keyboard)
     else:
@@ -284,7 +284,7 @@ def _handle_crosses_check(user, text, attachments, db, send_message, upload_imag
                         from models import ErrorLog
                         db.add(ErrorLog(source="bot", error_type="UPLOAD", message=f"{msg} (file={filepath})", user_id=user.vk_id, created_at=datetime.now().isoformat()))
                         db.commit()
-                    attachment = upload_image(filepath, log_error=log_err)
+                    attachment = upload_image(filepath, log_error=log_err, peer_id=user.vk_id)
             send_message(msg, attachment=attachment, keyboard=step_buttons_keyboard())
 
     db.commit()

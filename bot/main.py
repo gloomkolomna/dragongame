@@ -57,7 +57,7 @@ def _handle_growing_chat(user, db, send_message, upload_image=None):
                 os.path.basename(dragon.egg_path),
             )
             if os.path.isfile(filepath):
-                attachment = upload_image(filepath)
+                attachment = upload_image(filepath, peer_id=user.vk_id)
         send_message(msg, attachment=attachment, keyboard=step_buttons_keyboard())
 
 
@@ -125,11 +125,11 @@ def main():
     scheduler_thread.start()
     print("Timeout scheduler started")
 
-    def upload_image(filepath: str, log_error=None) -> str:
+    def upload_image(filepath: str, log_error=None, peer_id=0) -> str:
         try:
             if not os.path.isfile(filepath):
                 return ""
-            upload_url = vk.photos.getMessagesUploadServer(peer_id=0)["upload_url"]
+            upload_url = vk.photos.getMessagesUploadServer(peer_id=peer_id)["upload_url"]
             import requests
             with open(filepath, "rb") as f:
                 resp = requests.post(upload_url, files={"photo": ("image.jpg", f, "image/jpeg")}, timeout=30).json()

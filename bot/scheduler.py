@@ -15,11 +15,11 @@ sys.path.insert(0, os.path.join(_root, "api"))
 _IMAGES = os.path.join(_root, "images", "dragons")
 
 
-def _upload_image(vk, filepath: str) -> str:
+def _upload_image(vk, filepath: str, peer_id=0) -> str:
     try:
         if not os.path.isfile(filepath):
             return ""
-        upload_url = vk.photos.getMessagesUploadServer(peer_id=0)["upload_url"]
+        upload_url = vk.photos.getMessagesUploadServer(peer_id=peer_id)["upload_url"]
         import requests
         with open(filepath, "rb") as f:
             resp = requests.post(upload_url, files={"photo": ("image.jpg", f, "image/jpeg")}, timeout=30).json()
@@ -168,7 +168,7 @@ def _check_expired(db, vk, logger):
             if dragon and dragon.egg_path:
                 filepath = os.path.join(_IMAGES, os.path.basename(dragon.egg_path))
                 if os.path.isfile(filepath):
-                    attachment = _upload_image(vk, filepath)
+                    attachment = _upload_image(vk, filepath, peer_id=ud.user_id)
             _send(vk, ud.user_id, msg, keyboard_json, logger, attachment)
         else:
             msg = (
