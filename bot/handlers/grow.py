@@ -183,6 +183,14 @@ def _handle_crosses_check(user, text, attachments, db, send_message, upload_imag
 
     photo_infos = [a["photo"] for a in attachments if a.get("type") == "photo" and a.get("photo")]
     if len(photo_infos) < 3:
+        from datetime import datetime
+        from models import ErrorLog
+        db.add(ErrorLog(
+            source="bot", error_type="PHOTO_CHECK",
+            message=f"Need 3 photos, got {len(attachments)} attachments: types={[a.get('type') for a in attachments]}, photo_keys={[list(a.get('photo', {}).keys()) if a.get('photo') else None for a in attachments if a.get('type') == 'photo']}",
+            user_id=user.vk_id, created_at=datetime.now().isoformat(),
+        ))
+        db.commit()
         send_message(
             "❌ Для отчёта нужно 3 фото: ДО, ПОСЛЕ и превью работы.\n"
             "Отправьте их одним сообщением вместе с текстом «вышито [число]»."
