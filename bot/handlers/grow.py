@@ -54,7 +54,14 @@ def handle_grow_command(user, db, send_message, upload_image=None):
     msg = format_step(step_def, step, total)
     msg += f"\n\nНорма крестиков: {step_def.crosses_norm}\n"
     msg += "Выбери режим:"
-    send_message(msg, keyboard=step_buttons_keyboard())
+
+    attachment = ""
+    if upload_image and dragon and dragon.egg_path:
+        filepath = os.path.join(_IMAGES, os.path.basename(dragon.egg_path))
+        if os.path.isfile(filepath):
+            attachment = upload_image(filepath)
+
+    send_message(msg, attachment=attachment, keyboard=step_buttons_keyboard())
 
 
 def handle_norm_command(user, db, send_message):
@@ -79,7 +86,9 @@ def handle_norm_command(user, db, send_message):
     norm = step_def.crosses_norm if step_def else 1000
     send_message(
         f"✅ Режим «Норма» — нужно вышить не менее {norm} крестиков.\n"
-        f"Когда закончишь, отправь сообщение «вышито {norm}» (или другое число)."
+        f"Когда закончишь, отправь одним сообщением:\n"
+        f"• 3 фото: ДО, ПОСЛЕ и превью работы\n"
+        f"• текст: «вышито {norm}» (или другое число)"
     )
 
 
@@ -105,7 +114,9 @@ def handle_x2_command(user, db, send_message):
     norm = (step_def.crosses_norm if step_def else 1000) * 2
     send_message(
         f"⚠ Режим «Штраф (x2)» — нужно вышить не менее {norm} крестиков.\n"
-        f"Когда закончишь, отправь сообщение «вышито {norm}» (или другое число)."
+        f"Когда закончишь, отправь одним сообщением:\n"
+        f"• 3 фото: ДО, ПОСЛЕ и превью работы\n"
+        f"• текст: «вышито {norm}» (или другое число)"
     )
 
 
@@ -118,12 +129,12 @@ def handle_grow_message(user, text, attachments, db, send_message, upload_image=
         return True
 
     if is_waiting_text(user.state):
-        return _handle_crosses_check(user, text, db, send_message, upload_image)
+        return _handle_crosses_check(user, text, attachments, db, send_message, upload_image)
 
     return True
 
 
-def _handle_crosses_check(user, text, db, send_message, upload_image=None):
+def _handle_crosses_check(user, text, attachments, db, send_message, upload_image=None):
     mode = state_mode(user.state)
     step = user.current_step
     dragon_id = user.current_dragon_id
@@ -165,7 +176,23 @@ def _handle_crosses_check(user, text, db, send_message, upload_image=None):
         db.commit()
         return True
 
-    complete_step(db, user.vk_id, dragon_id, step)
+    photo_infos = [a["photo"] for a in attachments if a.get("type") == "photo" and a.get("photo")]
+    if len(photo_infos) < 3:
+        send_message(
+            "❌ Для отчёта нужно 3 фото: ДО, ПОСЛЕ и превью работы.\n"
+            "Отправьте их одним сообщением вместе с текстом «вышито [число]»."
+        )
+        db.commit()
+        return True
+
+    def fmt_photo(p):
+        return f"photo{p['owner_id']}_{p['id']}"
+
+    complete_step(
+        db, user.vk_id, dragon_id, step,
+        photo_before_id=fmt_photo(photo_infos[0]),
+        photo_after_id=fmt_photo(photo_infos[1]),
+    )
     total = get_total_steps(db, dragon_id)
     from models import Dragon
     dragon = db.query(Dragon).filter(Dragon.id == dragon_id).first()
@@ -238,7 +265,12 @@ def _handle_crosses_check(user, text, db, send_message, upload_image=None):
             if next_def:
                 msg += format_step(next_def, next_step, total)
                 msg += f"\n\n🎯 Норма крестиков: {next_def.crosses_norm}\nВыбери режим:"
-            send_message(msg, keyboard=step_buttons_keyboard())
+            attachment = ""
+            if upload_image and dragon and dragon.egg_path:
+                filepath = os.path.join(_IMAGES, os.path.basename(dragon.egg_path))
+                if os.path.isfile(filepath):
+                    attachment = upload_image(filepath)
+            send_message(msg, attachment=attachment, keyboard=step_buttons_keyboard())
 
     db.commit()
     return True

@@ -24,6 +24,14 @@ def _setup(db, state="grow_step_1_norm"):
     return d, u
 
 
+def _photos():
+    return [
+        {"type": "photo", "photo": {"owner_id": 1, "id": 10}},
+        {"type": "photo", "photo": {"owner_id": 1, "id": 11}},
+        {"type": "photo", "photo": {"owner_id": 1, "id": 12}},
+    ]
+
+
 def test_format_step():
     from types import SimpleNamespace
     step = SimpleNamespace(magic_action="Wave wand", task_description="Sew 100", hint="Use blue", crosses_norm=500)
@@ -67,7 +75,7 @@ def test_grow_message_completes_step(db):
     def send(msg, **kw):
         messages.append(msg)
 
-    handled = handle_grow_message(u, "вышито 1500", [], db, send)
+    handled = handle_grow_message(u, "вышито 1500", _photos(), db, send)
 
     assert handled is True
     assert len(messages) >= 1
@@ -79,6 +87,8 @@ def test_grow_message_completes_step(db):
     ).first()
     assert progress is not None
     assert progress.completed is True
+    assert progress.photo_before_id == "photo1_10"
+    assert progress.photo_after_id == "photo1_11"
 
     db.refresh(u)
     assert u.current_step == 2
@@ -98,7 +108,7 @@ def test_grow_message_with_timeout_shows_delay_message(db):
     def send(msg, **kw):
         messages.append(msg)
 
-    handle_grow_message(u, "вышито 1500", [], db, send)
+    handle_grow_message(u, "вышито 1500", _photos(), db, send)
 
     full_text = " ".join(messages)
     assert "выполнен" in full_text
@@ -123,6 +133,21 @@ def test_grow_message_insufficient_crosses(db):
         UserProgress.step_number == 1,
     ).first()
     assert progress is None or progress.completed == False
+
+
+def test_grow_message_insufficient_photos(db):
+    d, u = _setup(db)
+
+    messages = []
+    def send(msg, **kw):
+        messages.append(msg)
+
+    handled = handle_grow_message(u, "вышито 1500", [], db, send)
+
+    assert handled is True
+    assert len(messages) == 1
+    assert "3 фото" in messages[0]
+    assert "ДО" in messages[0]
 
 
 def test_grow_message_no_active_dragon(db):
