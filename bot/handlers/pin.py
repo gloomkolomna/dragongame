@@ -36,11 +36,7 @@ def handle_pin_entry(user, text, db, send_message, upload_image=None):
 
     ok = activate_pin(db, user.vk_id, dragon)
     if not ok:
-        send_message("⚠️ Ты уже активировал этого дракона.")
-        if user.current_dragon_id:
-            user.state = grow_state(user.current_step)
-        else:
-            user.state = IDLE
+        send_message("⚠️ Ты уже активировал этого дракона. Попробуй другой PIN-код.")
         db.commit()
         return
 
