@@ -11,6 +11,24 @@ from bot.keyboard import idle_keyboard, step_buttons_keyboard, start_growing_key
 _IMAGES = os.path.join(os.path.dirname(__file__), "..", "..", "images", "dragons")
 
 
+def _attach_egg(db, user, dragon, upload_image):
+    if not upload_image or not dragon or not dragon.egg_path:
+        return ""
+    filepath = os.path.join(_IMAGES, os.path.basename(dragon.egg_path))
+    if not os.path.isfile(filepath):
+        from datetime import datetime
+        from models import ErrorLog
+        db.add(ErrorLog(source="bot", error_type="UPLOAD", message=f"Egg file not found: {filepath}", user_id=user.vk_id, created_at=datetime.now().isoformat()))
+        db.commit()
+        return ""
+    def log_err(msg):
+        from datetime import datetime
+        from models import ErrorLog
+        db.add(ErrorLog(source="bot", error_type="UPLOAD", message=f"{msg} (file={filepath})", user_id=user.vk_id, created_at=datetime.now().isoformat()))
+        db.commit()
+    return upload_image(filepath, log_error=log_err)
+
+
 def handle_start(user, db, send_message):
     if user.state == IDLE or not user.current_dragon_id:
         from models import UserDragon
@@ -249,11 +267,7 @@ def cancel_garden(user, db, send_message, upload_image=None):
         msg = f"Остаёмся на «{label}».\n{format_step(step_def, user.current_step, total)}"
         if step_def:
             msg += f"\n\n🎯 Норма: {step_def.crosses_norm} крестиков\nВыбери режим:"
-        attachment = ""
-        if upload_image and dragon and dragon.egg_path:
-            filepath = os.path.join(_IMAGES, os.path.basename(dragon.egg_path))
-            if os.path.isfile(filepath):
-                attachment = upload_image(filepath)
+        attachment = _attach_egg(db, user, dragon, upload_image)
         send_message(msg, attachment=attachment, keyboard=step_buttons_keyboard())
 
 
@@ -290,11 +304,7 @@ def switch_dragon(user, num: int, db, send_message, upload_image=None):
             msg = f"Ты уже выращиваешь этого дракона.\n{format_step(step_def, user.current_step, get_total_steps(db, ud.dragon_id))}"
             if step_def:
                 msg += f"\n\n🎯 Норма: {step_def.crosses_norm} крестиков\nВыбери режим:"
-            attachment = ""
-            if upload_image and dragon and dragon.egg_path:
-                filepath = os.path.join(_IMAGES, os.path.basename(dragon.egg_path))
-                if os.path.isfile(filepath):
-                    attachment = upload_image(filepath)
+            attachment = _attach_egg(db, user, dragon, upload_image)
             send_message(msg, attachment=attachment, keyboard=step_buttons_keyboard())
         return
 
@@ -358,11 +368,7 @@ def switch_dragon(user, num: int, db, send_message, upload_image=None):
         msg = f"▸ Переключился на «{dragon.egg_type or dragon.name or '?'}».\n{format_step(next_def, curr_step, total)}"
         if next_def:
             msg += f"\n\n🎯 Норма: {next_def.crosses_norm} крестиков\nВыбери режим:"
-        attachment = ""
-        if upload_image and dragon and dragon.egg_path:
-            filepath = os.path.join(_IMAGES, os.path.basename(dragon.egg_path))
-            if os.path.isfile(filepath):
-                attachment = upload_image(filepath)
+        attachment = _attach_egg(db, user, dragon, upload_image)
         send_message(msg, attachment=attachment, keyboard=step_buttons_keyboard())
 
 
@@ -433,11 +439,7 @@ def handle_switch_to(user, dragon_id: int, db, send_message, upload_image=None):
         msg = f"▸ Переключился на «{dragon.egg_type or dragon.name or '?'}».\n{format_step(step_def, next_step, total)}"
         if step_def:
             msg += f"\n\n🎯 Норма: {step_def.crosses_norm} крестиков\nВыбери режим:"
-        attachment = ""
-        if upload_image and dragon and dragon.egg_path:
-            filepath = os.path.join(_IMAGES, os.path.basename(dragon.egg_path))
-            if os.path.isfile(filepath):
-                attachment = upload_image(filepath)
+        attachment = _attach_egg(db, user, dragon, upload_image)
         send_message(msg, attachment=attachment, keyboard=step_buttons_keyboard())
 
 
