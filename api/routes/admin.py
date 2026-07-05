@@ -222,7 +222,7 @@ def add_step(dragon_id: int, db: Session = Depends(get_db)):
     if not dragon:
         raise HTTPException(status_code=404, detail="Dragon not found")
     max_number = db.query(DragonStep).filter(DragonStep.dragon_id == dragon_id).count()
-    step = DragonStep(dragon_id=dragon_id, step_number=max_number + 1, magic_action="", task_description="", hint="", timeout_hours=0, timeout_minutes=0, crosses_norm=1000)
+    step = DragonStep(dragon_id=dragon_id, step_number=max_number + 1, magic_action="", task_description="", hint="", timeout_hours=1, timeout_minutes=0, crosses_norm=1000)
     db.add(step)
     db.commit()
     sync_steps_count(db, dragon_id)

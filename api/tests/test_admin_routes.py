@@ -122,7 +122,7 @@ def test_add_step_with_default_timeout(client):
     assert len(steps) == 2
     assert steps[0]["timeout_hours"] == 2
     assert steps[0]["timeout_minutes"] == 30
-    assert steps[1]["timeout_hours"] == 0
+    assert steps[1]["timeout_hours"] == 1
     assert steps[1]["timeout_minutes"] == 0
 
 
