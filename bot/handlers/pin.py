@@ -65,10 +65,14 @@ def handle_pin_entry(user, text, db, send_message, upload_image=None):
         if not os.path.isfile(filepath):
             db.add(ErrorLog(source="bot", error_type="PIN", message=f"Image not found: {filepath} (egg_path={dragon.egg_path})", user_id=user.vk_id, created_at=datetime.now().isoformat()))
             db.commit()
-        attachment = upload_image(filepath)
-        if not attachment:
-            db.add(ErrorLog(source="bot", error_type="PIN", message=f"Upload failed for: {filepath}", user_id=user.vk_id, created_at=datetime.now().isoformat()))
-            db.commit()
+        else:
+            def log_err(msg):
+                db.add(ErrorLog(source="bot", error_type="PIN", message=f"Upload failed for {filepath}: {msg}", user_id=user.vk_id, created_at=datetime.now().isoformat()))
+                db.commit()
+            attachment = upload_image(filepath, log_error=log_err)
+            if not attachment:
+                db.add(ErrorLog(source="bot", error_type="PIN", message=f"Upload returned empty for: {filepath}", user_id=user.vk_id, created_at=datetime.now().isoformat()))
+                db.commit()
 
     keyboard = start_growing_keyboard()
     send_message(msg, attachment=attachment, keyboard=keyboard)

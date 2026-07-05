@@ -116,18 +116,21 @@ def main():
     scheduler_thread.start()
     print("Timeout scheduler started")
 
-    def upload_image(filepath: str) -> str:
+    def upload_image(filepath: str, log_error=None) -> str:
         try:
             if not os.path.isfile(filepath):
                 return ""
             upload_url = vk.photos.getMessagesUploadServer(peer_id=0)["upload_url"]
             import requests
             with open(filepath, "rb") as f:
-                resp = requests.post(upload_url, files={"photo": ("image.jpg", f, "image/jpeg")}).json()
+                resp = requests.post(upload_url, files={"photo": ("image.jpg", f, "image/jpeg")}, timeout=30).json()
             saved = vk.photos.saveMessagesPhoto(photo=resp["photo"], server=resp["server"], hash=resp["hash"])[0]
             return f"photo{saved['owner_id']}_{saved['id']}"
         except Exception as e:
-            print(f"Image upload failed: {e}")
+            msg = f"Image upload failed: {e}"
+            print(msg)
+            if log_error:
+                log_error(str(e))
             return ""
 
     for event in longpoll.listen():
