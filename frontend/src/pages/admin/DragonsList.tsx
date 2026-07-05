@@ -8,8 +8,7 @@ interface Family { id: number; name: string; color: string; }
 const RARITY: Record<number, string> = { 1: 'Обычный', 2: 'Редкий', 3: 'Легендарный' };
 
 function RarityStars({ rarity }: { rarity: number }) {
-  const n = Math.min(Math.max(rarity, 1), 3);
-  return <span style={{ color: 'var(--gold)' }}>{'★'.repeat(n)}</span>;
+  return <span style={{ color: 'var(--gold)' }}>{'★'.repeat(Math.max(rarity, 1))}</span>;
 }
 
 type SortCol = 'name' | 'rarity' | 'egg_type' | 'steps_count' | 'is_active' | 'family';
