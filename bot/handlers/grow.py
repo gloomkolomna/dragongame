@@ -92,7 +92,7 @@ def handle_norm_command(user, db, send_message):
     send_message(
         f"✅ Режим «Норма» — нужно вышить не менее {norm} крестиков.\n"
         f"Когда закончишь, отправь одним сообщением:\n"
-        f"• 3 фото: ДО, ПОСЛЕ и превью работы\n"
+        f"• фото работы (коллаж ДО + ПОСЛЕ + превью)\n"
         f"• текст: «вышито {norm}» (или другое число)"
     )
 
@@ -120,7 +120,7 @@ def handle_x2_command(user, db, send_message):
     send_message(
         f"⚠ Режим «Штраф (x2)» — нужно вышить не менее {norm} крестиков.\n"
         f"Когда закончишь, отправь одним сообщением:\n"
-        f"• 3 фото: ДО, ПОСЛЕ и превью работы\n"
+        f"• фото работы (коллаж ДО + ПОСЛЕ + превью)\n"
         f"• текст: «вышито {norm}» (или другое число)"
     )
 
@@ -182,18 +182,10 @@ def _handle_crosses_check(user, text, attachments, db, send_message, upload_imag
         return True
 
     photo_infos = [a["photo"] for a in attachments if a.get("type") == "photo" and a.get("photo")]
-    if len(photo_infos) < 3:
-        from datetime import datetime
-        from models import ErrorLog
-        db.add(ErrorLog(
-            source="bot", error_type="PHOTO_CHECK",
-            message=f"Need 3 photos, got {len(attachments)} attachments: types={[a.get('type') for a in attachments]}, photo_keys={[list(a.get('photo', {}).keys()) if a.get('photo') else None for a in attachments if a.get('type') == 'photo']}",
-            user_id=user.vk_id, created_at=datetime.now().isoformat(),
-        ))
-        db.commit()
+    if len(photo_infos) == 0:
         send_message(
-            "❌ Для отчёта нужно 3 фото: ДО, ПОСЛЕ и превью работы.\n"
-            "Отправьте их одним сообщением вместе с текстом «вышито [число]»."
+            "❌ Прикрепи фото работы (можно одним коллажем ДО + ПОСЛЕ + превью) "
+            "вместе с текстом «вышито [число]»."
         )
         db.commit()
         return True
@@ -204,7 +196,7 @@ def _handle_crosses_check(user, text, attachments, db, send_message, upload_imag
     complete_step(
         db, user.vk_id, dragon_id, step,
         photo_before_id=fmt_photo(photo_infos[0]),
-        photo_after_id=fmt_photo(photo_infos[1]),
+        photo_after_id=fmt_photo(photo_infos[1]) if len(photo_infos) > 1 else "",
     )
     total = get_total_steps(db, dragon_id)
     from models import Dragon

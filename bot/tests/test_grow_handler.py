@@ -146,8 +146,7 @@ def test_grow_message_insufficient_photos(db):
 
     assert handled is True
     assert len(messages) == 1
-    assert "3 фото" in messages[0]
-    assert "ДО" in messages[0]
+    assert "фото" in messages[0]
 
 
 def test_grow_message_no_active_dragon(db):
