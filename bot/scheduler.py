@@ -12,6 +12,25 @@ sys.path.insert(0, _root)
 sys.path.insert(0, os.path.join(_root, "api"))
 
 
+_IMAGES = os.path.join(_root, "images", "dragons")
+
+
+def _upload_image(vk, filepath: str) -> str:
+    try:
+        if not os.path.isfile(filepath):
+            return ""
+        upload_url = vk.photos.getMessagesUploadServer(peer_id=0)["upload_url"]
+        import requests
+        with open(filepath, "rb") as f:
+            resp = requests.post(upload_url, files={"photo": ("image.jpg", f, "image/jpeg")}, timeout=30).json()
+        saved = vk.photos.saveMessagesPhoto(photo=resp["photo"], server=resp["server"], hash=resp["hash"])[0]
+        return f"photo{saved['owner_id']}_{saved['id']}"
+    except Exception as e:
+        logger = logging.getLogger("timeout_scheduler")
+        logger.error(f"Upload failed: {e}")
+        return ""
+
+
 def run_timeout_checker(session_factory, vk, interval=30):
     logger = logging.getLogger("timeout_scheduler")
     while True:
@@ -145,7 +164,12 @@ def _check_expired(db, vk, logger):
             )
             from bot.keyboard import step_buttons_keyboard
             keyboard_json = step_buttons_keyboard()
-            _send(vk, ud.user_id, msg, keyboard_json, logger)
+            attachment = ""
+            if dragon and dragon.egg_path:
+                filepath = os.path.join(_IMAGES, os.path.basename(dragon.egg_path))
+                if os.path.isfile(filepath):
+                    attachment = _upload_image(vk, filepath)
+            _send(vk, ud.user_id, msg, keyboard_json, logger, attachment)
         else:
             msg = (
                 f"⏰ Дракон «{dragon.egg_type or dragon.name or '?'}» готов к следующему шагу!\n"
@@ -181,13 +205,16 @@ def _switch_keyboard(dragon_id: int):
     }, ensure_ascii=False)
 
 
-def _send(vk, user_id, message, keyboard, logger):
+def _send(vk, user_id, message, keyboard, logger, attachment=""):
     try:
-        vk.messages.send(
-            user_id=user_id,
-            message=message,
-            random_id=random.randint(1, 2**31 - 1),
-            keyboard=keyboard,
-        )
+        kwargs = {
+            "user_id": user_id,
+            "message": message,
+            "random_id": random.randint(1, 2**31 - 1),
+            "keyboard": keyboard,
+        }
+        if attachment:
+            kwargs["attachment"] = attachment
+        vk.messages.send(**kwargs)
     except Exception as e:
         logger.error(f"Failed to send notification to {user_id}: {e}")

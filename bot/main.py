@@ -28,7 +28,7 @@ from datetime import datetime
 from datetime import datetime
 
 
-def _handle_growing_chat(user, db, send_message):
+def _handle_growing_chat(user, db, send_message, upload_image=None):
     from bot.services.grow_service import get_timeout_remaining, get_dragon_step, get_total_steps
     from models import Dragon
     dragon = db.query(Dragon).filter(Dragon.id == user.current_dragon_id).first()
@@ -49,7 +49,16 @@ def _handle_growing_chat(user, db, send_message):
         msg = f"🥚 {label}\n📋 Шаг {user.current_step} из {total}"
         if step_def:
             msg += f"\n\n🎯 Норма: {step_def.crosses_norm} крестиков\nВыбери режим:"
-        send_message(msg, keyboard=step_buttons_keyboard())
+        attachment = ""
+        if upload_image and dragon and dragon.egg_path:
+            filepath = os.path.join(
+                os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                "images", "dragons",
+                os.path.basename(dragon.egg_path),
+            )
+            if os.path.isfile(filepath):
+                attachment = upload_image(filepath)
+        send_message(msg, attachment=attachment, keyboard=step_buttons_keyboard())
 
 
 def get_keyboard(state: str, user=None) -> str:
@@ -173,10 +182,10 @@ def main():
             if user.state == AWAIT_GARDEN and not cmd:
                 t = text.strip().lower()
                 if t in ("0", "не менять"):
-                    cancel_garden(user, db, send_message)
+                    cancel_garden(user, db, send_message, upload_image)
                     continue
                 if t.isdigit():
-                    switch_dragon(user, int(t), db, send_message)
+                    switch_dragon(user, int(t), db, send_message, upload_image)
                     continue
 
             if cmd == "switch_to":
@@ -186,7 +195,7 @@ def main():
                 except (json.JSONDecodeError, TypeError):
                     dragon_id = None
                 if dragon_id:
-                    handle_switch_to(user, dragon_id, db, send_message)
+                    handle_switch_to(user, dragon_id, db, send_message, upload_image)
                 else:
                     send_message("Не удалось переключиться. Попробуй через «🔄 Сменить дракона».")
                 continue
@@ -200,7 +209,7 @@ def main():
             elif cmd == "garden":
                 handle_garden(user, db, send_message)
             elif cmd == "garden_cancel":
-                cancel_garden(user, db, send_message)
+                cancel_garden(user, db, send_message, upload_image)
             elif cmd == "pin":
                 handle_pin_command(user, db, send_message)
             elif cmd == "grow":
@@ -217,7 +226,7 @@ def main():
                 handle_grow_message(user, text, attachments, db, send_message, upload_image)
 
             elif is_growing(user.state) and user.current_dragon_id and text and not cmd:
-                _handle_growing_chat(user, db, send_message)
+                _handle_growing_chat(user, db, send_message, upload_image)
 
             elif user.state == IDLE and text and not cmd:
                 from models import UserDragon

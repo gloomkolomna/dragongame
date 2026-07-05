@@ -1,10 +1,14 @@
 """Command handlers: /start, /help, /status, garden."""
 
+import os
+import re
 from models import Dragon, UserDragon, UserProgress
 from bot.fsm import IDLE, GROW_STEP, AWAIT_GARDEN, step_from_state, grow_state
 from bot.services.grow_service import get_total_steps, get_dragon_step, get_timeout_remaining
 from bot.handlers.grow import format_step
-from bot.keyboard import idle_keyboard, step_buttons_keyboard, start_growing_keyboard
+from bot.keyboard import idle_keyboard, step_buttons_keyboard, start_growing_keyboard, await_garden_keyboard
+
+_IMAGES = os.path.join(os.path.dirname(__file__), "..", "..", "images", "dragons")
 
 
 def handle_start(user, db, send_message):
@@ -214,13 +218,12 @@ def handle_garden(user, db, send_message):
             lines.append("\nВсе драконы выращены! Добавь нового или загляни в Бестиарий.")
 
     if user.current_dragon_id:
-        from bot.keyboard import await_garden_keyboard
         send_message("\n".join(lines), keyboard=await_garden_keyboard(with_cancel=True))
     else:
         send_message("\n".join(lines))
 
 
-def cancel_garden(user, db, send_message):
+def cancel_garden(user, db, send_message, upload_image=None):
     if not user.current_dragon_id:
         user.state = IDLE
         db.commit()
@@ -246,10 +249,15 @@ def cancel_garden(user, db, send_message):
         msg = f"Остаёмся на «{label}».\n{format_step(step_def, user.current_step, total)}"
         if step_def:
             msg += f"\n\n🎯 Норма: {step_def.crosses_norm} крестиков\nВыбери режим:"
-        send_message(msg, keyboard=step_buttons_keyboard())
+        attachment = ""
+        if upload_image and dragon and dragon.egg_path:
+            filepath = os.path.join(_IMAGES, os.path.basename(dragon.egg_path))
+            if os.path.isfile(filepath):
+                attachment = upload_image(filepath)
+        send_message(msg, attachment=attachment, keyboard=step_buttons_keyboard())
 
 
-def switch_dragon(user, num: int, db, send_message):
+def switch_dragon(user, num: int, db, send_message, upload_image=None):
     active = db.query(UserDragon).filter(
         UserDragon.user_id == user.vk_id,
         UserDragon.completed_at == "",
@@ -282,7 +290,12 @@ def switch_dragon(user, num: int, db, send_message):
             msg = f"Ты уже выращиваешь этого дракона.\n{format_step(step_def, user.current_step, get_total_steps(db, ud.dragon_id))}"
             if step_def:
                 msg += f"\n\n🎯 Норма: {step_def.crosses_norm} крестиков\nВыбери режим:"
-            send_message(msg, keyboard=step_buttons_keyboard())
+            attachment = ""
+            if upload_image and dragon and dragon.egg_path:
+                filepath = os.path.join(_IMAGES, os.path.basename(dragon.egg_path))
+                if os.path.isfile(filepath):
+                    attachment = upload_image(filepath)
+            send_message(msg, attachment=attachment, keyboard=step_buttons_keyboard())
         return
 
     if ud.completed_at:
@@ -345,11 +358,16 @@ def switch_dragon(user, num: int, db, send_message):
         msg = f"▸ Переключился на «{dragon.egg_type or dragon.name or '?'}».\n{format_step(next_def, curr_step, total)}"
         if next_def:
             msg += f"\n\n🎯 Норма: {next_def.crosses_norm} крестиков\nВыбери режим:"
-        send_message(msg, keyboard=step_buttons_keyboard())
+        attachment = ""
+        if upload_image and dragon and dragon.egg_path:
+            filepath = os.path.join(_IMAGES, os.path.basename(dragon.egg_path))
+            if os.path.isfile(filepath):
+                attachment = upload_image(filepath)
+        send_message(msg, attachment=attachment, keyboard=step_buttons_keyboard())
 
 
 
-def handle_switch_to(user, dragon_id: int, db, send_message):
+def handle_switch_to(user, dragon_id: int, db, send_message, upload_image=None):
     from bot.fsm import grow_state, IDLE
     from models import Dragon, UserDragon, UserProgress
     from bot.services.grow_service import get_dragon_step, get_total_steps, get_timeout_remaining
@@ -415,7 +433,12 @@ def handle_switch_to(user, dragon_id: int, db, send_message):
         msg = f"▸ Переключился на «{dragon.egg_type or dragon.name or '?'}».\n{format_step(step_def, next_step, total)}"
         if step_def:
             msg += f"\n\n🎯 Норма: {step_def.crosses_norm} крестиков\nВыбери режим:"
-        send_message(msg, keyboard=step_buttons_keyboard())
+        attachment = ""
+        if upload_image and dragon and dragon.egg_path:
+            filepath = os.path.join(_IMAGES, os.path.basename(dragon.egg_path))
+            if os.path.isfile(filepath):
+                attachment = upload_image(filepath)
+        send_message(msg, attachment=attachment, keyboard=step_buttons_keyboard())
 
 
 def _completed_keyboard():
