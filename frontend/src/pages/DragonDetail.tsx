@@ -45,7 +45,7 @@ function DragonDetail() {
         <h2 style={{ margin: '0 0 4px', color: clr, fontSize: 22 }}>
           {d.is_revealed ? d.name : `Яйцо: ${d.egg_type}`}
         </h2>
-        {d.is_revealed && <div style={{ color: 'var(--text-secondary)', fontSize: 15, marginBottom: 12 }}>Редкость: {'⭐'.repeat(d.rarity || 1)}</div>}
+        {d.is_revealed && <div style={{ color: 'var(--text-secondary)', fontSize: 15, marginBottom: 12 }}>Редкость: <span style={{ color: 'var(--gold)' }}>{'★'.repeat(d.rarity || 1)}</span></div>}
         {d.is_revealed && d.description && <p style={{ color: 'var(--text-secondary)', fontSize: 16, fontStyle: 'italic' }}>{d.description}</p>}
       </div>
 

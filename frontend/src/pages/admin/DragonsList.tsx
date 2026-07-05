@@ -5,7 +5,12 @@ import client from '../../api/client';
 interface Dragon { id: number; name: string; rarity: number; egg_type: string; steps_count: number; is_active: boolean; family_id: number | null; pin_code: string | null; }
 interface Family { id: number; name: string; color: string; }
 
-const RARITY = ['', 'Обычный', 'Редкий', 'Эпический', 'Легендарный'];
+const RARITY: Record<number, string> = { 1: 'Обычный', 2: 'Редкий', 3: 'Легендарный' };
+
+function RarityStars({ rarity }: { rarity: number }) {
+  const n = Math.min(Math.max(rarity, 1), 3);
+  return <span style={{ color: 'var(--gold)' }}>{'★'.repeat(n)}</span>;
+}
 
 type SortCol = 'name' | 'rarity' | 'egg_type' | 'steps_count' | 'is_active' | 'family';
 
@@ -52,7 +57,7 @@ function DragonsList() {
 
     list = list.filter((d) =>
       f(d.name, 'name') &&
-      f(RARITY[d.rarity], 'rarity') &&
+      f(RARITY[d.rarity] ?? 'Легендарный', 'rarity') &&
       f(d.egg_type, 'egg_type') &&
       f(String(d.steps_count), 'steps_count') &&
       f(d.pin_code || '', 'pin') &&
@@ -151,7 +156,7 @@ function DragonsList() {
                         )}
                       </td>
                       <td style={{ cursor: 'pointer' }} onClick={() => navigate(`/admin/dragons/${d.id}/edit`)}>{d.name}</td>
-                      <td><span className={`lair-badge ${['','lair-badge-common','lair-badge-rare','lair-badge-legendary','lair-badge-legendary'][d.rarity] || 'lair-badge-common'}`}>{RARITY[d.rarity]}</span></td>
+                      <td><span className={`lair-badge ${['','lair-badge-common','lair-badge-rare','lair-badge-legendary'][d.rarity] || 'lair-badge-common'}`}>{RARITY[d.rarity] ?? 'Легендарный'} <RarityStars rarity={d.rarity} /></span></td>
                       <td>{d.egg_type}</td>
                       <td><span style={{ color: 'var(--gold)', fontWeight: 600 }}>{d.steps_count}</span></td>
                       <td>{d.is_active ? '✅' : '❌'}</td>

@@ -197,7 +197,7 @@ function GridEditor() {
                               background: 'rgba(30,20,42,0.6)', borderRadius: 8, fontSize: 15,
                               color: 'var(--parchment)', border: '1px solid var(--bronze)' }}>
                   <div style={{ fontWeight: 600, marginBottom: 2 }}>{d.name}</div>
-                  <div style={{ color: 'var(--gold)', fontSize: 13, marginBottom: 3 }}>{'⭐'.repeat(d.rarity)}</div>
+                  <div style={{ color: 'var(--gold)', fontSize: 13, marginBottom: 3 }}>{'★'.repeat(d.rarity)}</div>
                   <div style={{ display: 'flex', gap: 2 }}>
                     {d.egg_path && (
                       <img src={`/dragons/api/static/images/${d.egg_path}`} alt="яйцо" onClick={() => setModalImg(`/dragons/api/static/images/${d.egg_path}`)}
@@ -245,7 +245,7 @@ function GridEditor() {
                                   title="Редактировать дракона">
                               {dragon.name}
                             </span>
-                            <span style={{ color: 'var(--gold)', fontSize: 14 }}>{'⭐'.repeat(dragon.rarity)}</span>
+                            <span style={{ color: 'var(--gold)', fontSize: 14 }}>{'★'.repeat(dragon.rarity)}</span>
                           </div>
                           {dragon.egg_path && (
                             <img src={`/dragons/api/static/images/${dragon.egg_path}`} alt="яйцо" onClick={() => setModalImg(`/dragons/api/static/images/${dragon.egg_path}`)}

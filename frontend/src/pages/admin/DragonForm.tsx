@@ -125,8 +125,7 @@ function DragonForm() {
             <select className="lair-select" value={rarity} onChange={(e) => setRarity(Number(e.target.value))}>
               <option value={1}>Обычный</option>
               <option value={2}>Редкий</option>
-              <option value={3}>Эпический</option>
-              <option value={4}>Легендарный</option>
+              <option value={3}>Легендарный</option>
             </select>
           </div>
 

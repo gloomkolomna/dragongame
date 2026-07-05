@@ -645,7 +645,7 @@ async def toggle_user_step(vk_id: int, step_number: int, request: Request, db: S
         msg = (
             f"🎉 Поздравляю! Ты вырастил дракона!\n\n"
             f"⭐ {dragon.name} ⭐\n"
-            f"Редкость: {'⭐' * dragon.rarity}\n"
+            f"Редкость: {'⭐' * min(dragon.rarity, 3)}\n"
         )
         if dragon.description:
             msg += f"\n{dragon.description}\n"
