@@ -4,7 +4,7 @@ from models import Dragon, UserDragon, UserProgress
 from bot.fsm import IDLE, GROW_STEP, AWAIT_GARDEN, step_from_state, grow_state
 from bot.services.grow_service import get_total_steps, get_dragon_step, get_timeout_remaining
 from bot.handlers.grow import format_step
-from bot.keyboard import step_buttons_keyboard, start_growing_keyboard
+from bot.keyboard import idle_keyboard, step_buttons_keyboard, start_growing_keyboard
 
 
 def handle_start(user, db, send_message):
