@@ -225,7 +225,7 @@ def _handle_crosses_check(user, text, attachments, db, send_message, upload_imag
 
         msg = (
             f"🎉 Поздравляю! Ты вырастил дракона!\n\n"
-            f"⭐ {dragon.name if dragon else '???'} ⭐\n"
+            f"🐉 {dragon.name if dragon else '???'} 🐉\n"
             f"Редкость: {'⭐' * (dragon.rarity if dragon else 1)}\n"
         )
         if dragon and dragon.description:

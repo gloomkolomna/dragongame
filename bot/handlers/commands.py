@@ -156,10 +156,11 @@ def handle_status(user, db, send_message, upload_image=None):
         timeout_line = "\n✅ Готов к следующему этапу выращивания!"
 
     attachment = _attach_egg(db, user, dragon, upload_image) if upload_image else ""
+    status_emoji = "🐣" if completed > 0 else "🥚"
 
     if remaining is not None:
         send_message(
-            f"🥚 {dragon.egg_type or 'яйцо'}\n"
+            f"{status_emoji} {dragon.egg_type or 'яйцо'}\n"
             f"📋 Завершено шагов: {completed} из {total}\n"
             f"{bar} {pct}%\n"
             f"{timeout_line}",
@@ -169,7 +170,7 @@ def handle_status(user, db, send_message, upload_image=None):
         step_def = get_dragon_step(db, user.current_dragon_id, user.current_step)
         norm = step_def.crosses_norm if step_def else "?"
         send_message(
-            f"🥚 {dragon.egg_type or 'яйцо'}\n"
+            f"{status_emoji} {dragon.egg_type or 'яйцо'}\n"
             f"📋 Шаг {user.current_step} из {total}\n"
             f"{bar} {pct}%\n"
             f"🎯 Норма: {norm} крестиков\n"
@@ -210,7 +211,7 @@ def handle_garden(user, db, send_message):
         if ud.completed_at:
             pct = 100
             bar = "🟡" * 10
-            status = "⭐"
+            status = "🐉"
         else:
             total = dragon.steps_count
             completed = db.query(UserProgress).filter(
@@ -221,7 +222,7 @@ def handle_garden(user, db, send_message):
             pct = round((completed / max(total, 1)) * 100) if total else 0
             filled = round((completed / max(total, 1)) * 10) if total else 0
             bar = "🟡" * filled + "⚪" * (10 - filled)
-            status = "🥚"
+            status = "🐣" if completed > 0 else "🥚"
         marker = " ← сейчас" if is_current else ""
         label = dragon.name if ud.completed_at else (dragon.egg_type or dragon.name or "?")
         lines.append(f"{i + 1}. {status} {label} {bar} {pct}%{marker}")
@@ -262,11 +263,12 @@ def cancel_garden(user, db, send_message, upload_image=None):
     step_def = get_dragon_step(db, user.current_dragon_id, user.current_step)
     dragon = db.query(Dragon).filter(Dragon.id == user.current_dragon_id).first()
     label = dragon.egg_type or "яйцо" if dragon else "?"
+    growing_emoji = "🐣" if user.current_step > 1 else "🥚"
     if remaining is not None:
         total_secs = int(remaining.total_seconds())
         hours, remainder = divmod(total_secs, 3600)
         minutes = remainder // 60
-        send_message(f"🥚 Яйцо «{label}» выращивается.\n⏳ До следующего шага осталось: {hours} ч. {minutes} мин.")
+        send_message(f"{growing_emoji} Яйцо «{label}» выращивается.\n⏳ До следующего шага осталось: {hours} ч. {minutes} мин.")
     else:
         msg = f"Остаёмся на «{label}».\n{format_step(step_def, user.current_step, total)}"
         if step_def:
@@ -299,11 +301,12 @@ def switch_dragon(user, num: int, db, send_message, upload_image=None):
         step_def = get_dragon_step(db, ud.dragon_id, user.current_step)
         dragon = db.query(Dragon).filter(Dragon.id == ud.dragon_id).first()
         label = dragon.egg_type or "яйцо" if dragon else "?"
+        growing_em = "🐣" if user.current_step > 1 else "🥚"
         if remaining is not None:
             total_secs = int(remaining.total_seconds())
             hours, remainder = divmod(total_secs, 3600)
             minutes = remainder // 60
-            send_message(f"🥚 Ты уже выращиваешь «{label}».\n⏳ До следующего шага осталось: {hours} ч. {minutes} мин.")
+            send_message(f"{growing_em} Ты уже выращиваешь «{label}».\n⏳ До следующего шага осталось: {hours} ч. {minutes} мин.")
         else:
             msg = f"Ты уже выращиваешь этого дракона.\n{format_step(step_def, user.current_step, get_total_steps(db, ud.dragon_id))}"
             if step_def:
@@ -318,7 +321,7 @@ def switch_dragon(user, num: int, db, send_message, upload_image=None):
         user.state = IDLE
         db.commit()
         send_message(
-            f"⭐ «{name}» уже выращен!\n"
+            f"🐉 «{name}» уже выращен!\n"
             f"Загляни в мини-приложение, чтобы увидеть его в коллекции, или добавь нового дракона.",
             keyboard=_completed_keyboard(),
         )
@@ -344,7 +347,7 @@ def switch_dragon(user, num: int, db, send_message, upload_image=None):
         user.current_step = 0
         db.commit()
         send_message(
-            f"⭐ «{dragon.name}» уже выращен!\n"
+            f"🐉 «{dragon.name}» уже выращен!\n"
             f"Загляни в мини-приложение, чтобы увидеть его в коллекции, или добавь нового дракона.",
             keyboard=_completed_keyboard(),
         )
@@ -363,9 +366,10 @@ def switch_dragon(user, num: int, db, send_message, upload_image=None):
         total_secs = int(remaining.total_seconds())
         hours, remainder = divmod(total_secs, 3600)
         minutes = remainder // 60
+        switch_emoji = "🐣" if completed > 0 else "🥚"
         send_message(
             f"▸ Переключился на «{dragon.egg_type or dragon.name or '?'}».\n"
-            f"🥚 Яйцо «{dragon.egg_type or '?'}» выращивается.\n"
+            f"{switch_emoji} Яйцо «{dragon.egg_type or '?'}» выращивается.\n"
             f"⏳ Осталось: {hours} ч. {minutes} мин."
         )
     else:
@@ -415,7 +419,7 @@ def handle_switch_to(user, dragon_id: int, db, send_message, upload_image=None):
             user.state = IDLE
             db.commit()
         send_message(
-            f"⭐ «{dragon.name}» уже выращен!\n"
+            f"🐉 «{dragon.name}» уже выращен!\n"
             f"Загляни в мини-приложение, чтобы увидеть его в коллекции, или добавь нового дракона.",
             keyboard=_completed_keyboard(),
         )
@@ -434,9 +438,10 @@ def handle_switch_to(user, dragon_id: int, db, send_message, upload_image=None):
         total_secs = int(remaining.total_seconds())
         hours, remainder = divmod(total_secs, 3600)
         minutes = remainder // 60
+        switch_emoji = "🐣" if completed > 0 else "🥚"
         send_message(
             f"▸ Переключился на «{dragon.egg_type or dragon.name or '?'}».\n"
-            f"🥚 Яйцо «{dragon.egg_type or '?'}» выращивается.\n"
+            f"{switch_emoji} Яйцо «{dragon.egg_type or '?'}» выращивается.\n"
             f"⏳ Осталось: {hours} ч. {minutes} мин."
         )
     else:
@@ -454,7 +459,7 @@ def _completed_keyboard():
         "buttons": [
             [{"action": {"type": "text", "label": "🐉 Добавить дракона", "payload": json.dumps({"cmd": "pin"}, ensure_ascii=False)}, "color": "primary"}],
             [
-                {"action": {"type": "text", "label": "🔄 Сменить дракона", "payload": json.dumps({"cmd": "garden"}, ensure_ascii=False)}, "color": "secondary"},
+                {"action": {"type": "text", "label": "🔄🐉 Сменить дракона", "payload": json.dumps({"cmd": "garden"}, ensure_ascii=False)}, "color": "secondary"},
                 {"action": {"type": "text", "label": "❓ Помощь", "payload": json.dumps({"cmd": "help"}, ensure_ascii=False)}, "color": "secondary"},
             ],
             [{"action": {"type": "open_link", "label": "📖 Мой Бестиарий", "link": "https://vk.com/app54663330"}}],

@@ -127,7 +127,7 @@ def _check_expired(db, vk, logger):
 
             msg = (
                 f"🎉 Поздравляю! Ты вырастил дракона!\n\n"
-                f"⭐ {dragon.name} ⭐\n"
+                f"🐉 {dragon.name} 🐉\n"
                 f"Редкость: {'⭐' * dragon.rarity}\n"
             )
             if dragon.description:
