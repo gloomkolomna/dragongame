@@ -30,15 +30,9 @@ interface Family {
 
  const GAP = 4;
 
-function formatRemaining(until: string): string {
-  const diff = new Date(until).getTime() - Date.now();
-  if (diff <= 0) return '0м';
-  const totalMin = Math.ceil(diff / 60000);
-  const h = Math.floor(totalMin / 60);
-  const m = totalMin % 60;
-  if (h > 0) return `${h}ч ${m}м`;
-  return `${m}м`;
-}
+import { formatRemaining } from '../utils/time';
+
+const GAP = 4;
 
 function Collection() {
   const { vkUserId, isDemo, loading: bl } = useVkBridge();

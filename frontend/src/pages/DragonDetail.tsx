@@ -3,19 +3,10 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useVkBridge } from '../context/VkBridgeContext';
 import client from '../api/client';
 import { mediaUrl } from '../api/media';
+import { formatRemaining } from '../utils/time';
 
- interface Step { number: number; task: string; completed: boolean; }
+interface Step { number: number; task: string; completed: boolean; }
 interface Dragon { is_revealed: boolean; name?: string; rarity?: number; egg_type: string; steps_count: number; description?: string; dragon_url?: string; egg_url?: string; next_step_available_at?: string; family_color?: string; user_progress: { status: string; completed_steps: number; steps: Step[] }; }
-
-function formatRemaining(until: string): string {
-  const diff = new Date(until).getTime() - Date.now();
-  if (diff <= 0) return '0м';
-  const totalMin = Math.ceil(diff / 60000);
-  const h = Math.floor(totalMin / 60);
-  const m = totalMin % 60;
-  if (h > 0) return `${h}ч ${m}м`;
-  return `${m}м`;
-}
 
 function DragonDetail() {
   const { id } = useParams<{ id: string }>();

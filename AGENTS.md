@@ -71,6 +71,8 @@ VK Mini App + Bot для выращивания драконов через вы
         admin/
           UserDragonProgress.tsx  # Прогресс конкретного дракона игрока
           ...
+      utils/
+        time.ts          # formatRemaining — форматирование оставшегося времени таймаута
   images/dragons/     # Яйца + взрослые драконы
   plans/              # Документация
   dev.ps1             # Локальный запуск (API :8001, frontend :5173, bot)
@@ -125,7 +127,11 @@ VK Mini App + Bot для выращивания драконов через вы
 ## Как запустить тесты
 
 ```powershell
+# Python (API + bot)
 api\venv\Scripts\python.exe -m pytest api/tests bot/tests -v --tb=short
+
+# Frontend (vitest)
+cd frontend; npx vitest run
 ```
 
 ## Миграции
@@ -148,12 +154,17 @@ cd api
 После любого изменения Python-кода (API, бот, сервисы) необходимо посмотреть, добавилось ли что-то новое или удалилось, написать на это тест, запустить тесты и убедиться, что все проходят:
 
 ```powershell
+# Python (API + bot)
 api\venv\Scripts\python.exe -m pytest api/tests bot/tests -v --tb=short
+
+# Frontend (vitest)
+cd frontend; npx vitest run
 ```
 
 Если тесты не проходят — исправить до завершения задачи.
 
-**_62 теста: 14 API + 4 модели + 16 grow_service + 7 grow_handler + 9 commands + 4 FSM + 7 scheduler._**
+**_63 теста (Python): 14 API + 4 модели + 17 grow_service + 8 grow_handler + 9 commands + 4 FSM + 7 scheduler._**
+**_9 тестов (TypeScript): formatRemaining.**_
 
 ## Конвенции кода
 
