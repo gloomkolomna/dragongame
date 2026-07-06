@@ -109,7 +109,7 @@ def handle_help(send_message):
     )
 
 
-def handle_status(user, db, send_message):
+def handle_status(user, db, send_message, upload_image=None):
     if not user.current_dragon_id:
         from bot.keyboard import idle_keyboard
         user.state = IDLE
@@ -155,12 +155,15 @@ def handle_status(user, db, send_message):
     else:
         timeout_line = "\n✅ Готов к следующему этапу выращивания!"
 
+    attachment = _attach_egg(db, user, dragon, upload_image) if upload_image else ""
+
     if remaining is not None:
         send_message(
             f"🥚 {dragon.egg_type or 'яйцо'}\n"
             f"📋 Завершено шагов: {completed} из {total}\n"
             f"{bar} {pct}%\n"
-            f"{timeout_line}"
+            f"{timeout_line}",
+            attachment=attachment,
         )
     else:
         step_def = get_dragon_step(db, user.current_dragon_id, user.current_step)
@@ -172,6 +175,7 @@ def handle_status(user, db, send_message):
             f"🎯 Норма: {norm} крестиков\n"
             f"{timeout_line}",
             keyboard=start_growing_keyboard(),
+            attachment=attachment,
         )
 
 

@@ -205,7 +205,7 @@ def main():
             elif cmd == "help":
                 handle_help(send_message)
             elif cmd == "status":
-                handle_status(user, db, send_message)
+                handle_status(user, db, send_message, upload_image)
             elif cmd == "garden":
                 handle_garden(user, db, send_message)
             elif cmd == "garden_cancel":
