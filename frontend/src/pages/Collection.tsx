@@ -14,6 +14,7 @@ interface Cell {
   egg_type?: string;
   egg_url?: string;
   dragon_url?: string;
+  next_step_available_at?: string;
 }
 
 interface Family {
@@ -177,11 +178,14 @@ function Collection() {
                 height: '100%', width: `${c.progress_pct}%`,
                 background: `linear-gradient(90deg, ${famColor}88, ${famColor})`,
                 borderRadius: cellSize * 0.04, transition: 'width 0.5s',
+                opacity: c.next_step_available_at ? 0.3 : 1,
               }} />
             </div>
-            <div style={{ fontSize: Math.max(12, cellSize * 0.12), color: famColor, textAlign: 'center', fontWeight: 700 }}>
-              {c.progress_pct}%
-            </div>
+            {!c.next_step_available_at && (
+              <div style={{ fontSize: Math.max(12, cellSize * 0.12), color: famColor, textAlign: 'center', fontWeight: 700 }}>
+                {c.progress_pct}%
+              </div>
+            )}
           </div>
         </div>
       );

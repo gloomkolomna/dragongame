@@ -48,6 +48,9 @@ def get_collection(vk_id: int, family_id: int = Query(...), db: Session = Depend
     for dragon_id, step in progress_rows:
         progress_map[dragon_id] = max(progress_map.get(dragon_id, 0), step)
 
+    # Таймауты для растущих драконов
+    timeout_map = {ud.dragon_id: ud.next_step_available_at for ud in user_dragons if ud.next_step_available_at is not None}
+
     # Предзагружаем драконов для ячеек, чтобы не дёргать БД в цикле
     dragon_ids = {c.dragon_id for c in grid if c.dragon_id}
     dragons_map = {
@@ -92,6 +95,7 @@ def get_collection(vk_id: int, family_id: int = Query(...), db: Session = Depend
             "rarity": dragon.rarity if dragon else None,
             "egg_url": egg_url,
             "dragon_url": dragon_url,
+            "next_step_available_at": timeout_map.get(cell.dragon_id) if status == "growing" else None,
         })
 
     return {
@@ -147,7 +151,7 @@ def get_dragon(
             "completed": user_step.completed if user_step else False,
         })
 
-    revealed = bool(completed) or all_completed
+    revealed = bool(completed)
 
     ud = db.query(UserDragon).filter(UserDragon.user_id == vk_id, UserDragon.dragon_id == dragon_id).first()
     next_step_available_at = ud.next_step_available_at if ud else None
