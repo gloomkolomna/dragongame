@@ -161,82 +161,89 @@ function Collection() {
           ) : (
             <span style={{ fontSize: cellSize * 0.5, opacity: 0.85, display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%' }}>🥚</span>
           )}
+          {(() => {
+            const hasTimeout = !!c.next_step_available_at && c.completed_steps > 0;
+            const total = c.steps_count || 5;
+            const current_pct = c.progress_pct;
+            const prev_completed = hasTimeout ? Math.max(0, c.completed_steps - 1) : c.completed_steps;
+            const prev_pct = Math.round((prev_completed / total) * 100);
+            const extra_pct = current_pct - prev_pct;
+
+            return (
+              <div style={{
+                position: 'absolute', top: 0, left: 0, right: 0,
+                padding: '4px 6px 4px',
+                background: 'linear-gradient(rgba(21,15,26,0.85) 40%, transparent)',
+              }}>
+                <div style={{ position: 'relative' }}>
+                  <div style={{ width: '100%', height: Math.max(6, cellSize * 0.07), background: 'rgba(21,15,26,0.55)', borderRadius: cellSize * 0.04, overflow: 'hidden', display: 'flex' }}>
+                    <div style={{
+                      height: '100%',
+                      width: `${prev_pct}%`,
+                      background: `linear-gradient(90deg, ${famColor}88, ${famColor})`,
+                      borderRadius: `${cellSize * 0.04}px 0 0 ${cellSize * 0.04}px`,
+                      transition: 'width 0.5s',
+                      flexShrink: 0,
+                    }} />
+                    {hasTimeout && extra_pct > 0 && (
+                      <div style={{
+                        height: '100%',
+                        width: `${extra_pct}%`,
+                        background: `linear-gradient(90deg, ${famColor}88, ${famColor})`,
+                        opacity: 0.3,
+                        transition: 'width 0.5s',
+                        flexShrink: 0,
+                      }} />
+                    )}
+                  </div>
+                  {hasTimeout && extra_pct > 0 && (
+                    <div style={{
+                      position: 'absolute',
+                      left: `${prev_pct}%`,
+                      width: `${extra_pct}%`,
+                      top: 0,
+                      bottom: 0,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      pointerEvents: 'none',
+                    }}>
+                      <span className="hourglass-flip" style={{
+                        fontSize: Math.max(8, cellSize * 0.065),
+                        lineHeight: 1,
+                        display: 'inline-block',
+                      }}>
+                        ⏳
+                      </span>
+                    </div>
+                  )}
+                  <div style={{
+                    position: 'absolute', inset: 0,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    pointerEvents: 'none',
+                  }}>
+                    <span style={{
+                      fontSize: Math.max(12, cellSize * 0.12), color: '#fff',
+                      fontWeight: 700,
+                      textShadow: '0 1px 3px rgba(0,0,0,0.7)',
+                    }}>
+                      {prev_pct}%
+                    </span>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
           {c.egg_type && (
             <div style={{
-              position: 'absolute', top: 0, left: 0, right: 0,
+              position: 'absolute', bottom: 0, left: 0, right: 0,
               padding: '4px 6px', background: 'rgba(21,15,26,0.78)',
-              fontSize: Math.max(13, cellSize * 0.12), color: famColor,
-              textAlign: 'center', fontWeight: 600,
-              whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+              fontSize: 18, color: famColor, textAlign: 'center',
+              whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontWeight: 600,
             }} title={c.egg_type}>
               {c.egg_type}
             </div>
           )}
-          <div style={{
-            position: 'absolute', bottom: 0, left: 0, right: 0,
-            padding: '4px 8px 6px',
-            background: 'linear-gradient(transparent, rgba(21,15,26,0.85) 40%)',
-          }}>
-             {(() => {
-               const hasTimeout = !!c.next_step_available_at && c.completed_steps > 0;
-               const total = c.steps_count || 5;
-               const current_pct = c.progress_pct;
-               const prev_completed = hasTimeout ? Math.max(0, c.completed_steps - 1) : c.completed_steps;
-               const prev_pct = Math.round((prev_completed / total) * 100);
-               const extra_pct = current_pct - prev_pct;
-
-               return (
-                 <>
-                   <div style={{ position: 'relative' }}>
-                     <div style={{ width: '100%', height: Math.max(6, cellSize * 0.07), background: 'rgba(21,15,26,0.55)', borderRadius: cellSize * 0.04, overflow: 'hidden', display: 'flex' }}>
-                       <div style={{
-                         height: '100%',
-                         width: `${prev_pct}%`,
-                         background: `linear-gradient(90deg, ${famColor}88, ${famColor})`,
-                         borderRadius: `${cellSize * 0.04}px 0 0 ${cellSize * 0.04}px`,
-                         transition: 'width 0.5s',
-                         flexShrink: 0,
-                       }} />
-                       {hasTimeout && extra_pct > 0 && (
-                         <div style={{
-                           height: '100%',
-                           width: `${extra_pct}%`,
-                           background: `linear-gradient(90deg, ${famColor}88, ${famColor})`,
-                           opacity: 0.3,
-                           transition: 'width 0.5s',
-                           flexShrink: 0,
-                         }} />
-                       )}
-                     </div>
-                      {hasTimeout && extra_pct > 0 && (
-                        <div style={{
-                          position: 'absolute',
-                          left: `${prev_pct}%`,
-                          width: `${extra_pct}%`,
-                          top: 0,
-                          bottom: 0,
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          pointerEvents: 'none',
-                        }}>
-                          <span className="hourglass-flip" style={{
-                            fontSize: Math.max(8, cellSize * 0.065),
-                            lineHeight: 1,
-                            display: 'inline-block',
-                          }}>
-                            ⏳
-                          </span>
-                        </div>
-                      )}
-                   </div>
-                   <div style={{ fontSize: Math.max(12, cellSize * 0.12), color: famColor, textAlign: 'center', fontWeight: 700 }}>
-                     {prev_pct}%
-                   </div>
-                 </>
-               );
-             })()}
-          </div>
         </div>
       );
     }
