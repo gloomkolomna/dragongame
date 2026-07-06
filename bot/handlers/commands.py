@@ -140,10 +140,7 @@ def handle_status(user, db, send_message, upload_image=None):
         UserProgress.dragon_id == user.current_dragon_id,
         UserProgress.completed == True,
     ).count()
-    pct = round((completed / max(total, 1)) * 100) if total else 0
-    bar_len = 10
-    filled = round((completed / max(total, 1)) * bar_len) if total else 0
-    bar = "🟡" * filled + "⚪" * (bar_len - filled)
+    bar = "🟡" * completed + "⚪" * (total - completed)
 
     remaining = get_timeout_remaining(db, user.vk_id, user.current_dragon_id)
     timeout_line = ""
@@ -162,7 +159,7 @@ def handle_status(user, db, send_message, upload_image=None):
         send_message(
             f"{status_emoji} {dragon.egg_type or 'яйцо'}\n"
             f"📋 Завершено шагов: {completed} из {total}\n"
-            f"{bar} {pct}%\n"
+            f"{bar}\n"
             f"{timeout_line}",
             attachment=attachment,
         )
@@ -172,7 +169,7 @@ def handle_status(user, db, send_message, upload_image=None):
         send_message(
             f"{status_emoji} {dragon.egg_type or 'яйцо'}\n"
             f"📋 Шаг {user.current_step} из {total}\n"
-            f"{bar} {pct}%\n"
+            f"{bar}\n"
             f"🎯 Норма: {norm} крестиков\n"
             f"{timeout_line}",
             keyboard=start_growing_keyboard(),
@@ -209,8 +206,7 @@ def handle_garden(user, db, send_message):
             continue
         is_current = user.current_dragon_id == ud.dragon_id
         if ud.completed_at:
-            pct = 100
-            bar = "🟡" * 10
+            bar = "🟡" * dragon.steps_count
             status = "🐉"
         else:
             total = dragon.steps_count
@@ -219,13 +215,11 @@ def handle_garden(user, db, send_message):
                 UserProgress.dragon_id == ud.dragon_id,
                 UserProgress.completed == True,
             ).count()
-            pct = round((completed / max(total, 1)) * 100) if total else 0
-            filled = round((completed / max(total, 1)) * 10) if total else 0
-            bar = "🟡" * filled + "⚪" * (10 - filled)
+            bar = "🟡" * completed + "⚪" * (total - completed)
             status = "🐣" if completed > 0 else "🥚"
         marker = " ← сейчас" if is_current else ""
         label = dragon.name if ud.completed_at else (dragon.egg_type or dragon.name or "?")
-        lines.append(f"{i + 1}. {status} {label} {bar} {pct}%{marker}")
+        lines.append(f"{i + 1}. {status} {label} {bar}{marker}")
 
     if entries:
         user.state = AWAIT_GARDEN

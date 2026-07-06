@@ -164,10 +164,9 @@ function Collection() {
           {(() => {
             const hasTimeout = !!c.next_step_available_at && c.completed_steps > 0;
             const total = c.steps_count || 5;
-            const current_pct = c.progress_pct;
             const prev_completed = hasTimeout ? Math.max(0, c.completed_steps - 1) : c.completed_steps;
             const prev_pct = Math.round((prev_completed / total) * 100);
-            const extra_pct = current_pct - prev_pct;
+            const extra_pct = hasTimeout ? Math.round((1 / total) * 100) : 0;
 
             return (
               <div style={{
@@ -227,7 +226,7 @@ function Collection() {
                       fontWeight: 700,
                       textShadow: '0 1px 3px rgba(0,0,0,0.7)',
                     }}>
-                      {prev_pct}%
+                      {c.completed_steps}/{total}
                     </span>
                   </div>
                 </div>

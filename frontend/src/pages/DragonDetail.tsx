@@ -8,7 +8,6 @@ interface Step { number: number; task: string; completed: boolean; }
 interface Dragon { is_revealed: boolean; name?: string; rarity?: number; egg_type: string; steps_count: number; description?: string; dragon_url?: string; egg_url?: string; next_step_available_at?: string; family_color?: string; user_progress: { status: string; completed_steps: number; steps: Step[] }; }
 
 const RARITY: Record<number, string> = { 1: 'Обычный', 2: 'Редкий', 3: 'Легендарный' };
-const GROUP_ID = 239999455;
 
 function DragonDetail() {
   const { id } = useParams<{ id: string }>();
@@ -23,12 +22,11 @@ function DragonDetail() {
   if (bl || load) return <div style={{ display: 'flex', justifyContent: 'center', padding: 60 }}><div className="dragon-skeleton-card" style={{ height: 300 }} /></div>;
   if (!d) return <div className="lair-card" style={{ maxWidth: 400, margin: '40px auto', textAlign: 'center' }}><div className="lair-empty-icon">🐉</div><p style={{ color: 'var(--text-secondary)' }}>Дракон не найден</p></div>;
 
-   const pct = d.steps_count ? Math.round((d.user_progress.completed_steps / d.steps_count) * 100) : 0;
-   const clr = d.family_color || 'var(--accent-gold-light)';
+    const clr = d.family_color || 'var(--accent-gold-light)';
    const hasTimeout = !!d.next_step_available_at && d.user_progress.completed_steps > 0;
    const prevCompleted = hasTimeout ? Math.max(0, d.user_progress.completed_steps - 1) : d.user_progress.completed_steps;
    const prevPct = d.steps_count ? Math.round((prevCompleted / d.steps_count) * 100) : 0;
-   const extraPct = pct - prevPct;
+   const extraPct = d.steps_count ? Math.round((1 / d.steps_count) * 100) : 0;
 
   return (
     <div style={{ padding: 20 }}>
@@ -69,7 +67,7 @@ function DragonDetail() {
                 transition: 'width 0.5s',
                 flexShrink: 0,
               }} />
-              {hasTimeout && extraPct > 0 && (
+              {hasTimeout && (
                 <div style={{
                   height: '100%',
                   width: `${extraPct}%`,
@@ -80,7 +78,7 @@ function DragonDetail() {
                 }} />
               )}
             </div>
-            {hasTimeout && extraPct > 0 && (
+            {hasTimeout && (
               <div style={{
                 position: 'absolute',
                 left: `${prevPct}%`,
@@ -96,19 +94,10 @@ function DragonDetail() {
               </div>
             )}
           </div>
-          <div style={{ fontSize: 14, color: 'var(--text-muted)', marginTop: 4 }}>{prevPct}%</div>
+          <div style={{ fontSize: 14, color: 'var(--text-muted)', marginTop: 4 }}>{d.user_progress.completed_steps} из {d.steps_count}</div>
         </div>
 
        <div className="lair-card">
-         <a
-           href={`https://vk.com/im/convo/-${GROUP_ID}`}
-           target="_blank"
-           rel="noopener noreferrer"
-           className="lair-btn"
-           style={{ display: 'block', textAlign: 'center', marginBottom: 12, textDecoration: 'none', fontSize: 17, fontWeight: 600 }}
-         >
-           💬 Перейти в чат с ботом
-         </a>
          {d.user_progress.steps.filter((s) => d.next_step_available_at ? s.completed : s.number <= d.user_progress.completed_steps + 1).map((s) => {
            const isTimeoutStep = hasTimeout && s.completed && s.number === d.user_progress.completed_steps;
            return (
