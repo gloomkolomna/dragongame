@@ -367,10 +367,12 @@ def switch_dragon(user, num: int, db, send_message, upload_image=None):
         hours, remainder = divmod(total_secs, 3600)
         minutes = remainder // 60
         switch_emoji = "🐣" if completed > 0 else "🥚"
+        attachment = _attach_egg(db, user, dragon, upload_image)
         send_message(
             f"▸ Переключился на «{dragon.egg_type or dragon.name or '?'}».\n"
             f"{switch_emoji} Яйцо «{dragon.egg_type or '?'}» выращивается.\n"
-            f"⏳ Осталось: {hours} ч. {minutes} мин."
+            f"⏳ Осталось: {hours} ч. {minutes} мин.",
+            attachment=attachment,
         )
     else:
         msg = f"▸ Переключился на «{dragon.egg_type or dragon.name or '?'}».\n{format_step(next_def, curr_step, total)}"
@@ -439,10 +441,12 @@ def handle_switch_to(user, dragon_id: int, db, send_message, upload_image=None):
         hours, remainder = divmod(total_secs, 3600)
         minutes = remainder // 60
         switch_emoji = "🐣" if completed > 0 else "🥚"
+        attachment = _attach_egg(db, user, dragon, upload_image)
         send_message(
             f"▸ Переключился на «{dragon.egg_type or dragon.name or '?'}».\n"
             f"{switch_emoji} Яйцо «{dragon.egg_type or '?'}» выращивается.\n"
-            f"⏳ Осталось: {hours} ч. {minutes} мин."
+            f"⏳ Осталось: {hours} ч. {minutes} мин.",
+            attachment=attachment,
         )
     else:
         msg = f"▸ Переключился на «{dragon.egg_type or dragon.name or '?'}».\n{format_step(step_def, next_step, total)}"
