@@ -223,7 +223,7 @@ function Collection() {
                     pointerEvents: 'none',
                   }}>
                     <span style={{
-                      fontSize: Math.max(12, cellSize * 0.12), color: '#fff',
+                      fontSize: Math.max(12, cellSize * 0.12), color: famColor,
                       fontWeight: 700,
                       textShadow: '0 1px 3px rgba(0,0,0,0.7)',
                     }}>
