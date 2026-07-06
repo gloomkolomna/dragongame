@@ -115,6 +115,7 @@ fi
 log "=== 3. Git pull ==="
 cd "$APP_DIR"
 git stash push -- frontend/package-lock.json 2>/dev/null || true
+rm -f frontend/tsconfig.tsbuildinfo
 git pull
 
 # ===== 4. Зависимости + миграции =====
