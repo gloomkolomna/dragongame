@@ -218,9 +218,10 @@ function Collection() {
                           justifyContent: 'center',
                           pointerEvents: 'none',
                         }}>
-                          <span style={{
+                          <span className="hourglass-flip" style={{
                             fontSize: Math.max(8, cellSize * 0.065),
                             lineHeight: 1,
+                            display: 'inline-block',
                           }}>
                             ⏳
                           </span>
@@ -356,7 +357,7 @@ function Collection() {
         </div>
       )}
 
-      <style>{`.dragon-skeleton-card{width:280px;height:280px;background:var(--bg-card);border:1px solid var(--border-color);border-radius:var(--radius-md);animation:shim 1.5s infinite}@keyframes shim{0%,100%{opacity:.4}50%{opacity:.7}}`}</style>
+      <style>{`.dragon-skeleton-card{width:280px;height:280px;background:var(--bg-card);border:1px solid var(--border-color);border-radius:var(--radius-md);animation:shim 1.5s infinite}@keyframes shim{0%,100%{opacity:.4}50%{opacity:.7}}.hourglass-flip{animation:hg 3s ease-in-out infinite}@keyframes hg{0%{transform:rotateY(0)}45%{transform:rotateY(0)}55%{transform:rotateY(180deg)}100%{transform:rotateY(180deg)}}`}</style>
     </div>
   );
 }

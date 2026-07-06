@@ -89,7 +89,7 @@ function DragonDetail() {
                 justifyContent: 'center',
                 pointerEvents: 'none',
               }}>
-                <span style={{ fontSize: 8, lineHeight: 1 }}>⏳</span>
+                <span className="hourglass-flip" style={{ fontSize: 8, lineHeight: 1, display: 'inline-block' }}>⏳</span>
               </div>
             )}
           </div>
@@ -106,9 +106,9 @@ function DragonDetail() {
              border: '1px solid var(--border-color)',
            }}>
              <span style={{ marginRight: 8 }}>
-               {isTimeoutStep
-                 ? '⏳'
-                 : s.completed
+                {isTimeoutStep
+                  ? <span className="hourglass-flip" style={{ display: 'inline-block' }}>⏳</span>
+                  : s.completed
                    ? '✅'
                    : s.number === d.user_progress.completed_steps + 1
                      ? '→'
@@ -123,7 +123,7 @@ function DragonDetail() {
        </div>
       </>
       )}
-      <style>{`.dragon-skeleton-card{height:300px;background:var(--bg-card);border:1px solid var(--border-color);border-radius:var(--radius-md);animation:sh 1.5s infinite}@keyframes sh{0%,100%{opacity:.4}50%{opacity:.7}}`}</style>
+      <style>{`.dragon-skeleton-card{height:300px;background:var(--bg-card);border:1px solid var(--border-color);border-radius:var(--radius-md);animation:sh 1.5s infinite}@keyframes sh{0%,100%{opacity:.4}50%{opacity:.7}}.hourglass-flip{animation:hg 3s ease-in-out infinite}@keyframes hg{0%{transform:rotateY(0)}45%{transform:rotateY(0)}55%{transform:rotateY(180deg)}100%{transform:rotateY(180deg)}}`}</style>
       {zoom && (
         <div onClick={() => setZoom(null)}
              style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
