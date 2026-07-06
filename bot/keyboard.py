@@ -43,9 +43,9 @@ def bestiary_link_row():
 
 
 def idle_keyboard(has_active=True):
-    bottom = [("🔄 Сменить дракона", "garden"), ("❓ Помощь", "help")]
+    bottom = [("🔄🥚 Сменить яйцо дракона", "garden"), ("❓ Помощь", "help")]
     return _keyboard([
-        row(("🐉 Добавить дракона", "pin")),
+        row(("🥚 Добавить яйцо дракона", "pin")),
         row(*bottom),
         bestiary_link_row(),
     ])
@@ -54,7 +54,7 @@ def idle_keyboard(has_active=True):
 def growing_keyboard():
     return _keyboard([
         row(("📋 Статус", "status")),
-        row(("🔄 Сменить дракона", "garden"), ("❓ Помощь", "help")),
+        row(("🔄🥚 Сменить яйцо дракона", "garden"), ("❓ Помощь", "help")),
         bestiary_link_row(),
     ])
 
@@ -62,7 +62,7 @@ def growing_keyboard():
 def waiting_keyboard():
     return _keyboard([
         row(("📋 Статус", "status")),
-        row(("🔄 Сменить дракона", "garden"), ("❓ Помощь", "help")),
+        row(("🔄🥚 Сменить яйцо дракона", "garden"), ("❓ Помощь", "help")),
         bestiary_link_row(),
     ])
 
@@ -70,7 +70,7 @@ def waiting_keyboard():
 def start_growing_keyboard():
     return _keyboard([
         row(("🌱 Перейти к выращиванию", "grow")),
-        row(("🔄 Сменить дракона", "garden"), ("❓ Помощь", "help")),
+        row(("🔄🥚 Сменить яйцо дракона", "garden"), ("❓ Помощь", "help")),
         bestiary_link_row(),
     ])
 
@@ -79,23 +79,23 @@ def step_buttons_keyboard():
     return _keyboard([
         row(("✅ Норма", "norm")),
         row(("⚠ Штраф (x2)", "x2")),
-        row(("📋 Статус", "status"), ("🔄 Сменить дракона", "garden")),
+        row(("📋 Статус", "status"), ("🔄🥚 Сменить яйцо дракона", "garden")),
         bestiary_link_row(),
     ])
 
 
 def await_pin_keyboard():
     return _keyboard([
-        row(("🔄 Сменить дракона", "garden"), ("❓ Помощь", "help")),
+        row(("🔄🥚 Сменить яйцо дракона", "garden"), ("❓ Помощь", "help")),
         bestiary_link_row(),
     ])
 
 
 def await_garden_keyboard(with_cancel=False):
     buttons = [
-        row(("🐉 Добавить дракона", "pin")),
+        row(("🥚 Добавить яйцо дракона", "pin")),
     ]
-    bottom = [("🔄 Сменить дракона", "garden"), ("📋 Статус", "status")]
+    bottom = [("🔄🥚 Сменить яйцо дракона", "garden"), ("📋 Статус", "status")]
     if with_cancel:
         bottom.insert(0, ("◀ Не менять", "garden_cancel"))
     buttons.append(row(*bottom))

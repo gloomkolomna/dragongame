@@ -36,7 +36,7 @@ def handle_pin_entry(user, text, db, send_message, upload_image=None):
 
     ok = activate_pin(db, user.vk_id, dragon)
     if not ok:
-        send_message("⚠️ Ты уже активировал этого дракона. Попробуй другой PIN-код.")
+        send_message("⚠️ Ты уже активировал это яйцо дракона. Попробуй другой PIN-код.")
         db.commit()
         return
 
@@ -45,7 +45,7 @@ def handle_pin_entry(user, text, db, send_message, upload_image=None):
     user.state = grow_state(1)
     db.commit()
 
-    msg = f"🥚 В твоей коллекции появилось новое яйцо!\n\n"
+    msg = f"🥚 В твоей коллекции появилось новое яйцо дракона!\n\n"
     if dragon.egg_type:
         msg += f"Тип: {dragon.egg_type}\n"
 

@@ -37,12 +37,12 @@ def handle_start(user, db, send_message):
             send_message(
                 "🐉 Добро пожаловать в Бестиарий драконьих легенд!\n\n"
                 "Здесь ты выращиваешь драконов через вышивку.\n"
-                "Купил яйцо? Нажми «🐉 Добавить дракона» и введи PIN-код."
+                "Купил яйцо? Нажми «🥚 Добавить яйцо дракона» и введи PIN-код."
             )
         else:
             send_message(
                 "🐉 У тебя пока нет драконов.\n"
-                "Нажми «🐉 Добавить дракона» чтобы начать выращивание."
+                "Нажми «🥚 Добавить яйцо дракона» чтобы начать выращивание."
             )
     else:
         dragon = db.query(Dragon).filter(Dragon.id == user.current_dragon_id).first()
@@ -53,7 +53,7 @@ def handle_start(user, db, send_message):
             user.state = IDLE
             db.commit()
             send_message(
-                "Дракон не найден. Нажми «🐉 Добавить дракона» чтобы начать.",
+                "Дракон не найден. Нажми «🥚 Добавить яйцо дракона» чтобы начать.",
                 keyboard=idle_keyboard(has_active=False),
             )
             return
@@ -96,9 +96,9 @@ def handle_help(send_message):
     send_message(
         "🐉 Добро пожаловать в Бестиарий драконьих легенд!\n\n"
         "📖 Мой Бестиарий — открыть коллекцию в мини-приложении ВК\n"
-        "🐉 Добавить дракона — ввести PIN-код с яйца и начать выращивание\n"
+        "🥚 Добавить яйцо дракона — ввести PIN-код с яйца и начать выращивание\n"
         "🌱 Перейти к выращиванию — начать/продолжить текущий шаг\n"
-        "🔄 Сменить дракона — посмотреть всех драконов и переключиться\n"
+        "🔄🥚 Сменить яйцо дракона — посмотреть все яйца драконов, которые вы выращиваете, и переключиться\n"
         "📋 Статус — узнать текущий шаг и прогресс\n"
         "❓ Помощь — эта справка\n\n"
         "📸 Как проходить шаги:\n"
@@ -115,7 +115,7 @@ def handle_status(user, db, send_message, upload_image=None):
         user.state = IDLE
         db.commit()
         send_message(
-            "У тебя пока нет активного дракона. Нажми «🐉 Добавить дракона» чтобы начать.",
+            "У тебя пока нет активного дракона. Нажми «🥚 Добавить яйцо дракона» чтобы начать.",
             keyboard=idle_keyboard(has_active=False),
         )
         return
@@ -128,7 +128,7 @@ def handle_status(user, db, send_message, upload_image=None):
         user.state = IDLE
         db.commit()
         send_message(
-            "Дракон не найден. Нажми «🐉 Добавить дракона» чтобы начать.",
+            "Дракон не найден. Нажми «🥚 Добавить яйцо дракона» чтобы начать.",
             keyboard=idle_keyboard(has_active=False),
         )
         return
@@ -196,12 +196,12 @@ def handle_garden(user, db, send_message):
         user.state = IDLE
         db.commit()
         send_message(
-            "🔄🐉 У тебя пока нет яйц драконов для выращивания. Нажми «🐉 Добавить яйцо дракона» чтобы начать.",
+            "🔄🥚 У тебя пока нет яйц драконов для выращивания. Нажми «🥚 Добавить яйцо дракона» чтобы начать.",
             keyboard=idle_keyboard(has_active=False),
         )
         return
 
-    lines = ["🔄🐉 Твои драконы:\n"]
+    lines = ["🥚🐉 Твои выращенные драконы и те, кого еще выращиваешь:\n"]
     all_dragons = entries + completed_entries
     for i, ud in enumerate(all_dragons):
         dragon = db.query(Dragon).filter(Dragon.id == ud.dragon_id).first()
@@ -251,7 +251,7 @@ def cancel_garden(user, db, send_message, upload_image=None):
         user.state = IDLE
         db.commit()
         send_message(
-            "Хорошо, остаёмся без дракона. Нажми «🐉 Добавить дракона» чтобы начать.",
+            "Хорошо, остаёмся без дракона. Нажми «🐉 Добавить яйцо дракона» чтобы начать.",
             keyboard=idle_keyboard(has_active=False),
         )
         return
@@ -308,7 +308,7 @@ def switch_dragon(user, num: int, db, send_message, upload_image=None):
             minutes = remainder // 60
             send_message(f"{growing_em} Ты уже выращиваешь «{label}».\n⏳ До следующего шага осталось: {hours} ч. {minutes} мин.")
         else:
-            msg = f"Ты уже выращиваешь этого дракона.\n{format_step(step_def, user.current_step, get_total_steps(db, ud.dragon_id))}"
+            msg = f"Ты уже выращиваешь это яйцо дракона.\n{format_step(step_def, user.current_step, get_total_steps(db, ud.dragon_id))}"
             if step_def:
                 msg += f"\n\n🎯 Норма: {step_def.crosses_norm} крестиков\nВыбери режим:"
             attachment = _attach_egg(db, user, dragon, upload_image)
@@ -394,14 +394,14 @@ def handle_switch_to(user, dragon_id: int, db, send_message, upload_image=None):
     if not ud or ud.completed_at:
         send_message(
             "Этот дракон уже выращен или не найден.\n"
-            "Добавь нового дракона или загляни в мини-приложение.",
+            "Добавь новое яйцо дракона или загляни в мини-приложение.",
             keyboard=_completed_keyboard(),
         )
         return
 
     dragon = db.query(Dragon).filter(Dragon.id == dragon_id).first()
     if not dragon:
-        send_message("Дракон не найден.")
+        send_message("Яйцо дракона не найдено.")
         return
 
     completed = db.query(UserProgress).filter(
@@ -457,9 +457,9 @@ def _completed_keyboard():
     return json.dumps({
         "one_time": False,
         "buttons": [
-            [{"action": {"type": "text", "label": "🐉 Добавить яйцо дракона", "payload": json.dumps({"cmd": "pin"}, ensure_ascii=False)}, "color": "primary"}],
+            [{"action": {"type": "text", "label": "🥚 Добавить яйцо дракона", "payload": json.dumps({"cmd": "pin"}, ensure_ascii=False)}, "color": "primary"}],
             [
-                {"action": {"type": "text", "label": "🔄🐉 Сменить яйцо дракона", "payload": json.dumps({"cmd": "garden"}, ensure_ascii=False)}, "color": "secondary"},
+                {"action": {"type": "text", "label": "🔄🥚 Сменить яйцо дракона", "payload": json.dumps({"cmd": "garden"}, ensure_ascii=False)}, "color": "secondary"},
                 {"action": {"type": "text", "label": "❓ Помощь", "payload": json.dumps({"cmd": "help"}, ensure_ascii=False)}, "color": "secondary"},
             ],
             [{"action": {"type": "open_link", "label": "📖 Мой Бестиарий", "link": "https://vk.com/app54663330"}}],
