@@ -183,8 +183,13 @@ def _check_expired(db, vk, logger):
                 f"⏰ Выращивание яйца «{dragon.egg_type or dragon.name or '?'}» готово к следующему этапу!\n"
                 f"Нажми кнопку ниже, чтобы переключиться."
             )
-            keyboard_json = _switch_keyboard(ud.dragon_id)
-            _send(vk, ud.user_id, msg, keyboard_json, logger)
+            keyboard_json = _switch_garden_keyboard(ud.dragon_id)
+            attachment = ""
+            if dragon and dragon.egg_path:
+                filepath = os.path.join(_IMAGES, os.path.basename(dragon.egg_path))
+                if os.path.isfile(filepath):
+                    attachment = _upload_image(vk, filepath, peer_id=ud.user_id)
+            _send(vk, ud.user_id, msg, keyboard_json, logger, attachment)
 
 
 def _growing_keyboard():
@@ -199,17 +204,15 @@ def _growing_keyboard():
     }, ensure_ascii=False)
 
 
-def _switch_keyboard(dragon_id: int):
+def _switch_garden_keyboard(dragon_id: int):
     return json.dumps({
         "one_time": True,
-        "buttons": [[{
-            "action": {
-                "type": "text",
-                "label": "🥚 Перейти к выращиванию яйца",
-                "payload": json.dumps({"cmd": "switch_to", "dragon_id": dragon_id}, ensure_ascii=False),
-            },
-            "color": "primary",
-        }]],
+        "buttons": [
+            [{"action": {"type": "text", "label": "🥚 Перейти к выращиванию яйца", "payload": json.dumps({"cmd": "switch_to", "dragon_id": dragon_id}, ensure_ascii=False)}, "color": "primary"}],
+            [{"action": {"type": "text", "label": "🔄🥚 Сменить яйцо дракона", "payload": json.dumps({"cmd": "garden"}, ensure_ascii=False)}, "color": "secondary"},
+             {"action": {"type": "text", "label": "❓ Помощь", "payload": json.dumps({"cmd": "help"}, ensure_ascii=False)}, "color": "secondary"}],
+            [{"action": {"type": "open_link", "label": "📖 Мой Бестиарий", "link": "https://vk.com/app54663330"}}],
+        ],
     }, ensure_ascii=False)
 
 
