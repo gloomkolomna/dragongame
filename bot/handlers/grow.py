@@ -186,7 +186,7 @@ def _handle_crosses_check(user, text, attachments, db, send_message, upload_imag
     if crosses < required:
         send_message(
             f"❌ Вы вышили {crosses} крестиков, а нужно не менее {required}.\n"
-            f"Вышивайте дальше и отправьте повторно «вышито [число]»."
+            f"Вышивайте дальше и отправьте повторно фото работы (можно одним коллажем ДО + ПОСЛЕ + превью) и «вышито [число]»."
         )
         db.commit()
         return True
