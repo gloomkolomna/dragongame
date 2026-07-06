@@ -54,7 +54,7 @@ def set_step_timeout(db, vk_id: int, dragon_id: int, step_number: int):
     ).first()
     if ud:
         available = datetime.now() + timedelta(minutes=total_minutes)
-        ud.next_step_available_at = available.strftime("%Y-%m-%dT%H:%M:%S+03:00")
+        ud.next_step_available_at = available.strftime("%Y-%m-%dT%H:%M:%S")
         ud.timeout_notified = False
         db.commit()
 

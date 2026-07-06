@@ -33,8 +33,9 @@ interface Family {
 function formatRemaining(until: string): string {
   const diff = new Date(until).getTime() - Date.now();
   if (diff <= 0) return '0м';
-  const h = Math.floor(diff / 3600000);
-  const m = Math.ceil((diff % 3600000) / 60000);
+  const totalMin = Math.ceil(diff / 60000);
+  const h = Math.floor(totalMin / 60);
+  const m = totalMin % 60;
   if (h > 0) return `${h}ч ${m}м`;
   return `${m}м`;
 }
