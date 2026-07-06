@@ -20,8 +20,12 @@ function DragonDetail() {
   if (bl || load) return <div style={{ display: 'flex', justifyContent: 'center', padding: 60 }}><div className="dragon-skeleton-card" style={{ height: 300 }} /></div>;
   if (!d) return <div className="lair-card" style={{ maxWidth: 400, margin: '40px auto', textAlign: 'center' }}><div className="lair-empty-icon">🐉</div><p style={{ color: 'var(--text-secondary)' }}>Дракон не найден</p></div>;
 
-  const pct = d.steps_count ? Math.round((d.user_progress.completed_steps / d.steps_count) * 100) : 0;
-  const clr = d.family_color || 'var(--accent-gold-light)';
+   const pct = d.steps_count ? Math.round((d.user_progress.completed_steps / d.steps_count) * 100) : 0;
+   const clr = d.family_color || 'var(--accent-gold-light)';
+   const hasTimeout = !!d.next_step_available_at && d.user_progress.completed_steps > 0;
+   const prevCompleted = hasTimeout ? Math.max(0, d.user_progress.completed_steps - 1) : d.user_progress.completed_steps;
+   const prevPct = d.steps_count ? Math.round((prevCompleted / d.steps_count) * 100) : 0;
+   const extraPct = pct - prevPct;
 
   return (
     <div style={{ padding: 20 }}>
@@ -51,12 +55,29 @@ function DragonDetail() {
 
       {!d.is_revealed && d.user_progress.completed_steps > 0 && (
       <>
-      <div className="lair-card" style={{ marginBottom: 16 }}>
-        <div style={{ marginTop: 0, background: 'var(--bg-card-hover)', borderRadius: 'var(--radius-sm)', height: 10, overflow: 'hidden' }}>
-          <div style={{ height: '100%', width: `${pct}%`, background: `linear-gradient(90deg, ${clr}88, ${clr})`, borderRadius: 'var(--radius-sm)', transition: 'width 0.5s' }} />
-        </div>
-        <div style={{ fontSize: 14, color: 'var(--text-muted)', marginTop: 4 }}>{pct}%</div>
-      </div>
+       <div className="lair-card" style={{ marginBottom: 16 }}>
+         <div style={{ marginTop: 0, background: 'var(--bg-card-hover)', borderRadius: 'var(--radius-sm)', height: 10, overflow: 'hidden', display: 'flex' }}>
+           <div style={{
+             height: '100%',
+             width: `${prevPct}%`,
+             background: `linear-gradient(90deg, ${clr}88, ${clr})`,
+             borderRadius: 'var(--radius-sm) 0 0 var(--radius-sm)',
+             transition: 'width 0.5s',
+             flexShrink: 0,
+           }} />
+           {hasTimeout && extraPct > 0 && (
+             <div style={{
+               height: '100%',
+               width: `${extraPct}%`,
+               background: `linear-gradient(90deg, ${clr}88, ${clr})`,
+               opacity: 0.3,
+               transition: 'width 0.5s',
+               flexShrink: 0,
+             }} />
+           )}
+         </div>
+         <div style={{ fontSize: 14, color: 'var(--text-muted)', marginTop: 4 }}>{prevPct}%</div>
+       </div>
 
       <div className="lair-card">
         {d.user_progress.steps.filter((s) => d.next_step_available_at ? s.completed : s.number <= d.user_progress.completed_steps + 1).map((s) => (

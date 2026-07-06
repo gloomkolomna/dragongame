@@ -28,7 +28,16 @@ interface Family {
   collected: number;
 }
 
-const GAP = 4;
+ const GAP = 4;
+
+function formatRemaining(until: string): string {
+  const diff = new Date(until).getTime() - Date.now();
+  if (diff <= 0) return '0м';
+  const h = Math.floor(diff / 3600000);
+  const m = Math.floor((diff % 3600000) / 60000);
+  if (h > 0) return `${h}ч ${m}м`;
+  return `${m}м`;
+}
 
 function Collection() {
   const { vkUserId, isDemo, loading: bl } = useVkBridge();
@@ -205,9 +214,11 @@ function Collection() {
                       }} />
                     )}
                   </div>
-                  <div style={{ fontSize: Math.max(12, cellSize * 0.12), color: famColor, textAlign: 'center', fontWeight: 700 }}>
-                    {prev_pct}%
-                  </div>
+                   <div style={{ fontSize: Math.max(12, cellSize * 0.12), color: famColor, textAlign: 'center', fontWeight: 700 }}>
+                     {hasTimeout
+                       ? formatRemaining(c.next_step_available_at!)
+                       : `${prev_pct}%`}
+                   </div>
                 </>
               );
             })()}
