@@ -26,7 +26,7 @@ def format_step(step_def, step_num: int, total: int) -> str:
 
 def handle_grow_command(user, db, send_message, upload_image=None):
     if not user.current_dragon_id:
-        send_message("Нет активного дракона. Добавь нового.")
+        send_message("Нет активных яиц дракона для выращивания. Добавь новое яйцо для выращивания.")
         user.state = IDLE
         db.commit()
         return
@@ -48,7 +48,7 @@ def handle_grow_command(user, db, send_message, upload_image=None):
     step_def = get_dragon_step(db, user.current_dragon_id, step)
 
     if not step_def:
-        send_message("Шаг не найден. Возможно, дракон был изменён.")
+        send_message("Шаг не найден. Возможно, яйцо дракона было изменено.")
         return
 
     msg = format_step(step_def, step, total)
@@ -71,7 +71,7 @@ def handle_grow_command(user, db, send_message, upload_image=None):
 
 def handle_norm_command(user, db, send_message):
     if not user.current_dragon_id:
-        send_message("Нет активного дракона.")
+        send_message("Нет активного яйца дракона для выращивания.")
         return
 
     remaining = get_timeout_remaining(db, user.vk_id, user.current_dragon_id)
@@ -99,7 +99,7 @@ def handle_norm_command(user, db, send_message):
 
 def handle_x2_command(user, db, send_message):
     if not user.current_dragon_id:
-        send_message("Нет активного дракона.")
+        send_message("Нет активного яйца дракона для выращивания.")
         return
 
     remaining = get_timeout_remaining(db, user.vk_id, user.current_dragon_id)
@@ -127,7 +127,7 @@ def handle_x2_command(user, db, send_message):
 
 def handle_grow_message(user, text, attachments, db, send_message, upload_image=None):
     if not user.current_dragon_id:
-        send_message("Нет активного дракона.")
+        send_message("Нет активного яйца дракона для выращивания.")
         user.state = IDLE
         user.current_step = 0
         db.commit()
@@ -212,7 +212,7 @@ def _handle_crosses_check(user, text, attachments, db, send_message, upload_imag
             user.state = grow_state(next_step)
             user.current_step = next_step
             send_message(
-                f"✅ Шаг {step} выполнен! Дракон будет готов через {step_hours} ч. {step_minutes} мин. Я уведомлю тебя.",
+                f"✅ Шаг {step} выращивания яйца дракона выполнен! Дракон будет готов через {step_hours} ч. {step_minutes} мин. Я уведомлю тебя.",
                 keyboard=growing_keyboard(),
             )
             db.commit()
@@ -230,14 +230,14 @@ def _handle_crosses_check(user, text, attachments, db, send_message, upload_imag
         )
         if dragon and dragon.description:
             msg += f"\n{dragon.description}\n"
-        msg += "\nЗагляни в мини-приложение, чтобы увидеть его в своей коллекции!"
+        msg += "\nЗагляни в мини-приложение Мой Бестиарий, чтобы увидеть его в своей коллекции!"
 
         import json as j
         keyboard = j.dumps({
             "one_time": True,
             "buttons": [
-                [{"action": {"type": "text", "label": "🐉 Добавить дракона", "payload": j.dumps({"cmd": "pin"}, ensure_ascii=False)}, "color": "primary"}],
-                [{"action": {"type": "text", "label": "🔄 Сменить дракона", "payload": j.dumps({"cmd": "garden"}, ensure_ascii=False)}, "color": "secondary"},
+                [{"action": {"type": "text", "label": "🐉 Добавить яйцо дракона", "payload": j.dumps({"cmd": "pin"}, ensure_ascii=False)}, "color": "primary"}],
+                [{"action": {"type": "text", "label": "🔄🐉 Сменить яйцо дракона", "payload": j.dumps({"cmd": "garden"}, ensure_ascii=False)}, "color": "secondary"},
                  {"action": {"type": "text", "label": "❓ Помощь", "payload": j.dumps({"cmd": "help"}, ensure_ascii=False)}, "color": "secondary"}],
                 [{"action": {"type": "open_link", "label": "📖 Мой Бестиарий", "link": "https://vk.com/app54663330"}}],
             ],
@@ -265,7 +265,7 @@ def _handle_crosses_check(user, text, attachments, db, send_message, upload_imag
             set_step_timeout(db, user.vk_id, dragon_id, step)
             user.state = grow_state(next_step)
             send_message(
-                f"✅ Шаг {step} выполнен! Следующий этап будет доступен через {step_hours} ч. {step_minutes} мин.",
+                f"✅ Шаг {step} выращивания яйца дракона выполнен! Следующий этап будет доступен через {step_hours} ч. {step_minutes} мин.",
                 keyboard=growing_keyboard(),
             )
         else:

@@ -196,12 +196,12 @@ def handle_garden(user, db, send_message):
         user.state = IDLE
         db.commit()
         send_message(
-            "🔄 У тебя пока нет драконов. Нажми «🐉 Добавить дракона» чтобы начать.",
+            "🔄🐉 У тебя пока нет яйц драконов для выращивания. Нажми «🐉 Добавить яйцо дракона» чтобы начать.",
             keyboard=idle_keyboard(has_active=False),
         )
         return
 
-    lines = ["🔄 Твои драконы:\n"]
+    lines = ["🔄🐉 Твои драконы:\n"]
     all_dragons = entries + completed_entries
     for i, ud in enumerate(all_dragons):
         dragon = db.query(Dragon).filter(Dragon.id == ud.dragon_id).first()
@@ -231,14 +231,14 @@ def handle_garden(user, db, send_message):
         user.state = AWAIT_GARDEN
         db.commit()
         if user.current_dragon_id:
-            lines.append("\nНапиши номер дракона, чтобы переключиться, или 0 чтобы не менять.")
+            lines.append("\nНапиши номер яйца, чтобы переключиться, или 0 чтобы не менять.")
         else:
-            lines.append("\nНапиши номер дракона, чтобы переключиться на него.")
+            lines.append("\nНапиши яйца дракона, чтобы переключиться на него.")
     else:
         user.state = IDLE
         db.commit()
         if completed_entries:
-            lines.append("\nВсе драконы выращены! Добавь нового или загляни в Бестиарий.")
+            lines.append("\nВсе яйца выращены! Добавь нового или загляни в Бестиарий.")
 
     if user.current_dragon_id:
         send_message("\n".join(lines), keyboard=await_garden_keyboard(with_cancel=True))
@@ -457,9 +457,9 @@ def _completed_keyboard():
     return json.dumps({
         "one_time": False,
         "buttons": [
-            [{"action": {"type": "text", "label": "🐉 Добавить дракона", "payload": json.dumps({"cmd": "pin"}, ensure_ascii=False)}, "color": "primary"}],
+            [{"action": {"type": "text", "label": "🐉 Добавить яйцо дракона", "payload": json.dumps({"cmd": "pin"}, ensure_ascii=False)}, "color": "primary"}],
             [
-                {"action": {"type": "text", "label": "🔄🐉 Сменить дракона", "payload": json.dumps({"cmd": "garden"}, ensure_ascii=False)}, "color": "secondary"},
+                {"action": {"type": "text", "label": "🔄🐉 Сменить яйцо дракона", "payload": json.dumps({"cmd": "garden"}, ensure_ascii=False)}, "color": "secondary"},
                 {"action": {"type": "text", "label": "❓ Помощь", "payload": json.dumps({"cmd": "help"}, ensure_ascii=False)}, "color": "secondary"},
             ],
             [{"action": {"type": "open_link", "label": "📖 Мой Бестиарий", "link": "https://vk.com/app54663330"}}],
