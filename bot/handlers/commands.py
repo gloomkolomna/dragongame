@@ -178,17 +178,11 @@ def handle_status(user, db, send_message, upload_image=None):
 
 
 def handle_garden(user, db, send_message):
-    entries = db.query(UserDragon).filter(
+    all_entries = db.query(UserDragon).filter(
         UserDragon.user_id == user.vk_id,
-        UserDragon.completed_at == "",
-    ).all()
+    ).order_by(UserDragon.id).all()
 
-    completed_entries = db.query(UserDragon).filter(
-        UserDragon.user_id == user.vk_id,
-        UserDragon.completed_at != "",
-    ).all()
-
-    if not entries and not completed_entries:
+    if not all_entries:
         from bot.keyboard import idle_keyboard
         user.state = IDLE
         db.commit()
@@ -198,9 +192,13 @@ def handle_garden(user, db, send_message):
         )
         return
 
+    entries = [e for e in all_entries if not e.completed_at]
+    completed_entries = [e for e in all_entries if e.completed_at]
+    index_map = {e.id: i + 1 for i, e in enumerate(all_entries)}
+
     lines = ["🥚🐉 Твои выращенные драконы и те, кого еще выращиваешь:\n"]
-    all_dragons = entries + completed_entries
-    for i, ud in enumerate(all_dragons):
+    ordered = entries + completed_entries
+    for ud in ordered:
         dragon = db.query(Dragon).filter(Dragon.id == ud.dragon_id).first()
         if not dragon:
             continue
@@ -219,7 +217,8 @@ def handle_garden(user, db, send_message):
             status = "🐣" if completed > 0 else "🥚"
         marker = " ← сейчас" if is_current else ""
         label = dragon.name if ud.completed_at else (dragon.egg_type or dragon.name or "?")
-        lines.append(f"{i + 1}. {status} {label} {bar}{marker}")
+        num = index_map[ud.id]
+        lines.append(f"{num}. {status} {label} {bar}{marker}")
 
     if entries:
         user.state = AWAIT_GARDEN
@@ -272,21 +271,15 @@ def cancel_garden(user, db, send_message, upload_image=None):
 
 
 def switch_dragon(user, num: int, db, send_message, upload_image=None):
-    active = db.query(UserDragon).filter(
+    all_entries = db.query(UserDragon).filter(
         UserDragon.user_id == user.vk_id,
-        UserDragon.completed_at == "",
-    ).all()
-    completed_list = db.query(UserDragon).filter(
-        UserDragon.user_id == user.vk_id,
-        UserDragon.completed_at != "",
-    ).all()
+    ).order_by(UserDragon.id).all()
 
-    all_dragons = active + completed_list
-    if num < 1 or num > len(all_dragons):
+    if num < 1 or num > len(all_entries):
         send_message("❌ Неверный номер. Напиши номер из списка.")
         return
 
-    ud = all_dragons[num - 1]
+    ud = all_entries[num - 1]
 
     if ud.dragon_id == user.current_dragon_id:
         user.state = grow_state(user.current_step)
