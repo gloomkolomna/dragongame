@@ -103,6 +103,12 @@ def _check_expired(db, vk, logger):
 
         user = db.query(User).filter(User.vk_id == ud.user_id).first()
         dragon = db.query(Dragon).filter(Dragon.id == ud.dragon_id).first()
+        family_name = ""
+        if dragon and dragon.family_id:
+            from models import Family
+            family = db.query(Family).filter(Family.id == dragon.family_id).first()
+            if family:
+                family_name = family.name
         if not user or not dragon:
             continue
 
@@ -130,6 +136,8 @@ def _check_expired(db, vk, logger):
                 f"🐉 {dragon.name} 🐉\n"
                 f"Редкость: {'⭐' * dragon.rarity}\n"
             )
+            if family_name:
+                msg += f"Коллекция: {family_name}\n"
             if dragon.description:
                 msg += f"\n{dragon.description}\n"
             msg += "\nЗагляни в мини-приложение, чтобы увидеть его в своей коллекции!"

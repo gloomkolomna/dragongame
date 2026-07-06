@@ -211,6 +211,12 @@ def _handle_crosses_check(user, text, attachments, db, send_message, upload_imag
     total = get_total_steps(db, dragon_id)
     from models import Dragon
     dragon = db.query(Dragon).filter(Dragon.id == dragon_id).first()
+    family_name = ""
+    if dragon and dragon.family_id:
+        from models import Family
+        family = db.query(Family).filter(Family.id == dragon.family_id).first()
+        if family:
+            family_name = family.name
 
     if step >= total:
         step_hours, step_minutes = get_step_timeout(db, dragon_id, step)
@@ -238,6 +244,8 @@ def _handle_crosses_check(user, text, attachments, db, send_message, upload_imag
             f"🐉 {dragon.name if dragon else '???'} 🐉\n"
             f"Редкость: {'⭐' * (dragon.rarity if dragon else 1)}\n"
         )
+        if family_name:
+            msg += f"Коллекция: {family_name}\n"
         if dragon and dragon.description:
             msg += f"\n{dragon.description}\n"
         msg += "\nЗагляни в мини-приложение Мой Бестиарий, чтобы увидеть его в своей коллекции!"

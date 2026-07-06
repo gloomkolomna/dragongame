@@ -7,6 +7,9 @@ import { mediaUrl } from '../api/media';
 interface Step { number: number; task: string; completed: boolean; }
 interface Dragon { is_revealed: boolean; name?: string; rarity?: number; egg_type: string; steps_count: number; description?: string; dragon_url?: string; egg_url?: string; next_step_available_at?: string; family_color?: string; user_progress: { status: string; completed_steps: number; steps: Step[] }; }
 
+const RARITY: Record<number, string> = { 1: 'Обычный', 2: 'Редкий', 3: 'Легендарный' };
+const GROUP_ID = 239999455;
+
 function DragonDetail() {
   const { id } = useParams<{ id: string }>();
   const { vkUserId, loading: bl } = useVkBridge();
@@ -46,11 +49,11 @@ function DragonDetail() {
                 ? <img src={mediaUrl(d.egg_url)} alt="" onClick={() => setZoom(mediaUrl(d.egg_url))} onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} style={{ maxWidth: '100%', maxHeight: 300, borderRadius: 'var(--radius-md)', cursor: 'pointer' }} />
                 : <span style={{ fontSize: 64 }}>🥚</span>)}
         </div>
-        <h2 style={{ margin: '0 0 4px', color: clr, fontSize: 22 }}>
+        <h2 style={{ margin: '0 0 4px', color: clr, fontSize: 26, fontWeight: 700 }}>
           {d.is_revealed ? d.name : `Яйцо: ${d.egg_type}`}
         </h2>
-        {d.is_revealed && <div style={{ color: 'var(--text-secondary)', fontSize: 15, marginBottom: 12 }}>Редкость: <span style={{ color: 'var(--gold)' }}>{'★'.repeat(d.rarity || 1)}</span></div>}
-        {d.is_revealed && d.description && <p style={{ color: 'var(--text-secondary)', fontSize: 16, fontStyle: 'italic' }}>{d.description}</p>}
+        {d.is_revealed && <div style={{ color: 'var(--text-secondary)', fontSize: 21, fontWeight: 600, marginBottom: 12 }}>Редкость: <span style={{ color: 'var(--gold)' }}>{RARITY[d.rarity ?? 1] ?? 'Легендарный'}</span></div>}
+        {d.is_revealed && d.description && <p style={{ color: 'var(--text-secondary)', fontSize: 21, fontWeight: 600 }}>{d.description}</p>}
       </div>
 
       {!d.is_revealed && d.user_progress.completed_steps > 0 && (
@@ -97,6 +100,15 @@ function DragonDetail() {
         </div>
 
        <div className="lair-card">
+         <a
+           href={`https://vk.com/gim${GROUP_ID}?sel=${vkUserId}`}
+           target="_blank"
+           rel="noopener noreferrer"
+           className="lair-btn"
+           style={{ display: 'block', textAlign: 'center', marginBottom: 12, textDecoration: 'none', fontSize: 17, fontWeight: 600 }}
+         >
+           💬 Перейти в чат с ботом
+         </a>
          {d.user_progress.steps.filter((s) => d.next_step_available_at ? s.completed : s.number <= d.user_progress.completed_steps + 1).map((s) => {
            const isTimeoutStep = hasTimeout && s.completed && s.number === d.user_progress.completed_steps;
            return (
