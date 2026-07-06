@@ -135,8 +135,10 @@ def test_set_step_timeout(db):
     assert ud.next_step_available_at is not None
     assert ud.timeout_notified is False
 
+    from datetime import timezone, timedelta
     available = datetime.fromisoformat(ud.next_step_available_at)
-    diff = available - datetime.now()
+    now = datetime.now(timezone(timedelta(hours=3)))
+    diff = available - now
     assert diff.total_seconds() > 5000  # ~90 min
 
 

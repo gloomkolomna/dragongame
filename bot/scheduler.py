@@ -77,19 +77,29 @@ def _heartbeat(db):
 
 
 def _check_expired(db, vk, logger):
-    from datetime import datetime
+    from datetime import datetime, timezone, timedelta
     from models import UserDragon, User, Dragon, UserProgress
     from bot.services.grow_service import get_dragon_step, get_total_steps
     from bot.handlers.grow import format_step
 
-    now_str = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
+    now = datetime.now(timezone(timedelta(hours=3)))
 
-    expired = db.query(UserDragon).filter(
+    expired_uds = db.query(UserDragon).filter(
         UserDragon.next_step_available_at != None,
-        UserDragon.next_step_available_at <= now_str,
         UserDragon.timeout_notified == False,
         UserDragon.completed_at == "",
     ).all()
+
+    expired = []
+    for ud in expired_uds:
+        try:
+            available = datetime.fromisoformat(ud.next_step_available_at)
+            if available.tzinfo is None:
+                available = available.replace(tzinfo=timezone(timedelta(hours=3)))
+            if available <= now:
+                expired.append(ud)
+        except (ValueError, TypeError):
+            continue
 
     if not expired:
         return
