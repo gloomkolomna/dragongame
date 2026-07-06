@@ -27,9 +27,7 @@ interface Family {
   total_dragons: number;
   collected: number;
 }
-
- const GAP = 4;
-
+ 
 import { formatRemaining } from '../utils/time';
 
 const GAP = 4;
