@@ -39,6 +39,7 @@ function Collection() {
   const [load, setLoad] = useState(true);
   const [error, setError] = useState('');
   const [gridWidth, setGridWidth] = useState(0);
+  const [modalImg, setModalImg] = useState<string | null>(null);
   const gridWrapRef = useRef<HTMLDivElement>(null);
   const nav = useNavigate();
 
@@ -297,7 +298,8 @@ function Collection() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
           {selectedFamily?.image_path && (
             <img src={mediaUrl(selectedFamily.image_path)} alt=""
-                 style={{ width: 52, height: 52, objectFit: 'contain', flexShrink: 0 }} />
+                 onClick={(e) => { e.stopPropagation(); setModalImg(mediaUrl(selectedFamily.image_path)); }}
+                 style={{ width: 52, height: 52, objectFit: 'contain', flexShrink: 0, cursor: 'pointer', borderRadius: 4 }} />
           )}
           <div>
             <div style={{ fontSize: 20, color: selectedFamily?.color || 'var(--accent-gold-light)', fontWeight: 600, marginBottom: 2 }}>
@@ -363,6 +365,16 @@ function Collection() {
               ? 'Коллекция пока пуста'
               : 'Сетка для этого семейства ещё не создана'}
           </p>
+        </div>
+      )}
+
+      {modalImg && (
+        <div onClick={() => setModalImg(null)}
+             style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+          <img src={modalImg} alt="" onClick={(e) => e.stopPropagation()}
+               style={{ maxWidth: '90vw', maxHeight: '90vh', objectFit: 'contain', borderRadius: 8, boxShadow: '0 0 60px rgba(153,102,255,0.3)' }} />
+          <button onClick={() => setModalImg(null)}
+                  style={{ position: 'absolute', top: 16, right: 16, background: 'none', border: 'none', color: '#fff', fontSize: 32, cursor: 'pointer', lineHeight: 1 }}>✕</button>
         </div>
       )}
 
