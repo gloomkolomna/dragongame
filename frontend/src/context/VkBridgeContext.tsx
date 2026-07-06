@@ -21,6 +21,15 @@ const DEMO_VK_ID = import.meta.env.VITE_DEMO_VK_ID
   ? Number(import.meta.env.VITE_DEMO_VK_ID)
   : null;
 
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) =>
+      setTimeout(() => reject(new Error('vk-bridge timeout')), ms),
+    ),
+  ]);
+}
+
 // Разбор launch params из URL — работает и для query (?vk_user_id=...),
 // и для hash (#vk_user_id=...). VK на разных платформах передаёт по-разному.
 function parseVkParamsFromUrl(): { vkUserId: number | null; params: Record<string, string> } {
@@ -56,9 +65,9 @@ export function VkBridgeProvider({ children }: { children: ReactNode }) {
       // 1. ОБЯЗАТЕЛЬНЫЙ запуск приложения в VK. Без VKWebAppInit VK считает
       //    приложение «не инициализированным». Безопасен вне VK (reject/timeout).
       try {
-        await bridge.send('VKWebAppInit');
+        await withTimeout(bridge.send('VKWebAppInit'), 3000);
       } catch {
-        // вне VK-окружения — нормально
+        // вне VK-окружения или бридж не ответил — нормально
       }
 
       if (cancelled) return;
@@ -71,7 +80,7 @@ export function VkBridgeProvider({ children }: { children: ReactNode }) {
       //    Работает везде (мобайл/веб), независимо от того, как VK передал
       //    параметры (query или hash).
       try {
-        const lp = await bridge.send('VKWebAppGetLaunchParams');
+        const lp = await withTimeout(bridge.send('VKWebAppGetLaunchParams'), 3000);
         if (lp && lp.vk_user_id) {
           inVk = true;
           id = Number(lp.vk_user_id);
