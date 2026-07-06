@@ -4,8 +4,17 @@ import { useVkBridge } from '../context/VkBridgeContext';
 import client from '../api/client';
 import { mediaUrl } from '../api/media';
 
-interface Step { number: number; task: string; completed: boolean; }
+ interface Step { number: number; task: string; completed: boolean; }
 interface Dragon { is_revealed: boolean; name?: string; rarity?: number; egg_type: string; steps_count: number; description?: string; dragon_url?: string; egg_url?: string; next_step_available_at?: string; family_color?: string; user_progress: { status: string; completed_steps: number; steps: Step[] }; }
+
+function formatRemaining(until: string): string {
+  const diff = new Date(until).getTime() - Date.now();
+  if (diff <= 0) return '0м';
+  const h = Math.floor(diff / 3600000);
+  const m = Math.floor((diff % 3600000) / 60000);
+  if (h > 0) return `${h}ч ${m}м`;
+  return `${m}м`;
+}
 
 function DragonDetail() {
   const { id } = useParams<{ id: string }>();
@@ -55,44 +64,79 @@ function DragonDetail() {
 
       {!d.is_revealed && d.user_progress.completed_steps > 0 && (
       <>
-       <div className="lair-card" style={{ marginBottom: 16 }}>
-         <div style={{ marginTop: 0, background: 'var(--bg-card-hover)', borderRadius: 'var(--radius-sm)', height: 10, overflow: 'hidden', display: 'flex' }}>
-           <div style={{
-             height: '100%',
-             width: `${prevPct}%`,
-             background: `linear-gradient(90deg, ${clr}88, ${clr})`,
-             borderRadius: 'var(--radius-sm) 0 0 var(--radius-sm)',
-             transition: 'width 0.5s',
-             flexShrink: 0,
-           }} />
-           {hasTimeout && extraPct > 0 && (
-             <div style={{
-               height: '100%',
-               width: `${extraPct}%`,
-               background: `linear-gradient(90deg, ${clr}88, ${clr})`,
-               opacity: 0.3,
-               transition: 'width 0.5s',
-               flexShrink: 0,
-             }} />
-           )}
-         </div>
-         <div style={{ fontSize: 14, color: 'var(--text-muted)', marginTop: 4 }}>{prevPct}%</div>
-       </div>
-
-      <div className="lair-card">
-        {d.user_progress.steps.filter((s) => d.next_step_available_at ? s.completed : s.number <= d.user_progress.completed_steps + 1).map((s) => (
-          <div key={s.number} style={{
-            padding: '12px 16px', marginBottom: 8, borderRadius: 'var(--radius-sm)',
-            background: s.completed ? 'var(--success-bg)' : s.number === d.user_progress.completed_steps + 1 ? 'var(--warning-bg)' : 'var(--bg-card)',
-            border: '1px solid var(--border-color)',
-          }}>
-            <span style={{ marginRight: 8 }}>{s.completed ? '✅' : s.number === d.user_progress.completed_steps + 1 ? '→' : '📋'}</span>
-            <span style={{ fontSize: 16, color: s.completed ? 'var(--text-secondary)' : 'var(--text-primary)' }}>
-              {s.task}
-            </span>
+        <div className="lair-card" style={{ marginBottom: 16 }}>
+          <div style={{ position: 'relative' }}>
+            <div style={{ marginTop: 0, background: 'var(--bg-card-hover)', borderRadius: 'var(--radius-sm)', height: 10, overflow: 'hidden', display: 'flex' }}>
+              <div style={{
+                height: '100%',
+                width: `${prevPct}%`,
+                background: `linear-gradient(90deg, ${clr}88, ${clr})`,
+                borderRadius: 'var(--radius-sm) 0 0 var(--radius-sm)',
+                transition: 'width 0.5s',
+                flexShrink: 0,
+              }} />
+              {hasTimeout && extraPct > 0 && (
+                <div style={{
+                  height: '100%',
+                  width: `${extraPct}%`,
+                  background: `linear-gradient(90deg, ${clr}88, ${clr})`,
+                  opacity: 0.3,
+                  transition: 'width 0.5s',
+                  flexShrink: 0,
+                }} />
+              )}
+            </div>
+            {hasTimeout && extraPct > 0 && (
+              <div style={{
+                position: 'absolute',
+                left: `${prevPct}%`,
+                width: `${extraPct}%`,
+                top: 0,
+                bottom: 0,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                pointerEvents: 'none',
+              }}>
+                <span style={{ fontSize: 8, color: clr, fontWeight: 600, lineHeight: 1, whiteSpace: 'nowrap' }}>
+                  {formatRemaining(d.next_step_available_at!)}
+                </span>
+              </div>
+            )}
           </div>
-        ))}
-      </div>
+          <div style={{ fontSize: 14, color: 'var(--text-muted)', marginTop: 4 }}>{prevPct}%</div>
+        </div>
+
+       <div className="lair-card">
+         {d.user_progress.steps.filter((s) => d.next_step_available_at ? s.completed : s.number <= d.user_progress.completed_steps + 1).map((s) => {
+           const isTimeoutStep = hasTimeout && s.completed && s.number === d.user_progress.completed_steps;
+           return (
+           <div key={s.number} style={{
+             padding: '12px 16px', marginBottom: 8, borderRadius: 'var(--radius-sm)',
+             background: isTimeoutStep ? 'rgba(201,138,42,0.2)' : s.completed ? 'var(--success-bg)' : s.number === d.user_progress.completed_steps + 1 ? 'var(--warning-bg)' : 'var(--bg-card)',
+             border: '1px solid var(--border-color)',
+           }}>
+             <span style={{ marginRight: 8 }}>
+               {isTimeoutStep
+                 ? '⏳'
+                 : s.completed
+                   ? '✅'
+                   : s.number === d.user_progress.completed_steps + 1
+                     ? '→'
+                     : '📋'}
+             </span>
+             <span style={{ fontSize: 16, color: s.completed ? 'var(--text-secondary)' : 'var(--text-primary)' }}>
+               {s.task}
+             </span>
+             {isTimeoutStep && d.next_step_available_at && (
+               <span style={{ fontSize: 13, color: clr, marginLeft: 12, fontWeight: 600 }}>
+                 {formatRemaining(d.next_step_available_at)}
+               </span>
+             )}
+           </div>
+         );
+         })}
+       </div>
       </>
       )}
       <style>{`.dragon-skeleton-card{height:300px;background:var(--bg-card);border:1px solid var(--border-color);border-radius:var(--radius-md);animation:sh 1.5s infinite}@keyframes sh{0%,100%{opacity:.4}50%{opacity:.7}}`}</style>

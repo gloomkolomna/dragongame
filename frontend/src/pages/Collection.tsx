@@ -184,44 +184,67 @@ function Collection() {
             padding: '4px 8px 6px',
             background: 'linear-gradient(transparent, rgba(21,15,26,0.85) 40%)',
           }}>
-            {(() => {
-              const hasTimeout = !!c.next_step_available_at && c.completed_steps > 0;
-              const total = c.steps_count || 5;
-              const current_pct = c.progress_pct;
-              const prev_completed = hasTimeout ? Math.max(0, c.completed_steps - 1) : c.completed_steps;
-              const prev_pct = Math.round((prev_completed / total) * 100);
-              const extra_pct = current_pct - prev_pct;
+             {(() => {
+               const hasTimeout = !!c.next_step_available_at && c.completed_steps > 0;
+               const total = c.steps_count || 5;
+               const current_pct = c.progress_pct;
+               const prev_completed = hasTimeout ? Math.max(0, c.completed_steps - 1) : c.completed_steps;
+               const prev_pct = Math.round((prev_completed / total) * 100);
+               const extra_pct = current_pct - prev_pct;
 
-              return (
-                <>
-                  <div style={{ width: '100%', height: Math.max(6, cellSize * 0.07), background: 'rgba(21,15,26,0.55)', borderRadius: cellSize * 0.04, overflow: 'hidden', display: 'flex' }}>
-                    <div style={{
-                      height: '100%',
-                      width: `${prev_pct}%`,
-                      background: `linear-gradient(90deg, ${famColor}88, ${famColor})`,
-                      borderRadius: `${cellSize * 0.04}px 0 0 ${cellSize * 0.04}px`,
-                      transition: 'width 0.5s',
-                      flexShrink: 0,
-                    }} />
-                    {hasTimeout && extra_pct > 0 && (
-                      <div style={{
-                        height: '100%',
-                        width: `${extra_pct}%`,
-                        background: `linear-gradient(90deg, ${famColor}88, ${famColor})`,
-                        opacity: 0.3,
-                        transition: 'width 0.5s',
-                        flexShrink: 0,
-                      }} />
-                    )}
-                  </div>
-                   <div style={{ fontSize: Math.max(12, cellSize * 0.12), color: famColor, textAlign: 'center', fontWeight: 700 }}>
-                     {hasTimeout
-                       ? formatRemaining(c.next_step_available_at!)
-                       : `${prev_pct}%`}
+               return (
+                 <>
+                   <div style={{ position: 'relative' }}>
+                     <div style={{ width: '100%', height: Math.max(6, cellSize * 0.07), background: 'rgba(21,15,26,0.55)', borderRadius: cellSize * 0.04, overflow: 'hidden', display: 'flex' }}>
+                       <div style={{
+                         height: '100%',
+                         width: `${prev_pct}%`,
+                         background: `linear-gradient(90deg, ${famColor}88, ${famColor})`,
+                         borderRadius: `${cellSize * 0.04}px 0 0 ${cellSize * 0.04}px`,
+                         transition: 'width 0.5s',
+                         flexShrink: 0,
+                       }} />
+                       {hasTimeout && extra_pct > 0 && (
+                         <div style={{
+                           height: '100%',
+                           width: `${extra_pct}%`,
+                           background: `linear-gradient(90deg, ${famColor}88, ${famColor})`,
+                           opacity: 0.3,
+                           transition: 'width 0.5s',
+                           flexShrink: 0,
+                         }} />
+                       )}
+                     </div>
+                     {hasTimeout && extra_pct > 0 && (
+                       <div style={{
+                         position: 'absolute',
+                         left: `${prev_pct}%`,
+                         width: `${extra_pct}%`,
+                         top: 0,
+                         bottom: 0,
+                         display: 'flex',
+                         alignItems: 'center',
+                         justifyContent: 'center',
+                         pointerEvents: 'none',
+                       }}>
+                         <span style={{
+                           fontSize: Math.max(8, cellSize * 0.065),
+                           color: famColor,
+                           fontWeight: 600,
+                           lineHeight: 1,
+                           whiteSpace: 'nowrap',
+                         }}>
+                           {formatRemaining(c.next_step_available_at!)}
+                         </span>
+                       </div>
+                     )}
                    </div>
-                </>
-              );
-            })()}
+                   <div style={{ fontSize: Math.max(12, cellSize * 0.12), color: famColor, textAlign: 'center', fontWeight: 700 }}>
+                     {prev_pct}%
+                   </div>
+                 </>
+               );
+             })()}
           </div>
         </div>
       );
