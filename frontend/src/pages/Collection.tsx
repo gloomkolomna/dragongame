@@ -27,8 +27,6 @@ interface Family {
   total_dragons: number;
   collected: number;
 }
- 
-import { formatRemaining } from '../utils/time';
 
 const GAP = 4;
 
@@ -208,29 +206,26 @@ function Collection() {
                          }} />
                        )}
                      </div>
-                     {hasTimeout && extra_pct > 0 && (
-                       <div style={{
-                         position: 'absolute',
-                         left: `${prev_pct}%`,
-                         width: `${extra_pct}%`,
-                         top: 0,
-                         bottom: 0,
-                         display: 'flex',
-                         alignItems: 'center',
-                         justifyContent: 'center',
-                         pointerEvents: 'none',
-                       }}>
-                         <span style={{
-                           fontSize: Math.max(8, cellSize * 0.065),
-                           color: famColor,
-                           fontWeight: 600,
-                           lineHeight: 1,
-                           whiteSpace: 'nowrap',
-                         }}>
-                           {formatRemaining(c.next_step_available_at!)}
-                         </span>
-                       </div>
-                     )}
+                      {hasTimeout && extra_pct > 0 && (
+                        <div style={{
+                          position: 'absolute',
+                          left: `${prev_pct}%`,
+                          width: `${extra_pct}%`,
+                          top: 0,
+                          bottom: 0,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          pointerEvents: 'none',
+                        }}>
+                          <span style={{
+                            fontSize: Math.max(8, cellSize * 0.065),
+                            lineHeight: 1,
+                          }}>
+                            ⏳
+                          </span>
+                        </div>
+                      )}
                    </div>
                    <div style={{ fontSize: Math.max(12, cellSize * 0.12), color: famColor, textAlign: 'center', fontWeight: 700 }}>
                      {prev_pct}%

@@ -3,7 +3,6 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useVkBridge } from '../context/VkBridgeContext';
 import client from '../api/client';
 import { mediaUrl } from '../api/media';
-import { formatRemaining } from '../utils/time';
 
 interface Step { number: number; task: string; completed: boolean; }
 interface Dragon { is_revealed: boolean; name?: string; rarity?: number; egg_type: string; steps_count: number; description?: string; dragon_url?: string; egg_url?: string; next_step_available_at?: string; family_color?: string; user_progress: { status: string; completed_steps: number; steps: Step[] }; }
@@ -90,9 +89,7 @@ function DragonDetail() {
                 justifyContent: 'center',
                 pointerEvents: 'none',
               }}>
-                <span style={{ fontSize: 8, color: clr, fontWeight: 600, lineHeight: 1, whiteSpace: 'nowrap' }}>
-                  {formatRemaining(d.next_step_available_at!)}
-                </span>
+                <span style={{ fontSize: 8, lineHeight: 1 }}>⏳</span>
               </div>
             )}
           </div>
@@ -117,15 +114,10 @@ function DragonDetail() {
                      ? '→'
                      : '📋'}
              </span>
-             <span style={{ fontSize: 16, color: s.completed ? 'var(--text-secondary)' : 'var(--text-primary)' }}>
-               {s.task}
-             </span>
-             {isTimeoutStep && d.next_step_available_at && (
-               <span style={{ fontSize: 13, color: clr, marginLeft: 12, fontWeight: 600 }}>
-                 {formatRemaining(d.next_step_available_at)}
-               </span>
-             )}
-           </div>
+              <span style={{ fontSize: 16, color: s.completed ? 'var(--text-secondary)' : 'var(--text-primary)' }}>
+                {s.task}
+              </span>
+            </div>
          );
          })}
        </div>
