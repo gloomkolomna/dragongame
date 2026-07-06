@@ -102,6 +102,8 @@ function DragonDetail() {
        <div className="lair-card">
          <a
            href={`https://vk.com/im/convo/-${GROUP_ID}`}
+           target="_blank"
+           rel="noopener noreferrer"
            className="lair-btn"
            style={{ display: 'block', textAlign: 'center', marginBottom: 12, textDecoration: 'none', fontSize: 17, fontWeight: 600 }}
          >
