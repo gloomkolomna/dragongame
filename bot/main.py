@@ -230,7 +230,7 @@ def main():
                 from bot.services.grow_service import get_timeout_remaining
                 if not is_waiting_text(user.state) and not get_timeout_remaining(db, user.vk_id, user.current_dragon_id):
                     send_message(
-                        "⚠ Сначала выбери режим выращивания: «✅ Норма» или «⚠ Штраф (x2)».",
+                        "⚠ Сначала выбери режим выращивания: «🎯 Норма» или «⚡ Штраф (x2)».",
                         keyboard=step_buttons_keyboard(),
                     )
                 else:
