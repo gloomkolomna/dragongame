@@ -143,7 +143,7 @@ def handle_status(user, db, send_message, upload_image=None):
     pct = round((completed / max(total, 1)) * 100) if total else 0
     bar_len = 10
     filled = round((completed / max(total, 1)) * bar_len) if total else 0
-    bar = "█" * filled + "░" * (bar_len - filled)
+    bar = "🟡" * filled + "⚪" * (bar_len - filled)
 
     remaining = get_timeout_remaining(db, user.vk_id, user.current_dragon_id)
     timeout_line = ""
@@ -209,7 +209,7 @@ def handle_garden(user, db, send_message):
         is_current = user.current_dragon_id == ud.dragon_id
         if ud.completed_at:
             pct = 100
-            bar = "█" * 10
+            bar = "🟡" * 10
             status = "⭐"
         else:
             total = dragon.steps_count
@@ -220,7 +220,7 @@ def handle_garden(user, db, send_message):
             ).count()
             pct = round((completed / max(total, 1)) * 100) if total else 0
             filled = round((completed / max(total, 1)) * 10) if total else 0
-            bar = "█" * filled + "░" * (10 - filled)
+            bar = "🟡" * filled + "⚪" * (10 - filled)
             status = "🥚"
         marker = " ← сейчас" if is_current else ""
         label = dragon.name if ud.completed_at else (dragon.egg_type or dragon.name or "?")
