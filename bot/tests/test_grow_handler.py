@@ -160,4 +160,4 @@ def test_grow_message_no_active_dragon(db):
 
     handle_grow_message(u, "вышито 1000", [], db, send)
     assert len(messages) == 1
-    assert "нет активного дракона" in messages[0].lower()
+    assert "нет активного яйца дракона" in messages[0].lower()

@@ -95,7 +95,7 @@ def await_garden_keyboard(with_cancel=False):
     buttons = [
         row(("🥚 Добавить яйцо дракона", "pin")),
     ]
-    bottom = [("🔄🥚 Сменить яйцо дракона", "garden"), ("📋 Статус", "status")]
+    bottom = [("📋 Статус", "status")]
     if with_cancel:
         bottom.insert(0, ("◀ Не менять", "garden_cancel"))
     buttons.append(row(*bottom))
