@@ -18,7 +18,7 @@ from db import SessionLocal
 from bot.fsm import IDLE, AWAIT_PIN, AWAIT_GARDEN, is_growing, is_waiting_text, grow_state, step_from_state
 from bot.handlers.commands import handle_start, handle_help, handle_status, handle_garden, switch_dragon, cancel_garden, handle_switch_to
 from bot.handlers.pin import handle_pin_command, handle_pin_entry
-from bot.handlers.grow import handle_grow_message, handle_grow_command, handle_norm_command, handle_x2_command
+from bot.handlers.grow import handle_grow_message, handle_grow_command, handle_norm_command, handle_x2_command, handle_back_command
 from bot.services.user_service import get_or_create_user
 from bot.scheduler import run_timeout_checker
 from bot.keyboard import idle_keyboard, growing_keyboard, waiting_keyboard, start_growing_keyboard, step_buttons_keyboard, await_pin_keyboard, await_garden_keyboard
@@ -101,6 +101,8 @@ def extract_cmd(text: str, payload_str: str) -> str | None:
         return "norm"
     if t in ("штраф", "штраф (x2)", "x2"):
         return "x2"
+    if t in ("назад", "◀ назад"):
+        return "back"
     return None
 
 
@@ -219,6 +221,8 @@ def main():
                 handle_norm_command(user, db, send_message)
             elif cmd == "x2":
                 handle_x2_command(user, db, send_message)
+            elif cmd == "back":
+                handle_back_command(user, db, send_message, upload_image)
 
             elif user.state == AWAIT_PIN and text and not cmd:
                 handle_pin_entry(user, text, db, send_message, upload_image)

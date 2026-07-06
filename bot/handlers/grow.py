@@ -8,7 +8,7 @@ from bot.services.grow_service import (
     get_dragon_step, get_total_steps, complete_step, complete_dragon,
     get_timeout_remaining, set_step_timeout, get_step_timeout,
 )
-from bot.keyboard import step_buttons_keyboard, growing_keyboard
+from bot.keyboard import step_buttons_keyboard, growing_keyboard, waiting_keyboard
 
 _IMAGES = os.path.join(os.path.dirname(__file__), "..", "..", "images", "dragons")
 
@@ -93,7 +93,8 @@ def handle_norm_command(user, db, send_message):
         f"✅ Режим «Норма» — нужно вышить не менее {norm} крестиков.\n"
         f"Когда закончишь, отправь одним сообщением:\n"
         f"• фото работы (коллаж ДО + ПОСЛЕ + превью)\n"
-        f"• текст: «вышито {norm}» (или другое число)"
+        f"• текст: «вышито {norm}» (или другое число)",
+        keyboard=waiting_keyboard(),
     )
 
 
@@ -121,8 +122,17 @@ def handle_x2_command(user, db, send_message):
         f"⚠ Режим «Штраф (x2)» — нужно вышить не менее {norm} крестиков.\n"
         f"Когда закончишь, отправь одним сообщением:\n"
         f"• фото работы (коллаж ДО + ПОСЛЕ + превью)\n"
-        f"• текст: «вышито {norm}» (или другое число)"
+        f"• текст: «вышито {norm}» (или другое число)",
+        keyboard=waiting_keyboard(),
     )
+
+
+def handle_back_command(user, db, send_message, upload_image=None):
+    if not is_waiting_text(user.state):
+        return
+    user.state = grow_state(user.current_step)
+    db.commit()
+    handle_grow_command(user, db, send_message, upload_image)
 
 
 def handle_grow_message(user, text, attachments, db, send_message, upload_image=None):
