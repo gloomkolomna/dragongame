@@ -10,6 +10,8 @@ interface Cell {
   dragon_id: number | null;
   status: string;
   progress_pct: number;
+  completed_steps: number;
+  steps_count: number;
   name?: string;
   egg_type?: string;
   egg_url?: string;
@@ -110,7 +112,7 @@ function Collection() {
   for (let y = 0; y < my; y++) {
     const r: Cell[] = [];
     for (let x = 0; x < mx; x++) {
-      r.push(map[`${x},${y}`] || { x, y, dragon_id: null, status: 'locked', progress_pct: 0 });
+      r.push(map[`${x},${y}`] || { x, y, dragon_id: null, status: 'locked', progress_pct: 0, completed_steps: 0, steps_count: 5 });
     }
     rows.push(r);
   }
@@ -173,19 +175,42 @@ function Collection() {
             padding: '4px 8px 6px',
             background: 'linear-gradient(transparent, rgba(21,15,26,0.85) 40%)',
           }}>
-            <div style={{ width: '100%', height: Math.max(6, cellSize * 0.07), background: 'rgba(21,15,26,0.55)', borderRadius: cellSize * 0.04, overflow: 'hidden' }}>
-              <div style={{
-                height: '100%', width: `${c.progress_pct}%`,
-                background: `linear-gradient(90deg, ${famColor}88, ${famColor})`,
-                borderRadius: cellSize * 0.04, transition: 'width 0.5s',
-                opacity: c.next_step_available_at ? 0.3 : 1,
-              }} />
-            </div>
-            {!c.next_step_available_at && (
-              <div style={{ fontSize: Math.max(12, cellSize * 0.12), color: famColor, textAlign: 'center', fontWeight: 700 }}>
-                {c.progress_pct}%
-              </div>
-            )}
+            {(() => {
+              const hasTimeout = !!c.next_step_available_at && c.completed_steps > 0;
+              const total = c.steps_count || 5;
+              const current_pct = c.progress_pct;
+              const prev_completed = hasTimeout ? Math.max(0, c.completed_steps - 1) : c.completed_steps;
+              const prev_pct = Math.round((prev_completed / total) * 100);
+              const extra_pct = current_pct - prev_pct;
+
+              return (
+                <>
+                  <div style={{ width: '100%', height: Math.max(6, cellSize * 0.07), background: 'rgba(21,15,26,0.55)', borderRadius: cellSize * 0.04, overflow: 'hidden', display: 'flex' }}>
+                    <div style={{
+                      height: '100%',
+                      width: `${prev_pct}%`,
+                      background: `linear-gradient(90deg, ${famColor}88, ${famColor})`,
+                      borderRadius: `${cellSize * 0.04}px 0 0 ${cellSize * 0.04}px`,
+                      transition: 'width 0.5s',
+                      flexShrink: 0,
+                    }} />
+                    {hasTimeout && extra_pct > 0 && (
+                      <div style={{
+                        height: '100%',
+                        width: `${extra_pct}%`,
+                        background: `linear-gradient(90deg, ${famColor}88, ${famColor})`,
+                        opacity: 0.3,
+                        transition: 'width 0.5s',
+                        flexShrink: 0,
+                      }} />
+                    )}
+                  </div>
+                  <div style={{ fontSize: Math.max(12, cellSize * 0.12), color: famColor, textAlign: 'center', fontWeight: 700 }}>
+                    {prev_pct}%
+                  </div>
+                </>
+              );
+            })()}
           </div>
         </div>
       );

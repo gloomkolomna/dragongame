@@ -90,6 +90,8 @@ def get_collection(vk_id: int, family_id: int = Query(...), db: Session = Depend
             "dragon_id": cell.dragon_id,
             "status": status,
             "progress_pct": progress_pct,
+            "completed_steps": done if status == "growing" else (dragon.steps_count if status == "completed" and dragon else 0),
+            "steps_count": dragon.steps_count if dragon else 5,
             "name": dragon.name if status == "completed" else None,
             "egg_type": dragon.egg_type if (status == "growing" and dragon) else None,
             "rarity": dragon.rarity if dragon else None,
