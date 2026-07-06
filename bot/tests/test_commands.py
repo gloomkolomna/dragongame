@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta
 from models import Dragon, DragonStep, User, UserDragon, UserProgress
 from bot.handlers.commands import (
-    handle_start, handle_status, handle_switch_to,
+    handle_start, handle_switch_to,
     handle_garden, cancel_garden, switch_dragon,
 )
 from bot.fsm import IDLE, AWAIT_GARDEN
@@ -27,55 +27,6 @@ def _setup_user_with_dragon(db, step=1, timeout_hours=0, timeout_minutes=0):
     db.add(ud)
     db.commit()
     return d, u
-
-
-def test_handle_status_shows_timeout_when_active(db):
-    d, u = _setup_user_with_dragon(db, step=2)
-    future = (datetime.now() + timedelta(hours=3, minutes=15)).strftime("%Y-%m-%dT%H:%M:%S")
-    ud = db.query(UserDragon).filter(
-        UserDragon.user_id == u.vk_id, UserDragon.dragon_id == d.id
-    ).first()
-    ud.next_step_available_at = future
-    db.commit()
-
-    messages = []
-    def send(msg, **kw):
-        messages.append(msg)
-
-    handle_status(u, db, send)
-
-    full = " ".join(messages)
-    assert "⏳" in full
-    assert "3" in full  # hours
-
-
-def test_handle_status_shows_ready_when_no_timeout(db):
-    d, u = _setup_user_with_dragon(db, step=2)
-
-    messages = []
-    def send(msg, **kw):
-        messages.append(msg)
-
-    handle_status(u, db, send)
-
-    full = " ".join(messages)
-    assert "✅" in full
-    assert "Готов" in full
-
-
-def test_handle_status_no_dragon(db):
-    u = User(vk_id=1, state=IDLE, current_dragon_id=None, current_step=0)
-    db.add(u)
-    db.commit()
-
-    messages = []
-    def send(msg, **kw):
-        messages.append(msg)
-
-    handle_status(u, db, send)
-
-    assert len(messages) == 1
-    assert "нет активного дракона" in messages[0]
 
 
 def test_handle_start_shows_timeout(db):

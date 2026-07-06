@@ -53,7 +53,6 @@ def idle_keyboard(has_active=True):
 
 def growing_keyboard():
     return _keyboard([
-        row(("📋 Статус", "status")),
         row(("🔄🥚 Сменить яйцо дракона", "garden"), ("❓ Помощь", "help")),
         bestiary_link_row(),
     ])
@@ -62,7 +61,6 @@ def growing_keyboard():
 def waiting_keyboard():
     return _keyboard([
         row(("◀ Назад", "back")),
-        row(("📋 Статус", "status")),
         row(("🔄🥚 Сменить яйцо дракона", "garden"), ("❓ Помощь", "help")),
         bestiary_link_row(),
     ])
@@ -80,7 +78,7 @@ def step_buttons_keyboard():
     return _keyboard([
         [{"action": {"type": "text", "label": "🎯 Норма", "payload": json.dumps({"cmd": "norm"}, ensure_ascii=False)}, "color": "positive"}],
         [{"action": {"type": "text", "label": "⚡ Штраф (x2)", "payload": json.dumps({"cmd": "x2"}, ensure_ascii=False)}, "color": "negative"}],
-        row(("📋 Статус", "status"), ("🔄🥚 Сменить яйцо дракона", "garden")),
+        row(("🔄🥚 Сменить яйцо дракона", "garden")),
         bestiary_link_row(),
     ])
 
@@ -96,7 +94,7 @@ def await_garden_keyboard(with_cancel=False):
     buttons = [
         row(("🥚 Добавить яйцо дракона", "pin")),
     ]
-    bottom = [("📋 Статус", "status")]
+    bottom = []
     if with_cancel:
         bottom.insert(0, ("◀ Не менять", "garden_cancel"))
     buttons.append(row(*bottom))

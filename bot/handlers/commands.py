@@ -1,4 +1,4 @@
-"""Command handlers: /start, /help, /status, garden."""
+"""Command handlers: /start, /help, garden."""
 
 import os
 import re
@@ -21,10 +21,10 @@ def _attach_egg(db, user, dragon, upload_image):
         db.add(ErrorLog(source="bot", error_type="UPLOAD", message=f"Egg file not found: {filepath}", user_id=user.vk_id, created_at=datetime.now().isoformat()))
         db.commit()
         return ""
-    def log_err(msg):
+    def log_err(msg, tb=""):
         from datetime import datetime
         from models import ErrorLog
-        db.add(ErrorLog(source="bot", error_type="UPLOAD", message=f"{msg} (file={filepath})", user_id=user.vk_id, created_at=datetime.now().isoformat()))
+        db.add(ErrorLog(source="bot", error_type="UPLOAD", message=f"{msg} (file={filepath})", user_id=user.vk_id, traceback_text=tb, created_at=datetime.now().isoformat()))
         db.commit()
     return upload_image(filepath, log_error=log_err, peer_id=user.vk_id)
 
@@ -99,7 +99,6 @@ def handle_help(send_message):
         "🥚 Добавить яйцо дракона — ввести PIN-код с яйца и начать выращивание\n"
         "🌱 Перейти к выращиванию — начать/продолжить текущий шаг\n"
         "🔄🥚 Сменить яйцо дракона — посмотреть все яйца драконов, которые вы выращиваете, и переключиться\n"
-        "📋 Статус — узнать текущий шаг и прогресс\n"
         "❓ Помощь — эта справка\n\n"
         "📸 Как проходить шаги:\n"
         "1. Нажми «🌱 Перейти к выращиванию»\n"
@@ -107,74 +106,6 @@ def handle_help(send_message):
         "3. Вышей нужное количество крестиков\n"
         "4. Отправь сообщение «вышито 1000» (своё число)"
     )
-
-
-def handle_status(user, db, send_message, upload_image=None):
-    if not user.current_dragon_id:
-        from bot.keyboard import idle_keyboard
-        user.state = IDLE
-        db.commit()
-        send_message(
-            "У тебя пока нет активного дракона. Нажми «🥚 Добавить яйцо дракона» чтобы начать.",
-            keyboard=idle_keyboard(has_active=False),
-        )
-        return
-
-    dragon = db.query(Dragon).filter(Dragon.id == user.current_dragon_id).first()
-    if not dragon:
-        from bot.keyboard import idle_keyboard
-        user.current_dragon_id = None
-        user.current_step = 0
-        user.state = IDLE
-        db.commit()
-        send_message(
-            "Дракон не найден. Нажми «🥚 Добавить яйцо дракона» чтобы начать.",
-            keyboard=idle_keyboard(has_active=False),
-        )
-        return
-
-    from models import UserProgress
-    total = get_total_steps(db, user.current_dragon_id)
-    completed = db.query(UserProgress).filter(
-        UserProgress.user_id == user.vk_id,
-        UserProgress.dragon_id == user.current_dragon_id,
-        UserProgress.completed == True,
-    ).count()
-    bar = "🟡" * completed + "⚪" * (total - completed)
-
-    remaining = get_timeout_remaining(db, user.vk_id, user.current_dragon_id)
-    timeout_line = ""
-    if remaining is not None:
-        total_secs = int(remaining.total_seconds())
-        hours, remainder = divmod(total_secs, 3600)
-        minutes = remainder // 60
-        timeout_line = f"\n⏳ Следующий шаг будет доступен через: {hours} ч. {minutes} мин."
-    else:
-        timeout_line = "\n✅ Готов к следующему этапу выращивания!"
-
-    attachment = _attach_egg(db, user, dragon, upload_image) if upload_image else ""
-    status_emoji = "🐣" if completed > 0 else "🥚"
-
-    if remaining is not None:
-        send_message(
-            f"{status_emoji} {dragon.egg_type or 'яйцо'}\n"
-            f"📋 Завершено шагов: {completed} из {total}\n"
-            f"{bar}\n"
-            f"{timeout_line}",
-            attachment=attachment,
-        )
-    else:
-        step_def = get_dragon_step(db, user.current_dragon_id, user.current_step)
-        norm = step_def.crosses_norm if step_def else "?"
-        send_message(
-            f"{status_emoji} {dragon.egg_type or 'яйцо'}\n"
-            f"📋 Шаг {user.current_step} из {total}\n"
-            f"{bar}\n"
-            f"🎯 Норма: {norm} крестиков\n"
-            f"{timeout_line}",
-            keyboard=start_growing_keyboard(),
-            attachment=attachment,
-        )
 
 
 def handle_garden(user, db, send_message):

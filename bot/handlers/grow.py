@@ -59,10 +59,10 @@ def handle_grow_command(user, db, send_message, upload_image=None):
     if upload_image and dragon and dragon.egg_path:
         filepath = os.path.join(_IMAGES, os.path.basename(dragon.egg_path))
         if os.path.isfile(filepath):
-            def log_err(msg):
+            def log_err(msg, tb=""):
                 from datetime import datetime
                 from models import ErrorLog
-                db.add(ErrorLog(source="bot", error_type="UPLOAD", message=f"{msg} (file={filepath})", user_id=user.vk_id, created_at=datetime.now().isoformat()))
+                db.add(ErrorLog(source="bot", error_type="UPLOAD", message=f"{msg} (file={filepath})", user_id=user.vk_id, traceback_text=tb, created_at=datetime.now().isoformat()))
                 db.commit()
             attachment = upload_image(filepath, log_error=log_err, peer_id=user.vk_id)
 
@@ -264,10 +264,10 @@ def _handle_crosses_check(user, text, attachments, db, send_message, upload_imag
         attachment = ""
         if upload_image and dragon and dragon.dragon_path:
             filepath = os.path.join(_IMAGES, os.path.basename(dragon.dragon_path))
-            def log_err(msg):
+            def log_err(msg, tb=""):
                 from datetime import datetime
                 from models import ErrorLog
-                db.add(ErrorLog(source="bot", error_type="UPLOAD", message=f"{msg} (file={filepath})", user_id=user.vk_id, created_at=datetime.now().isoformat()))
+                db.add(ErrorLog(source="bot", error_type="UPLOAD", message=f"{msg} (file={filepath})", user_id=user.vk_id, traceback_text=tb, created_at=datetime.now().isoformat()))
                 db.commit()
             attachment = upload_image(filepath, log_error=log_err, peer_id=user.vk_id)
 
@@ -297,10 +297,10 @@ def _handle_crosses_check(user, text, attachments, db, send_message, upload_imag
             if upload_image and dragon and dragon.egg_path:
                 filepath = os.path.join(_IMAGES, os.path.basename(dragon.egg_path))
                 if os.path.isfile(filepath):
-                    def log_err(msg):
+                    def log_err(msg, tb=""):
                         from datetime import datetime
                         from models import ErrorLog
-                        db.add(ErrorLog(source="bot", error_type="UPLOAD", message=f"{msg} (file={filepath})", user_id=user.vk_id, created_at=datetime.now().isoformat()))
+                        db.add(ErrorLog(source="bot", error_type="UPLOAD", message=f"{msg} (file={filepath})", user_id=user.vk_id, traceback_text=tb, created_at=datetime.now().isoformat()))
                         db.commit()
                     attachment = upload_image(filepath, log_error=log_err, peer_id=user.vk_id)
             send_message(msg, attachment=attachment, keyboard=step_buttons_keyboard())

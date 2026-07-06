@@ -16,7 +16,7 @@ sys.path.insert(0, os.path.join(_root, "api"))
 import config
 from db import SessionLocal
 from bot.fsm import IDLE, AWAIT_PIN, AWAIT_GARDEN, is_growing, is_waiting_text, grow_state, step_from_state
-from bot.handlers.commands import handle_start, handle_help, handle_status, handle_garden, switch_dragon, cancel_garden, handle_switch_to
+from bot.handlers.commands import handle_start, handle_help, handle_garden, switch_dragon, cancel_garden, handle_switch_to
 from bot.handlers.pin import handle_pin_command, handle_pin_entry
 from bot.handlers.grow import handle_grow_message, handle_grow_command, handle_norm_command, handle_x2_command, handle_back_command
 from bot.services.user_service import get_or_create_user
@@ -89,8 +89,6 @@ def extract_cmd(text: str, payload_str: str) -> str | None:
         return "pin"
     if "/start" in t or "выращивать" in t:
         return "start"
-    if "статус" in t or "/status" in t:
-        return "status"
     if "помощь" in t or "/help" in t:
         return "help"
     if "бестиарий" in t or "сменить" in t or "/garden" in t:
@@ -129,21 +127,32 @@ def main():
     print("Timeout scheduler started")
 
     def upload_image(filepath: str, log_error=None, peer_id=0) -> str:
-        try:
-            if not os.path.isfile(filepath):
-                return ""
-            upload_url = vk.photos.getMessagesUploadServer(peer_id=peer_id)["upload_url"]
-            import requests
-            with open(filepath, "rb") as f:
-                resp = requests.post(upload_url, files={"photo": ("image.jpg", f, "image/jpeg")}, timeout=30).json()
-            saved = vk.photos.saveMessagesPhoto(photo=resp["photo"], server=resp["server"], hash=resp["hash"])[0]
-            return f"photo{saved['owner_id']}_{saved['id']}"
-        except Exception as e:
-            msg = f"Image upload failed: {e}"
-            print(msg)
-            if log_error:
-                log_error(str(e))
-            return ""
+        last_error = None
+        last_tb = ""
+        for attempt in range(3):
+            try:
+                if not os.path.isfile(filepath):
+                    return ""
+                upload_url = vk.photos.getMessagesUploadServer(peer_id=peer_id)["upload_url"]
+                import requests
+                with open(filepath, "rb") as f:
+                    resp = requests.post(upload_url, files={"photo": ("image.jpg", f, "image/jpeg")}, timeout=30)
+                resp.raise_for_status()
+                data = resp.json()
+                saved = vk.photos.saveMessagesPhoto(photo=data["photo"], server=data["server"], hash=data["hash"])[0]
+                return f"photo{saved['owner_id']}_{saved['id']}"
+            except Exception as e:
+                last_error = e
+                import traceback
+                last_tb = traceback.format_exc()
+                if attempt < 2:
+                    import time
+                    time.sleep(1)
+        msg = f"Image upload failed after 3 retries: {last_error}"
+        print(msg)
+        if log_error:
+            log_error(str(last_error), last_tb)
+        return ""
 
     for event in longpoll.listen():
         if event.type != VkBotEventType.MESSAGE_NEW:
@@ -207,8 +216,6 @@ def main():
                 handle_start(user, db, send_message)
             elif cmd == "help":
                 handle_help(send_message)
-            elif cmd == "status":
-                handle_status(user, db, send_message, upload_image)
             elif cmd == "garden":
                 handle_garden(user, db, send_message)
             elif cmd == "garden_cancel":
