@@ -77,8 +77,8 @@ def start_growing_keyboard():
 
 def step_buttons_keyboard():
     return _keyboard([
-        row(("✅ Норма", "norm")),
-        row(("⚠ Штраф (x2)", "x2")),
+        [{"action": {"type": "text", "label": "✅ Норма", "payload": json.dumps({"cmd": "norm"}, ensure_ascii=False)}, "color": "positive"}],
+        [{"action": {"type": "text", "label": "❌ Штраф (x2)", "payload": json.dumps({"cmd": "x2"}, ensure_ascii=False)}, "color": "negative"}],
         row(("📋 Статус", "status"), ("🔄🥚 Сменить яйцо дракона", "garden")),
         bestiary_link_row(),
     ])
