@@ -207,3 +207,45 @@ def test_switch_dragon_by_index(db):
 
     db.refresh(u)
     assert u.current_dragon_id == d2.id
+
+
+def test_switch_dragon_timeout_attaches_egg(db):
+    import os
+    from bot.handlers import commands as cmd
+    d1 = Dragon(name="First", rarity=1, steps_count=2, is_active=True)
+    egg_file = os.path.join(cmd._IMAGES, "egg_switch_test.png")
+    d2 = Dragon(name="Second", rarity=1, steps_count=2, is_active=True,
+                egg_type="ледяное", egg_path=os.path.basename(egg_file))
+    db.add_all([d1, d2])
+    db.flush()
+    u = User(vk_id=31, state="grow_step_1", current_dragon_id=d1.id, current_step=1)
+    db.add(u)
+    for i in range(1, 3):
+        db.add(DragonStep(dragon_id=d1.id, step_number=i, magic_action=f"A{i}"))
+        db.add(DragonStep(dragon_id=d2.id, step_number=i, magic_action=f"B{i}"))
+    ud1 = UserDragon(user_id=31, dragon_id=d1.id, completed_at="")
+    future = (datetime.now() + timedelta(hours=47, minutes=39)).strftime("%Y-%m-%dT%H:%M:%S")
+    ud2 = UserDragon(user_id=31, dragon_id=d2.id, completed_at="", next_step_available_at=future)
+    db.add_all([ud1, ud2])
+    db.commit()
+
+    os.makedirs(cmd._IMAGES, exist_ok=True)
+    with open(egg_file, "wb") as f:
+        f.write(b"\x89PNG")
+
+    attachments = []
+    def send(msg, **kw):
+        attachments.append(kw.get("attachment"))
+
+    uploaded = []
+    def upload_image(path, **kw):
+        uploaded.append(path)
+        return "photo123"
+
+    try:
+        switch_dragon(u, 2, db, send, upload_image)
+    finally:
+        os.remove(egg_file)
+
+    assert uploaded and uploaded[0] == egg_file
+    assert "photo123" in attachments
