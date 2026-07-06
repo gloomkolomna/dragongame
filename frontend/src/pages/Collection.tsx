@@ -24,6 +24,7 @@ interface Family {
   name: string;
   description: string;
   color: string;
+  image_path: string;
   total_dragons: number;
   collected: number;
 }
@@ -293,14 +294,22 @@ function Collection() {
           : undefined,
         borderColor: selectedFamily?.color ? `${selectedFamily.color}66` : undefined,
       }}>
-        <div style={{ fontSize: 20, color: selectedFamily?.color || 'var(--accent-gold-light)', fontWeight: 600, marginBottom: 2 }}>
-          {selectedFamily?.name || 'Коллекция'}
-        </div>
-        {selectedFamily?.description && (
-          <div style={{ fontSize: 14, color: selectedFamily?.color || 'var(--parchment-dim)', lineHeight: 1.5 }}>
-            {selectedFamily.description}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+          {selectedFamily?.image_path && (
+            <img src={mediaUrl(selectedFamily.image_path)} alt=""
+                 style={{ width: 52, height: 52, objectFit: 'contain', flexShrink: 0 }} />
+          )}
+          <div>
+            <div style={{ fontSize: 20, color: selectedFamily?.color || 'var(--accent-gold-light)', fontWeight: 600, marginBottom: 2 }}>
+              {selectedFamily?.name || 'Коллекция'}
+            </div>
+            {selectedFamily?.description && (
+              <div style={{ fontSize: 14, color: selectedFamily?.color || 'var(--parchment-dim)', lineHeight: 1.5 }}>
+                {selectedFamily.description}
+              </div>
+            )}
           </div>
-        )}
+        </div>
       </div>
 
       {rows.length > 0 ? (

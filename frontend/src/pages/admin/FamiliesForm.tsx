@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import client from '../../api/client';
 
@@ -22,25 +22,38 @@ function FamiliesForm() {
   const [description, setDescription] = useState('');
   const [sortOrder, setSortOrder] = useState(0);
   const [color, setColor] = useState('#9b6fc7');
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState('');
   const [load, setLoad] = useState(isEdit);
+  const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!isEdit) return;
     client.get('/admin/families').then((r) => {
       const f = r.data.find((x: any) => x.id === Number(id));
-      if (f) { setName(f.name); setDescription(f.description); setSortOrder(f.sort_order); setColor(f.color || '#9b6fc7'); }
+      if (f) { setName(f.name); setDescription(f.description); setSortOrder(f.sort_order); setColor(f.color || '#9b6fc7'); if (f.image_path) setImagePreview(`/dragons/api/static/images/${f.image_path}?t=${Date.now()}`); }
     }).finally(() => setLoad(false));
   }, [id]);
+
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) { setImageFile(file); setImagePreview(URL.createObjectURL(file)); }
+  };
 
   const save = async () => {
     if (!name.trim()) { setError('Название обязательно'); return; }
     setSaving(true); setError('');
     try {
-      const body = { name, description, sort_order: sortOrder, color };
+      const form = new FormData();
+      form.append('name', name);
+      form.append('description', description);
+      form.append('sort_order', String(sortOrder));
+      form.append('color', color);
+      if (imageFile) form.append('image', imageFile);
       if (isEdit) {
-        await client.put(`/admin/families/${id}`, body);
+        await client.put(`/admin/families/${id}`, form, { headers: { 'Content-Type': 'multipart/form-data' } });
       } else {
-        await client.post('/admin/families', body);
+        await client.post('/admin/families', form, { headers: { 'Content-Type': 'multipart/form-data' } });
       }
       nav('/admin/families');
     } catch (e: any) { setError(e?.response?.data?.detail || 'Ошибка'); }
@@ -62,6 +75,29 @@ function FamiliesForm() {
           <div style={{ marginBottom: 16 }}>
             <label className="lair-label">Описание</label>
             <textarea className="lair-textarea" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Краткое описание семейства / союза" />
+          </div>
+          <div style={{ marginBottom: 16 }}>
+            <label className="lair-label">Герб</label>
+            <div onClick={() => fileRef.current?.click()} style={{
+              width: 100, height: 100, borderRadius: 12,
+              border: '2px dashed var(--bronze)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              cursor: 'pointer', overflow: 'hidden',
+              background: 'var(--bg-input)',
+              marginBottom: 4,
+            }}>
+              {imagePreview ? (
+                <img src={imagePreview} alt="" style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                     onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+              ) : (
+                <span style={{ fontSize: 28, opacity: 0.4 }}>+</span>
+              )}
+            </div>
+            <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }}
+                   onChange={handleImageChange} />
+            <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>
+              {imageFile ? imageFile.name : 'PNG на прозрачном фоне (не обязательно)'}
+            </div>
           </div>
           <div style={{ marginBottom: 16 }}>
             <label className="lair-label">Цвет</label>

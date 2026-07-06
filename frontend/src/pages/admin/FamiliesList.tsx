@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import client from '../../api/client';
 
-interface Family { id: number; name: string; description: string; sort_order: number; color: string; dragon_count: number; }
+interface Family { id: number; name: string; description: string; sort_order: number; color: string; image_path: string; dragon_count: number; }
 
 function FamiliesList() {
   const [families, setFamilies] = useState<Family[]>([]);

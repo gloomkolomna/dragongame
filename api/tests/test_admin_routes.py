@@ -16,7 +16,7 @@ def _create_dragon(client, name="TestDragon"):
 def _create_family(client):
     return client.post(
         "/api/admin/families",
-        json={"name": "TestFamily", "color": "#ff0000"},
+        data={"name": "TestFamily", "color": "#ff0000"},
     )
 
 

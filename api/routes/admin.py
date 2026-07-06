@@ -12,6 +12,7 @@ from config import API_ERROR_LOG
 from services.dragon_service import (
     get_dragons, get_dragon, create_dragon, update_dragon, delete_dragon, sync_steps_count,
 )
+from services.family_service import create_family as svc_create_family, update_family as svc_update_family
 
 router = APIRouter(prefix="/api/admin", tags=["admin"], dependencies=[Depends(get_current_admin)])
 
@@ -326,42 +327,39 @@ def list_families(db: Session = Depends(get_db)):
     result = []
     for f in families:
         dragon_count = db.query(Dragon).filter(Dragon.family_id == f.id).count()
-        result.append({"id": f.id, "name": f.name, "description": f.description, "sort_order": f.sort_order, "color": f.color, "dragon_count": dragon_count})
+        result.append({"id": f.id, "name": f.name, "description": f.description, "sort_order": f.sort_order, "color": f.color, "image_path": f.image_path or "", "dragon_count": dragon_count})
     return result
 
 
 @router.post("/families")
-async def create_family(request: Request, db: Session = Depends(get_db)):
-    raw = await request.body()
-    try:
-        data = json.loads(raw)
-    except json.JSONDecodeError:
-        raise HTTPException(status_code=400, detail="Invalid JSON body")
-    fam = Family(name=data.get("name", ""), description=data.get("description", ""), sort_order=data.get("sort_order", 0), color=data.get("color", "#9b6fc7"))
-    if not fam.name:
+def create_family(
+    name: str = Form(...),
+    description: str = Form(""),
+    sort_order: int = Form(0),
+    color: str = Form("#9b6fc7"),
+    image: Optional[UploadFile] = File(None),
+    db: Session = Depends(get_db),
+):
+    if not name.strip():
         raise HTTPException(status_code=400, detail="Name is required")
-    db.add(fam)
-    db.commit()
-    db.refresh(fam)
-    return fam
+    return svc_create_family(db, name=name, description=description,
+                             sort_order=sort_order, color=color, image=image)
 
 
 @router.put("/families/{family_id}")
-async def update_family(family_id: int, request: Request, db: Session = Depends(get_db)):
-    fam = db.query(Family).filter(Family.id == family_id).first()
+def update_family(
+    family_id: int,
+    name: Optional[str] = Form(None),
+    description: Optional[str] = Form(None),
+    sort_order: Optional[int] = Form(None),
+    color: Optional[str] = Form(None),
+    image: Optional[UploadFile] = File(None),
+    db: Session = Depends(get_db),
+):
+    fam = svc_update_family(db, family_id, name=name, description=description,
+                            sort_order=sort_order, color=color, image=image)
     if not fam:
         raise HTTPException(status_code=404, detail="Family not found")
-    raw = await request.body()
-    try:
-        data = json.loads(raw)
-    except json.JSONDecodeError:
-        raise HTTPException(status_code=400, detail="Invalid JSON body")
-    if "name" in data: fam.name = data["name"]
-    if "description" in data: fam.description = data["description"]
-    if "sort_order" in data: fam.sort_order = data["sort_order"]
-    if "color" in data: fam.color = data["color"]
-    db.commit()
-    db.refresh(fam)
     return fam
 
 

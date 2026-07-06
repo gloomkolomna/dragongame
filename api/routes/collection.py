@@ -22,6 +22,7 @@ def get_collection_families(vk_id: int, db: Session = Depends(get_db)):
             "name": fam.name,
             "description": fam.description,
             "color": fam.color,
+            "image_path": fam.image_path or "",
             "total_dragons": total,
             "collected": collected,
         })

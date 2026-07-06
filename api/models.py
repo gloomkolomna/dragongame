@@ -11,6 +11,7 @@ class Family(Base):
     description = Column(Text, default="")
     sort_order = Column(Integer, default=0)
     color = Column(String(7), default="#9b6fc7")
+    image_path = Column(String, default="")
 
 
 class Dragon(Base):
