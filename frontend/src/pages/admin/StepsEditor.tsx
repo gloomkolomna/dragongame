@@ -47,7 +47,7 @@ function StepsEditor() {
     });
   };
 
-  const add = () => setSteps((prev) => [...prev, { id: 0, dragon_id: Number(id), step_number: prev.length + 1, magic_action: '', task_description: '', hint: '', timeout_hours: 1, timeout_minutes: 0, crosses_norm: 1000 }]);
+  const add = () => setSteps((prev) => [...prev, { id: 0, dragon_id: Number(id), step_number: prev.length + 1, magic_action: '', task_description: '', hint: '', timeout_hours: 0, timeout_minutes: 0, crosses_norm: 1000 }]);
 
   const remove = (i: number) => setSteps((prev) => prev.filter((_, idx) => idx !== i));
 
