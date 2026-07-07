@@ -97,6 +97,7 @@ def await_garden_keyboard(with_cancel=False):
     bottom = []
     if with_cancel:
         bottom.insert(0, ("◀ Не менять", "garden_cancel"))
-    buttons.append(row(*bottom))
+    if bottom:
+        buttons.append(row(*bottom))
     buttons.append(bestiary_link_row())
     return _keyboard(buttons)
