@@ -3,7 +3,7 @@
 import os
 import re
 from models import Dragon, UserDragon, UserProgress
-from bot.fsm import IDLE, GROW_STEP, AWAIT_GARDEN, step_from_state, grow_state
+from bot.fsm import IDLE, GROW_STEP, AWAIT_GARDEN, AWAIT_LEGENDS, step_from_state, grow_state
 from bot.services.grow_service import get_total_steps, get_dragon_step, get_timeout_remaining
 from bot.handlers.grow import format_step, step_attachment
 from bot.keyboard import idle_keyboard, step_buttons_keyboard, start_growing_keyboard, await_garden_keyboard
@@ -132,7 +132,10 @@ def handle_balance(user, db, send_message):
 def handle_garden(user, db, send_message):
     all_entries = _regular_user_dragons(db, user.vk_id)
 
-    if not all_entries:
+    from services.epic_service import get_epic_dragon, get_care, is_egg_hatched, egg_completed_count
+    epic = get_epic_dragon(db, user.vk_id)
+
+    if not all_entries and not epic:
         from bot.keyboard import idle_keyboard
         user.state = IDLE
         db.commit()
@@ -147,8 +150,7 @@ def handle_garden(user, db, send_message):
     index_map = {e.id: i + 1 for i, e in enumerate(all_entries)}
 
     lines = ["🥚🐉 Яйца драконов, которые ты выращиваешь:\n"]
-    ordered = entries
-    for ud in ordered:
+    for ud in entries:
         dragon = db.query(Dragon).filter(Dragon.id == ud.dragon_id).first()
         if not dragon:
             continue
@@ -173,7 +175,26 @@ def handle_garden(user, db, send_message):
         num = index_map[ud.id]
         lines.append(f"{num}. {status} {label} {bar}{remaining_str}{marker}")
 
-    if entries:
+    epic_num = None
+    if epic:
+        epic_kind = "🐲"
+        epic_label = f"{epic.egg_type or epic.name or '?'} {epic_kind}"
+        care = get_care(db, user.vk_id)
+        hatched = is_egg_hatched(db, user.vk_id)
+        if hatched:
+            from services.epic_service import get_epic_name
+            epic_name = get_epic_name(db, user.vk_id)
+            epic_label = f"{epic_name} {epic_kind}" if epic_name else epic_label
+        else:
+            done_egg = egg_completed_count(db, user.vk_id)
+            bar = "🟡" * done_egg + "⚪" * (epic.steps_count - done_egg)
+            epic_label = f"🐲🥚 {epic_label} {bar}"
+        epic_num = len(all_entries) + 1
+        is_epic_current = user.current_dragon_id == epic.id
+        epic_marker = " 👈 сейчас" if is_epic_current else ""
+        lines.append(f"{epic_num}. {epic_label}{epic_marker}")
+
+    if entries or epic:
         user.state = AWAIT_GARDEN
         db.commit()
         if completed_entries:
@@ -227,6 +248,13 @@ def cancel_garden(user, db, send_message, upload_image=None):
 
 def switch_dragon(user, num: int, db, send_message, upload_image=None):
     all_entries = _regular_user_dragons(db, user.vk_id)
+
+    from services.epic_service import get_epic_dragon
+    epic = get_epic_dragon(db, user.vk_id)
+    if epic and num == len(all_entries) + 1:
+        from bot.handlers.epic import handle_epic_command
+        handle_epic_command(user, db, send_message, upload_image)
+        return
 
     if num < 1 or num > len(all_entries):
         send_message("❌ Неверный номер. Напиши номер из списка.")
@@ -409,3 +437,69 @@ def _completed_keyboard():
             [{"action": {"type": "open_link", "label": "📖 Мой Бестиарий", "link": "https://vk.com/app54663330"}}],
         ],
     }, ensure_ascii=False)
+
+
+def grown_legendaries(db, vk_id):
+    from models import Dragon, UserDragon
+    from bot.services.legend_service import get_legend_total
+    rows = (
+        db.query(Dragon)
+        .join(UserDragon, UserDragon.dragon_id == Dragon.id)
+        .filter(
+            UserDragon.user_id == vk_id,
+            UserDragon.completed_at != "",
+            Dragon.rarity == 3,
+            Dragon.is_epic == False,
+        )
+        .order_by(UserDragon.id)
+        .all()
+    )
+    return [d for d in rows if get_legend_total(db, d.id) > 0]
+
+
+def user_has_legendary(db, vk_id):
+    return len(grown_legendaries(db, vk_id)) > 0
+
+
+def handle_legends(user, db, send_message):
+    dragons = grown_legendaries(db, user.vk_id)
+    if not dragons:
+        send_message(
+            "📖 У тебя пока нет выращенных легендарных драконов.\n"
+            "Их легенды появятся здесь, когда ты вырастишь легендарного дракона."
+        )
+        return
+    lines = ["🐉 Легендарные драконы — выбери, чью легенду прочитать:\n"]
+    from bot.services.legend_service import get_legend_total
+    from models import UserLegendProgress
+    for i, d in enumerate(dragons, start=1):
+        total = get_legend_total(db, d.id)
+        opened = db.query(UserLegendProgress).filter(
+            UserLegendProgress.user_id == user.vk_id,
+            UserLegendProgress.dragon_id == d.id,
+            UserLegendProgress.completed == True,
+        ).count()
+        lines.append(f"{i}. 🐉 {d.name} 📖 {opened}/{total}")
+    lines.append("\nНапиши номер, чтобы прочитать легенду, или «0», чтобы вернуться.")
+    user.state = AWAIT_LEGENDS
+    db.commit()
+    send_message("\n".join(lines))
+
+
+def handle_legends_pick(user, num, db, send_message, upload_image=None):
+    dragons = grown_legendaries(db, user.vk_id)
+    if num < 1 or num > len(dragons):
+        send_message("❌ Неверный номер. Напиши номер из списка.")
+        return
+    dragon = dragons[num - 1]
+    from bot.handlers.legend import handle_legend_start
+    handle_legend_start(user, dragon.id, db, send_message, upload_image)
+
+
+def cancel_legends(user, db, send_message):
+    if user.current_dragon_id:
+        user.state = grow_state(user.current_step)
+    else:
+        user.state = IDLE
+    db.commit()
+    send_message("Хорошо, вернулись.")

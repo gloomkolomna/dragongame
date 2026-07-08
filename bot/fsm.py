@@ -7,6 +7,7 @@ GROW_STEP = "grow_step"
 COMPLETED = "completed"
 AWAIT_EPIC_NAME = "await_epic_name"
 AWAIT_EPIC_RESTART = "await_epic_restart"
+AWAIT_LEGENDS = "await_legends"
 
 
 def grow_state(step: int, suffix: str = "") -> str:

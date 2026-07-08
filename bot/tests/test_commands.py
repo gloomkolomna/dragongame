@@ -3,9 +3,10 @@ from models import Dragon, DragonStep, User, UserDragon, UserProgress
 from bot.handlers.commands import (
     handle_start, handle_switch_to,
     handle_garden, cancel_garden, switch_dragon,
-    handle_balance,
+    handle_balance, handle_legends, handle_legends_pick, cancel_legends,
+    grown_legendaries, user_has_legendary,
 )
-from bot.fsm import IDLE, AWAIT_GARDEN
+from bot.fsm import IDLE, AWAIT_GARDEN, AWAIT_LEGENDS
 
 
 def _setup_user_with_dragon(db, step=1, timeout_hours=0, timeout_minutes=0):
@@ -286,3 +287,144 @@ def test_switch_dragon_timeout_attaches_egg(db):
 
     assert uploaded and uploaded[0] == egg_file
     assert "photo123" in attachments
+
+
+def _make_epic(db, vk_id, steps_count=2, hatched_steps=0, name=""):
+    ed = Dragon(name="EpicOne", rarity=3, steps_count=steps_count, is_active=True, is_epic=True, egg_type="лунное")
+    db.add(ed)
+    db.flush()
+    for i in range(1, steps_count + 1):
+        db.add(DragonStep(dragon_id=ed.id, step_number=i, magic_action=f"E{i}", crosses_norm=1000))
+    for i in range(1, hatched_steps + 1):
+        db.add(UserProgress(user_id=vk_id, dragon_id=ed.id, step_number=i, completed=True))
+    u = db.query(User).filter(User.vk_id == vk_id).first()
+    u.epic_dragon_id = ed.id
+    if name:
+        db.add(UserProgress(user_id=vk_id, dragon_id=ed.id, step_number=0, completed=False, epic_name=name))
+    db.commit()
+    return ed
+
+
+def test_handle_garden_includes_epic_with_emoji(db):
+    d = Dragon(name="Reg", rarity=1, steps_count=2, is_active=True, egg_type="красное")
+    db.add(d)
+    db.flush()
+    u = User(vk_id=50, state="grow_step_1", current_dragon_id=d.id, current_step=1)
+    db.add(u)
+    db.add(UserDragon(user_id=50, dragon_id=d.id, completed_at=""))
+    db.commit()
+    _make_epic(db, 50)
+
+    messages = []
+    def send(msg, **kw):
+        messages.append(msg)
+
+    handle_garden(u, db, send)
+
+    full = " ".join(messages)
+    assert "🐲" in full
+    assert "2. " in full
+    assert u.state == AWAIT_GARDEN
+
+
+def test_switch_to_epic_number_routes_to_epic(db):
+    d = Dragon(name="Reg", rarity=1, steps_count=2, is_active=True, egg_type="красное")
+    db.add(d)
+    db.flush()
+    u = User(vk_id=51, state=AWAIT_GARDEN, current_dragon_id=d.id, current_step=1)
+    db.add(u)
+    db.add(UserDragon(user_id=51, dragon_id=d.id, completed_at=""))
+    db.commit()
+    _make_epic(db, 51)
+
+    messages = []
+    def send(msg, **kw):
+        messages.append(msg)
+
+    switch_dragon(u, 2, db, send)
+
+    db.refresh(u)
+    assert u.state.startswith("epic_egg_")
+
+
+def _make_legendary(db, vk_id, name="Legendary", fragments=2, opened=0):
+    from models import UserLegendProgress
+    d = Dragon(name=name, rarity=3, steps_count=1, is_active=True, legend_title=f"{name} legend")
+    db.add(d)
+    db.flush()
+    for i in range(1, fragments + 1):
+        db.add(DragonStep(dragon_id=d.id, step_number=i, phase=1, task_description=f"F{i}", crosses_norm=100))
+    db.add(UserDragon(user_id=vk_id, dragon_id=d.id, completed_at="2026-07-01T00:00:00"))
+    for i in range(1, opened + 1):
+        db.add(UserLegendProgress(user_id=vk_id, dragon_id=d.id, fragment_number=i, completed=True))
+    db.commit()
+    return d
+
+
+def test_user_has_legendary(db):
+    u = User(vk_id=60, state=IDLE)
+    db.add(u)
+    db.commit()
+    assert user_has_legendary(db, 60) is False
+    _make_legendary(db, 60)
+    assert user_has_legendary(db, 60) is True
+
+
+def test_grown_legendary_requires_completed(db):
+    from models import Dragon as D
+    u = User(vk_id=61, state=IDLE)
+    db.add(u)
+    d = D(name="NotGrown", rarity=3, steps_count=1, is_active=True)
+    db.add(d)
+    db.flush()
+    db.add(DragonStep(dragon_id=d.id, step_number=1, phase=1))
+    db.add(UserDragon(user_id=61, dragon_id=d.id, completed_at=""))
+    db.commit()
+    assert grown_legendaries(db, 61) == []
+
+
+def test_handle_legends_lists_and_pick_starts(db):
+    u = User(vk_id=62, state=IDLE)
+    db.add(u)
+    db.commit()
+    d = _make_legendary(db, 62, name="Dracus", fragments=2, opened=0)
+
+    messages = []
+    def send(msg, **kw):
+        messages.append(msg)
+
+    handle_legends(u, db, send)
+    assert u.state == AWAIT_LEGENDS
+    assert "Dracus" in " ".join(messages)
+
+    messages.clear()
+    handle_legends_pick(u, 1, db, send)
+    assert u.state.startswith("legend_")
+    assert any("Dracus" in m for m in messages)
+
+
+def test_handle_legends_empty(db):
+    u = User(vk_id=63, state=IDLE)
+    db.add(u)
+    db.commit()
+
+    messages = []
+    def send(msg, **kw):
+        messages.append(msg)
+
+    handle_legends(u, db, send)
+    assert u.state == IDLE
+    assert "нет выращенных легендарных" in " ".join(messages)
+
+
+def test_cancel_legends_restores_state(db):
+    u = User(vk_id=64, state=AWAIT_LEGENDS, current_dragon_id=99, current_step=3)
+    db.add(u)
+    db.commit()
+
+    messages = []
+    def send(msg, **kw):
+        messages.append(msg)
+
+    cancel_legends(u, db, send)
+    assert u.state == "grow_step_3"

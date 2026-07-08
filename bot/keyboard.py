@@ -46,6 +46,32 @@ def garden_row():
     return row(("🔄🥚 Сменить яйцо дракона", "garden"))
 
 
+def legends_row():
+    return row(("🐉 Легендарные драконы", "legends"))
+
+
+def keyboard_with_legends(kb_json):
+    data = json.loads(kb_json)
+    buttons = data.get("buttons", [])
+    for r in buttons:
+        for b in r:
+            payload = b.get("action", {}).get("payload")
+            if payload:
+                try:
+                    if json.loads(payload).get("cmd") == "legends":
+                        return kb_json
+                except (json.JSONDecodeError, TypeError):
+                    pass
+    insert_at = len(buttons)
+    for i, r in enumerate(buttons):
+        if any(b.get("action", {}).get("type") == "open_link" for b in r):
+            insert_at = i
+            break
+    buttons.insert(insert_at, legends_row())
+    data["buttons"] = buttons
+    return json.dumps(data, ensure_ascii=False)
+
+
 def idle_keyboard(has_active=True):
     bottom = [("🔄🥚 Сменить яйцо дракона", "garden"), ("❓ Помощь", "help")]
     return _keyboard([
@@ -133,7 +159,6 @@ def await_garden_keyboard(with_cancel=False):
         bottom.insert(0, ("◀ Не менять", "garden_cancel"))
     if bottom:
         buttons.append(row(*bottom))
-    buttons.append(garden_row())
     buttons.append(bestiary_link_row())
     return _keyboard(buttons)
 

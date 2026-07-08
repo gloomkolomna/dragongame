@@ -15,8 +15,8 @@ sys.path.insert(0, os.path.join(_root, "api"))
 
 import config
 from db import SessionLocal
-from bot.fsm import IDLE, AWAIT_PIN, AWAIT_GARDEN, is_growing, is_waiting_text, grow_state, step_from_state, is_legend, is_legend_waiting, is_epic_egg, is_epic_egg_waiting, is_epic_care, is_epic_care_waiting, AWAIT_EPIC_NAME, AWAIT_EPIC_RESTART
-from bot.handlers.commands import handle_start, handle_help, handle_garden, switch_dragon, cancel_garden, handle_switch_to, handle_balance
+from bot.fsm import IDLE, AWAIT_PIN, AWAIT_GARDEN, AWAIT_LEGENDS, is_growing, is_waiting_text, grow_state, step_from_state, is_legend, is_legend_waiting, is_epic_egg, is_epic_egg_waiting, is_epic_care, is_epic_care_waiting, AWAIT_EPIC_NAME, AWAIT_EPIC_RESTART
+from bot.handlers.commands import handle_start, handle_help, handle_garden, switch_dragon, cancel_garden, handle_switch_to, handle_balance, handle_legends, handle_legends_pick, cancel_legends, user_has_legendary
 from bot.handlers.pin import handle_pin_command, handle_pin_entry
 from bot.handlers.grow import handle_grow_message, handle_grow_command, handle_norm_command, handle_x2_command, handle_back_command
 from bot.handlers.shop import handle_shop_command, handle_buy
@@ -24,7 +24,7 @@ from bot.handlers.legend import handle_legend_start, handle_legend_mode, handle_
 from bot.handlers.epic import handle_epic_command, handle_epic_egg_mode, handle_epic_egg_message, handle_epic_name
 from bot.services.user_service import get_or_create_user
 from bot.scheduler import run_timeout_checker
-from bot.keyboard import idle_keyboard, growing_keyboard, waiting_keyboard, start_growing_keyboard, step_buttons_keyboard, await_pin_keyboard, await_garden_keyboard
+from bot.keyboard import idle_keyboard, growing_keyboard, waiting_keyboard, start_growing_keyboard, step_buttons_keyboard, await_pin_keyboard, await_garden_keyboard, keyboard_with_legends
 from datetime import datetime
 
 
@@ -87,6 +87,8 @@ def extract_cmd(text: str, payload_str: str) -> str | None:
         return "start"
     if "помощь" in t or "/help" in t:
         return "help"
+    if "легендарн" in t:
+        return "legends"
     if "бестиарий" in t or "сменить" in t or "/garden" in t:
         return "garden"
     if "копилка" in t or "копилку" in t or "баланс" in t:
@@ -186,6 +188,12 @@ def main():
                 if keyboard is None:
                     keyboard = get_keyboard(user.state, user)
                 if keyboard:
+                    try:
+                        if (user.state != AWAIT_LEGENDS and not is_legend(user.state)
+                                and user_has_legendary(db, user.vk_id)):
+                            keyboard = keyboard_with_legends(keyboard)
+                    except Exception:
+                        pass
                     kwargs["keyboard"] = keyboard
                 if attachment:
                     kwargs["attachment"] = attachment
@@ -214,6 +222,15 @@ def main():
                     continue
                 if t.isdigit():
                     switch_dragon(user, int(t), db, send_message, upload_image)
+                    continue
+
+            if user.state == AWAIT_LEGENDS and not cmd:
+                t = text.strip().lower()
+                if t in ("0", "назад", "отмена", "не читать"):
+                    cancel_legends(user, db, send_message)
+                    continue
+                if t.isdigit():
+                    handle_legends_pick(user, int(t), db, send_message, upload_image)
                     continue
 
             if cmd == "switch_to":
@@ -314,6 +331,8 @@ def main():
                 handle_balance(user, db, send_message)
             elif cmd == "garden":
                 handle_garden(user, db, send_message)
+            elif cmd == "legends":
+                handle_legends(user, db, send_message)
             elif cmd == "garden_cancel":
                 cancel_garden(user, db, send_message, upload_image)
             elif cmd == "pin":

@@ -57,5 +57,27 @@ def test_shop_keyboard_cols():
 
 
 def test_garden_button_present_everywhere():
+    exclude = {"await_garden", "await_garden_cancel"}
     for name, kb in _all_keyboards().items():
+        if name in exclude:
+            continue
         assert "garden" in _cmds(kb), f"{name} is missing the garden (change egg) button"
+
+
+def test_await_garden_has_no_garden_button():
+    for kb in (keyboard.await_garden_keyboard(with_cancel=False), keyboard.await_garden_keyboard(with_cancel=True)):
+        assert "garden" not in _cmds(kb)
+
+
+def test_keyboard_with_legends_injects_once():
+    base = keyboard.growing_keyboard()
+    assert "legends" not in _cmds(base)
+    injected = keyboard.keyboard_with_legends(base)
+    assert "legends" in _cmds(injected)
+    rows = json.loads(injected)["buttons"]
+    last = rows[-1]
+    assert any(b["action"].get("type") == "open_link" for b in last), "Bestiary row must stay last"
+    again = keyboard.keyboard_with_legends(injected)
+    legend_rows = [r for r in json.loads(again)["buttons"] if any(
+        (b["action"].get("payload") and json.loads(b["action"]["payload"]).get("cmd") == "legends") for b in r)]
+    assert len(legend_rows) == 1
