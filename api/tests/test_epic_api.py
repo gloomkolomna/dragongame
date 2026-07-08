@@ -58,7 +58,7 @@ def test_epic_view_care(client, db):
 
 def test_legend_view(client, db):
     db.add(User(vk_id=4))
-    d = Dragon(name="Leg", rarity=3, steps_count=1, is_active=True, legend_image_path="dragons/cover.png")
+    d = Dragon(name="Leg", rarity=3, steps_count=1, is_active=True, legend_image_path="dragons/cover.png", legend_title="Сказание", legend_full_text="Вся легенда целиком.")
     db.add(d)
     db.flush()
     db.add(DragonStep(dragon_id=d.id, step_number=1, phase=1, task_description="Отрывок 1", magic_action="Вышей щит", image_path="dragons/f1.png"))
@@ -69,9 +69,31 @@ def test_legend_view(client, db):
 
     r = client.get(f"/api/collection/4/legend/{d.id}").json()
     assert r["has_legend"] is True
+    assert r["dragon_id"] == d.id
+    assert r["name"] == "Сказание"
+    assert r["all_completed"] is False
+    assert r["full_text"] == ""
     assert r["fragments"][0]["opened"] is True
     assert r["fragments"][0]["task"] == "Отрывок 1"
     assert r["fragments"][0]["assignment"] == "Вышей щит"
     assert r["fragments"][1]["opened"] is False
     assert r["fragments"][1]["task"] == ""
     assert r["fragments"][1]["assignment"] == ""
+
+
+def test_legend_view_all_completed_shows_full_text(client, db):
+    db.add(User(vk_id=5))
+    d = Dragon(name="Leg2", rarity=3, steps_count=1, is_active=True, legend_full_text="Полная история.")
+    db.add(d)
+    db.flush()
+    db.add(DragonStep(dragon_id=d.id, step_number=1, phase=1))
+    db.add(DragonStep(dragon_id=d.id, step_number=2, phase=1))
+    db.add(UserDragon(user_id=5, dragon_id=d.id, completed_at="2026"))
+    db.add(UserLegendProgress(user_id=5, dragon_id=d.id, fragment_number=1, completed=True))
+    db.add(UserLegendProgress(user_id=5, dragon_id=d.id, fragment_number=2, completed=True))
+    db.commit()
+
+    r = client.get(f"/api/collection/5/legend/{d.id}").json()
+    assert r["all_completed"] is True
+    assert r["full_text"] == "Полная история."
+    assert r["name"] == "Leg2"

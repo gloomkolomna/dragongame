@@ -1533,7 +1533,12 @@ def get_legend(dragon_id: int, db: Session = Depends(get_db)):
         .order_by(DragonStep.step_number)
         .all()
     )
-    return {"legend_image_path": dragon.legend_image_path or "", "fragments": fragments}
+    return {
+        "legend_image_path": dragon.legend_image_path or "",
+        "legend_title": dragon.legend_title or "",
+        "legend_full_text": dragon.legend_full_text or "",
+        "fragments": fragments,
+    }
 
 
 @router.put("/dragons/{dragon_id}/legend")
@@ -1544,6 +1549,10 @@ async def save_legend(dragon_id: int, request: Request, db: Session = Depends(ge
     data = await _json_body(request)
     if "legend_image_path" in data:
         dragon.legend_image_path = data["legend_image_path"]
+    if "legend_title" in data:
+        dragon.legend_title = data["legend_title"]
+    if "legend_full_text" in data:
+        dragon.legend_full_text = data["legend_full_text"]
     fragments = data.get("fragments", [])
     submitted_ids = {f.get("id", 0) for f in fragments if f.get("id", 0) != 0}
     if submitted_ids:

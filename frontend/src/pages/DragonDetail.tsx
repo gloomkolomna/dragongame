@@ -7,7 +7,7 @@ import { mediaUrl } from '../api/media';
 interface Step { number: number; task: string; completed: boolean; }
 interface Dragon { is_revealed: boolean; name?: string; rarity?: number; egg_type: string; steps_count: number; description?: string; dragon_url?: string; egg_url?: string; next_step_available_at?: string; family_color?: string; user_progress: { status: string; completed_steps: number; steps: Step[] }; }
 interface LegendFrag { number: number; opened: boolean; task: string; assignment: string; image: string; }
-interface Legend { has_legend: boolean; cover: string; name: string; fragments: LegendFrag[]; }
+interface Legend { has_legend: boolean; dragon_id: number; cover: string; name: string; all_completed: boolean; full_text: string; fragments: LegendFrag[]; }
 
 const RARITY: Record<number, string> = { 1: 'Обычный', 2: 'Редкий', 3: 'Легендарный' };
 
@@ -143,7 +143,7 @@ function DragonDetail() {
           <div style={{ fontSize: 14, color: 'var(--text-secondary)', marginBottom: 10 }}>
             Открыто {legend.fragments.filter((f) => f.opened).length} из {legend.fragments.length} отрывков
           </div>
-          <button className="lair-btn" style={{ width: '100%' }} onClick={() => nav('/library')}>
+          <button className="lair-btn" style={{ width: '100%' }} onClick={() => nav(`/library?dragon=${id}`)}>
             📖 Открыть в Библиотеке
           </button>
         </div>

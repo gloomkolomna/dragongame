@@ -12,6 +12,8 @@ function LegendEditor() {
   const nav = useNavigate();
   const [dragonName, setDragonName] = useState('');
   const [cover, setCover] = useState('');
+  const [legendTitle, setLegendTitle] = useState('');
+  const [legendFullText, setLegendFullText] = useState('');
   const [fragments, setFragments] = useState<Fragment[]>([]);
   const [load, setLoad] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -25,6 +27,8 @@ function LegendEditor() {
     ]).then(([d, l]) => {
       setDragonName(d.data.name);
       setCover(l.data.legend_image_path || '');
+      setLegendTitle(l.data.legend_title || '');
+      setLegendFullText(l.data.legend_full_text || '');
       setFragments(l.data.fragments || []);
     }).finally(() => setLoad(false));
   }, [id]);
@@ -55,6 +59,8 @@ function LegendEditor() {
     try {
       await client.put(`/admin/dragons/${id}/legend`, {
         legend_image_path: cover,
+        legend_title: legendTitle,
+        legend_full_text: legendFullText,
         fragments: fragments.map((f, i) => ({ ...f, step_number: i + 1 })),
       });
       setMsg('Сохранено');
@@ -73,6 +79,14 @@ function LegendEditor() {
       <div className="lair-content">
         {msg && <div style={{ padding: '8px 12px', marginBottom: 12, borderRadius: 8, background: 'rgba(120,180,120,0.12)', color: '#8bc34a', fontSize: 13 }}>{msg}</div>}
         <div className="lair-card" style={{ maxWidth: 640 }}>
+          <div className="lair-form-group">
+            <label className="lair-label">Название легенды</label>
+            <input className="lair-input" value={legendTitle} onChange={(e) => setLegendTitle(e.target.value)} placeholder="Название легенды" />
+          </div>
+          <div className="lair-form-group">
+            <label className="lair-label">Полная легенда</label>
+            <textarea className="lair-textarea" value={legendFullText} onChange={(e) => setLegendFullText(e.target.value)} placeholder="Полный текст легенды (показывается после открытия всех отрывков)" style={{ minHeight: 160 }} />
+          </div>
           <div className="lair-form-group">
             <label className="lair-label">Обложка легенды</label>
             <label className="lair-file"><input type="file" accept="image/*" style={{ display: 'none' }} onChange={onCover} />{cover ? 'Заменить...' : 'Выбрать файл...'}</label>

@@ -79,7 +79,7 @@ def test_collection_treasures_endpoint(client, db):
 
 
 def test_collection_legends_endpoint(client, db):
-    d = Dragon(name="Legendary", rarity=3, steps_count=1, is_active=True, legend_image_path="dragons/cover.png")
+    d = Dragon(name="Legendary", rarity=3, steps_count=1, is_active=True, legend_image_path="dragons/cover.png", legend_title="Сказ о драконе")
     db.add(d)
     db.flush()
     db.add_all([
@@ -88,6 +88,7 @@ def test_collection_legends_endpoint(client, db):
     ])
     db.add(User(vk_id=99))
     db.flush()
+    db.add(UserDragon(user_id=99, dragon_id=d.id, completed_at="2026-01-01T00:00:00"))
     db.add(UserLegendProgress(user_id=99, dragon_id=d.id, fragment_number=1, completed=True))
     db.commit()
 
@@ -96,8 +97,24 @@ def test_collection_legends_endpoint(client, db):
     body = resp.json()
     assert len(body) == 1
     assert body[0]["dragon_id"] == d.id
+    assert body[0]["name"] == "Сказ о драконе"
     assert body[0]["fragments_total"] == 2
     assert body[0]["fragments_opened"] == 1
+
+
+def test_collection_legends_hidden_until_dragon_obtained(client, db):
+    d = Dragon(name="Legendary", rarity=3, steps_count=1, is_active=True, legend_image_path="dragons/cover.png")
+    db.add(d)
+    db.flush()
+    db.add(DragonStep(dragon_id=d.id, step_number=1, phase=1))
+    db.add(User(vk_id=98))
+    db.flush()
+    db.add(UserDragon(user_id=98, dragon_id=d.id, completed_at=""))
+    db.commit()
+
+    resp = client.get("/api/collection/98/legends")
+    assert resp.status_code == 200
+    assert resp.json() == []
 
 
 def test_reset_dragon_removes_user_treasures(client, db):

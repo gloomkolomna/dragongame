@@ -502,6 +502,8 @@ def test_legend_fragments_isolated_from_egg_steps(client):
     # save legend fragments (phase=1)
     resp = client.put(f"/api/admin/dragons/{dragon_id}/legend", json={
         "legend_image_path": "dragons/cover.png",
+        "legend_title": "Сага о драконе",
+        "legend_full_text": "Полный текст легенды.",
         "fragments": [
             {"id": 0, "task_description": "Отрывок 1", "crosses_norm": 500},
             {"id": 0, "task_description": "Отрывок 2", "crosses_norm": 600},
@@ -511,6 +513,8 @@ def test_legend_fragments_isolated_from_egg_steps(client):
 
     legend = client.get(f"/api/admin/dragons/{dragon_id}/legend").json()
     assert legend["legend_image_path"] == "dragons/cover.png"
+    assert legend["legend_title"] == "Сага о драконе"
+    assert legend["legend_full_text"] == "Полный текст легенды."
     assert len(legend["fragments"]) == 2
 
     # egg steps must remain untouched (steps_count still 1, only phase=0)

@@ -71,10 +71,14 @@ def get_legend_view(vk_id: int, dragon_id: int, db: Session = Depends(get_db)):
             UserLegendProgress.completed == True,
         ).all()
     }
+    all_completed = len(frags) > 0 and len(done) >= len(frags)
     return {
         "has_legend": len(frags) > 0,
+        "dragon_id": dragon.id,
         "cover": f"/api/static/images/{dragon.legend_image_path}" if dragon.legend_image_path else "",
-        "name": dragon.name,
+        "name": dragon.legend_title or dragon.name,
+        "all_completed": all_completed,
+        "full_text": dragon.legend_full_text if all_completed else "",
         "fragments": [
             {
                 "number": f.step_number,
@@ -115,6 +119,13 @@ def get_treasures(vk_id: int, db: Session = Depends(get_db)):
 @router.get("/collection/{vk_id}/legends")
 def get_legends(vk_id: int, db: Session = Depends(get_db)):
     from models import DragonStep, UserLegendProgress
+    completed_dragon_ids = {
+        ud.dragon_id
+        for ud in db.query(UserDragon).filter(
+            UserDragon.user_id == vk_id,
+            UserDragon.completed_at != "",
+        ).all()
+    }
     dragons = (
         db.query(Dragon)
         .filter(Dragon.rarity == 3, Dragon.is_active == True)
@@ -123,6 +134,8 @@ def get_legends(vk_id: int, db: Session = Depends(get_db)):
     )
     result = []
     for d in dragons:
+        if d.id not in completed_dragon_ids:
+            continue
         total = db.query(DragonStep).filter(
             DragonStep.dragon_id == d.id, DragonStep.phase == 1
         ).count()
@@ -135,7 +148,7 @@ def get_legends(vk_id: int, db: Session = Depends(get_db)):
         ).count()
         result.append({
             "dragon_id": d.id,
-            "name": d.name,
+            "name": d.legend_title or d.name,
             "cover": f"/api/static/images/{d.legend_image_path}" if d.legend_image_path else "",
             "fragments_opened": opened,
             "fragments_total": total,

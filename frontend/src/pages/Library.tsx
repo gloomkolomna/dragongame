@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useVkBridge } from '../context/VkBridgeContext';
 import client from '../api/client';
 import { mediaUrl } from '../api/media';
@@ -21,18 +22,29 @@ interface LegendFrag {
 
 interface LegendView {
   has_legend: boolean;
+  dragon_id: number;
   cover: string;
   name: string;
+  all_completed: boolean;
+  full_text: string;
   fragments: LegendFrag[];
 }
 
 function Library() {
   const { vkUserId, loading: bl } = useVkBridge();
+  const nav = useNavigate();
+  const [params, setParams] = useSearchParams();
   const [items, setItems] = useState<LegendIndexItem[]>([]);
   const [load, setLoad] = useState(true);
-  const [selected, setSelected] = useState<number | null>(null);
   const [detail, setDetail] = useState<LegendView | null>(null);
   const [zoom, setZoom] = useState<string | null>(null);
+
+  const selected = params.get('dragon') ? Number(params.get('dragon')) : null;
+  const setSelected = (id: number | null) => {
+    if (id == null) { params.delete('dragon'); }
+    else { params.set('dragon', String(id)); }
+    setParams(params, { replace: true });
+  };
 
   useEffect(() => {
     if (bl || !vkUserId) { setLoad(false); return; }
@@ -54,13 +66,19 @@ function Library() {
   if (selected != null && detail) return (
     <div style={{ padding: '12px 10px', maxWidth: 640, margin: '0 auto' }}>
       <button className="lair-btn lair-btn-outline lair-btn-sm" style={{ marginBottom: 12 }} onClick={() => setSelected(null)}>← К Библиотеке</button>
-      <div className="lair-card" style={{ marginBottom: 12, textAlign: 'center' }}>
+      <div className="lair-card lair-rise" style={{ marginBottom: 12, textAlign: 'center' }}>
         {detail.cover && (
           <img src={mediaUrl(detail.cover)} alt="" onClick={() => setZoom(mediaUrl(detail.cover))}
-               style={{ maxWidth: '100%', maxHeight: 220, borderRadius: 8, cursor: 'pointer' }}
+               style={{ maxWidth: '100%', maxHeight: 300, borderRadius: 'var(--radius-md)', cursor: 'pointer' }}
                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
         )}
-        <h2 style={{ color: 'var(--gold)', margin: '10px 0 0' }}>{detail.name}</h2>
+        <h2 style={{ color: 'var(--gold)', margin: '10px 0 0', fontSize: 26, fontWeight: 700 }}>{detail.name}</h2>
+        {detail.all_completed && detail.full_text && (
+          <p style={{ color: 'var(--text-secondary)', fontSize: 17, lineHeight: 1.6, marginTop: 12, whiteSpace: 'pre-line', textAlign: 'left' }}>{detail.full_text}</p>
+        )}
+        <button className="lair-btn" style={{ width: '100%', marginTop: 14 }} onClick={() => nav(`/dragon/${detail.dragon_id}`)}>
+          🐉 К дракону
+        </button>
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         {detail.fragments.map((f) => (
@@ -103,19 +121,30 @@ function Library() {
       <div className="lair-card" style={{ marginBottom: 12, textAlign: 'center' }}>
         <h2 style={{ color: 'var(--gold)', margin: 0 }}>📖 Библиотека легенд</h2>
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 12 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 4 }}>
         {items.map((it) => (
-          <div key={it.dragon_id} className="lair-card clickable" style={{ textAlign: 'center', padding: 12, cursor: 'pointer' }}
-               onClick={() => setSelected(it.dragon_id)}>
-            {it.cover ? (
-              <img src={mediaUrl(it.cover)} alt="" style={{ width: '100%', maxHeight: 150, objectFit: 'contain', borderRadius: 8 }}
-                   onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-            ) : (
-              <div style={{ height: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 40 }}>📖</div>
-            )}
-            <div style={{ color: 'var(--gold)', fontWeight: 600, marginTop: 8 }}>{it.name}</div>
-            <div style={{ fontSize: 13, color: 'var(--parchment-dim)', marginTop: 4 }}>
-              Открыто {it.fragments_opened} из {it.fragments_total}
+          <div key={it.dragon_id} className="lair-grid-cell" onClick={() => setSelected(it.dragon_id)}
+               title={it.name}
+               style={{
+                 aspectRatio: '1 / 1', padding: 0, overflow: 'hidden', cursor: 'pointer',
+                 display: 'flex', alignItems: 'center', justifyContent: 'center',
+                 background: 'var(--success-bg)', borderColor: 'rgba(58,138,101,0.4)',
+               }}>
+            <div style={{ width: '100%', height: '100%', position: 'relative' }}>
+              {it.cover ? (
+                <img src={mediaUrl(it.cover)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                     onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+              ) : (
+                <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 44 }}>📖</div>
+              )}
+              <div style={{
+                position: 'absolute', bottom: 0, left: 0, right: 0,
+                padding: '4px 6px', background: 'rgba(21,15,26,0.78)',
+                fontSize: 18, color: 'var(--gold)', textAlign: 'center',
+                whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontWeight: 600,
+              }}>
+                {it.name}
+              </div>
             </div>
           </div>
         ))}

@@ -30,6 +30,8 @@ class Dragon(Base):
     family_id = Column(Integer, ForeignKey("families.id", ondelete="SET NULL"), nullable=True)
     is_epic = Column(Boolean, default=False)
     legend_image_path = Column(String, default="")
+    legend_title = Column(String, default="")
+    legend_full_text = Column(Text, default="")
 
 
 class DragonStep(Base):
