@@ -149,6 +149,7 @@ def test_handle_garden_excludes_completed_keeps_numbers(db):
     assert "3. 🥚 красное" in full
     assert "Выращено драконов: 2" in full
     assert "Мой Бестиарий" in full
+    assert "Напиши номер яйца" in full
 
 
 def test_handle_garden_shows_incubation_time(db):
