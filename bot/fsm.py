@@ -5,6 +5,8 @@ AWAIT_PIN = "await_pin"
 AWAIT_GARDEN = "await_garden"
 GROW_STEP = "grow_step"
 COMPLETED = "completed"
+AWAIT_EPIC_NAME = "await_epic_name"
+AWAIT_EPIC_RESTART = "await_epic_restart"
 
 
 def grow_state(step: int, suffix: str = "") -> str:
@@ -38,3 +40,68 @@ def state_mode(state: str) -> str:
     if state.endswith("_norm"):
         return "norm"
     return ""
+
+
+def legend_state(fragment: int, suffix: str = "") -> str:
+    base = f"legend_{fragment}"
+    return f"{base}_{suffix}" if suffix else base
+
+
+def is_legend(state: str) -> bool:
+    return state.startswith("legend_")
+
+
+def legend_fragment_from_state(state: str) -> int:
+    if state.startswith("legend_"):
+        parts = state.split("_")
+        try:
+            return int(parts[1])
+        except (ValueError, IndexError):
+            pass
+    return 0
+
+
+def is_legend_waiting(state: str) -> bool:
+    return state.startswith("legend_") and any(
+        state.endswith(suf) for suf in ("_norm", "_x2")
+    )
+
+
+def epic_egg_state(step: int, suffix: str = "") -> str:
+    base = f"epic_egg_{step}"
+    return f"{base}_{suffix}" if suffix else base
+
+
+def is_epic_egg(state: str) -> bool:
+    return state.startswith("epic_egg_")
+
+
+def epic_egg_step_from_state(state: str) -> int:
+    if state.startswith("epic_egg_"):
+        parts = state.split("_")
+        try:
+            return int(parts[2])
+        except (ValueError, IndexError):
+            pass
+    return 0
+
+
+def is_epic_egg_waiting(state: str) -> bool:
+    return state.startswith("epic_egg_") and any(
+        state.endswith(suf) for suf in ("_norm", "_x2")
+    )
+
+
+def epic_care_state(stage_id: int, suffix: str = "") -> str:
+    base = f"epic_care_{stage_id}"
+    return f"{base}_{suffix}" if suffix else base
+
+
+def is_epic_care(state: str) -> bool:
+    return state.startswith("epic_care_")
+
+
+def is_epic_care_waiting(state: str) -> bool:
+    return state.startswith("epic_care_") and any(
+        state.endswith(suf) for suf in ("_norm", "_x2")
+    )

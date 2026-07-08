@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta
-from models import Dragon, DragonStep, User, UserDragon, UserProgress
+from models import Dragon, DragonStep, User, UserDragon, UserProgress, Treasure, UserTreasure
 from bot.services.grow_service import (
     get_dragon_step,
     get_total_steps,
@@ -9,7 +9,18 @@ from bot.services.grow_service import (
     clear_step_timeout,
     complete_step,
     complete_dragon,
+    award_treasure,
+    rarity_name,
+    rarity_stars,
 )
+
+
+def test_rarity_stars_clamped_at_three():
+    assert rarity_stars(1) == "⭐"
+    assert rarity_stars(2) == "⭐⭐"
+    assert rarity_stars(3) == "⭐⭐⭐"
+    assert rarity_stars(4) == "⭐⭐⭐"
+    assert rarity_name(4) == "легендарный"
 
 
 def _setup_dragon_with_step(db, step_number: int = 1, timeout_hours: int = 0, timeout_minutes: int = 0):
@@ -257,3 +268,108 @@ def test_complete_dragon_sets_completed_at_and_clears_timeout(db):
     assert ud.completed_at != ""
     assert ud.next_step_available_at is None
     assert ud.timeout_notified is False
+
+
+def _setup_rare_with_treasure(db, vk_id=1):
+    d = Dragon(name="Rare", rarity=2, steps_count=1, is_active=True)
+    db.add(d)
+    db.flush()
+    t = Treasure(name="Gem", description="Shiny", image_path="dragons/t.png", dragon_id=d.id, is_active=True)
+    db.add(t)
+    u = User(vk_id=vk_id)
+    db.add(u)
+    db.flush()
+    db.add(UserDragon(user_id=vk_id, dragon_id=d.id, completed_at=""))
+    db.commit()
+    return d, t
+
+
+def test_award_treasure_grants_once(db):
+    d, t = _setup_rare_with_treasure(db)
+    result = award_treasure(db, 1, d.id)
+    assert result is not None
+    assert result.id == t.id
+    assert db.query(UserTreasure).filter(UserTreasure.user_id == 1).count() == 1
+
+
+def test_award_treasure_idempotent(db):
+    d, t = _setup_rare_with_treasure(db)
+    first = award_treasure(db, 1, d.id)
+    second = award_treasure(db, 1, d.id)
+    assert first is not None
+    assert second is None
+    assert db.query(UserTreasure).filter(UserTreasure.user_id == 1).count() == 1
+
+
+def test_award_treasure_none_when_no_treasure(db):
+    d = Dragon(name="Rare2", rarity=2, steps_count=1, is_active=True)
+    db.add(d)
+    db.commit()
+    result = award_treasure(db, 1, d.id)
+    assert result is None
+    assert db.query(UserTreasure).count() == 0
+
+
+def test_award_treasure_none_for_non_rare(db):
+    d = Dragon(name="Common", rarity=1, steps_count=1, is_active=True)
+    db.add(d)
+    db.flush()
+    db.add(Treasure(name="Gem", dragon_id=d.id, is_active=True))
+    db.commit()
+    result = award_treasure(db, 1, d.id)
+    assert result is None
+
+
+def test_award_treasure_none_when_inactive(db):
+    d = Dragon(name="Rare3", rarity=2, steps_count=1, is_active=True)
+    db.add(d)
+    db.flush()
+    db.add(Treasure(name="Gem", dragon_id=d.id, is_active=False))
+    db.commit()
+    result = award_treasure(db, 1, d.id)
+    assert result is None
+
+
+def test_complete_dragon_returns_treasure(db):
+    d, t = _setup_rare_with_treasure(db)
+    result = complete_dragon(db, 1, d.id)
+    assert result is not None
+    assert result.id == t.id
+
+
+def test_log_to_db_writes_errorlog(db):
+    from bot.services.grow_service import log_to_db
+    from models import ErrorLog
+
+    log_to_db("bot", "UPLOAD", "upload failed", "traceback-here", 42, db)
+
+    err = db.query(ErrorLog).filter(ErrorLog.user_id == 42).first()
+    assert err is not None
+    assert err.source == "bot"
+    assert err.error_type == "UPLOAD"
+    assert err.message == "upload failed"
+    assert err.traceback_text == "traceback-here"
+
+
+def test_notify_admin_logs_on_failure(db, monkeypatch):
+    import config as _config
+    from bot.services import grow_service
+    from models import ErrorLog
+    from .conftest import TestingSessionLocal
+
+    monkeypatch.setattr(_config, "ADMIN_VK_ID", 12345)
+    monkeypatch.setattr(_config, "VK_GROUP_TOKEN", "fake-token")
+    monkeypatch.setattr("db.SessionLocal", TestingSessionLocal)
+
+    def boom(*a, **kw):
+        raise RuntimeError("VK down")
+
+    monkeypatch.setattr("vk_api.VkApi", lambda *a, **kw: type("FakeVk", (), {"get_api": boom})())
+
+    grow_service.notify_admin("test message")
+
+    err = db.query(ErrorLog).filter(ErrorLog.error_type == "NOTIFY_ADMIN").first()
+    assert err is not None
+    assert err.source == "bot"
+    assert "VK down" in err.message
+    assert "test message" in err.message

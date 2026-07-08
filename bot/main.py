@@ -15,10 +15,13 @@ sys.path.insert(0, os.path.join(_root, "api"))
 
 import config
 from db import SessionLocal
-from bot.fsm import IDLE, AWAIT_PIN, AWAIT_GARDEN, is_growing, is_waiting_text, grow_state, step_from_state
-from bot.handlers.commands import handle_start, handle_help, handle_garden, switch_dragon, cancel_garden, handle_switch_to
+from bot.fsm import IDLE, AWAIT_PIN, AWAIT_GARDEN, is_growing, is_waiting_text, grow_state, step_from_state, is_legend, is_legend_waiting, is_epic_egg, is_epic_egg_waiting, is_epic_care, is_epic_care_waiting, AWAIT_EPIC_NAME, AWAIT_EPIC_RESTART
+from bot.handlers.commands import handle_start, handle_help, handle_garden, switch_dragon, cancel_garden, handle_switch_to, handle_balance
 from bot.handlers.pin import handle_pin_command, handle_pin_entry
 from bot.handlers.grow import handle_grow_message, handle_grow_command, handle_norm_command, handle_x2_command, handle_back_command
+from bot.handlers.shop import handle_shop_command, handle_buy
+from bot.handlers.legend import handle_legend_start, handle_legend_mode, handle_legend_message
+from bot.handlers.epic import handle_epic_command, handle_epic_egg_mode, handle_epic_egg_message, handle_epic_name
 from bot.services.user_service import get_or_create_user
 from bot.scheduler import run_timeout_checker
 from bot.keyboard import idle_keyboard, growing_keyboard, waiting_keyboard, start_growing_keyboard, step_buttons_keyboard, await_pin_keyboard, await_garden_keyboard
@@ -93,6 +96,12 @@ def extract_cmd(text: str, payload_str: str) -> str | None:
         return "help"
     if "бестиарий" in t or "сменить" in t or "/garden" in t:
         return "garden"
+    if "копилка" in t or "копилку" in t or "баланс" in t:
+        return "balance"
+    if "магазин" in t or "лавка" in t:
+        return "shop"
+    if "эпическ" in t or "пещера" in t or "пещеру" in t:
+        return "epic"
     if "выращиванию" in t:
         return "grow"
     if t in ("норма", "норма"):
@@ -191,6 +200,20 @@ def main():
 
             cmd = extract_cmd(text, payload_str)
 
+            try:
+                from bot.handlers.epic import maybe_offer_epic
+                maybe_offer_epic(user, db, send_message, upload_image)
+            except Exception as e:
+                from bot.services.grow_service import log_to_db
+                log_to_db(
+                    source="bot",
+                    error_type="EPIC_SPAWN",
+                    message=f"maybe_offer_epic failed for user {user.vk_id}: {e}",
+                    traceback_text=__import__("traceback").format_exc(),
+                    user_id=user.vk_id,
+                    db=db,
+                )
+
             if user.state == AWAIT_GARDEN and not cmd:
                 t = text.strip().lower()
                 if t in ("0", "не менять"):
@@ -212,10 +235,90 @@ def main():
                     send_message("Не удалось переключиться. Попробуй через «🔄🥚 Сменить яйцо дракона».")
                 continue
 
+            if cmd == "shop":
+                page = 0
+                try:
+                    payload = json.loads(payload_str) if payload_str else {}
+                    page = int(payload.get("page", 0) or 0)
+                except (json.JSONDecodeError, TypeError, ValueError):
+                    page = 0
+                handle_shop_command(user, db, send_message, page)
+                continue
+
+            if cmd == "buy":
+                try:
+                    payload = json.loads(payload_str) if payload_str else {}
+                    item_id = payload.get("item_id")
+                except (json.JSONDecodeError, TypeError):
+                    item_id = None
+                if item_id:
+                    handle_buy(user, int(item_id), db, send_message)
+                else:
+                    send_message("Не удалось купить товар.")
+                continue
+
+            if cmd == "legend":
+                try:
+                    payload = json.loads(payload_str) if payload_str else {}
+                    dragon_id = payload.get("dragon_id")
+                except (json.JSONDecodeError, TypeError):
+                    dragon_id = None
+                if dragon_id:
+                    handle_legend_start(user, int(dragon_id), db, send_message, upload_image)
+                else:
+                    send_message("Не удалось открыть легенду.")
+                continue
+
+            if is_legend(user.state) and cmd in ("norm", "x2"):
+                handle_legend_mode(user, cmd, db, send_message)
+                continue
+
+            if is_legend_waiting(user.state) and not cmd:
+                handle_legend_message(user, text, attachments, db, send_message, upload_image)
+                continue
+
+            if cmd == "epic":
+                handle_epic_command(user, db, send_message, upload_image)
+                continue
+
+            if is_epic_egg(user.state) and cmd in ("norm", "x2"):
+                handle_epic_egg_mode(user, cmd, db, send_message)
+                continue
+
+            if is_epic_egg_waiting(user.state) and not cmd:
+                handle_epic_egg_message(user, text, attachments, db, send_message, upload_image)
+                continue
+
+            if is_epic_care(user.state) and cmd in ("norm", "x2"):
+                from bot.handlers.epic_care import handle_care_mode
+                handle_care_mode(user, cmd, db, send_message)
+                continue
+
+            if is_epic_care_waiting(user.state) and not cmd:
+                from bot.handlers.epic_care import handle_care_message
+                handle_care_message(user, text, attachments, db, send_message, upload_image)
+                continue
+
+            if user.state == AWAIT_EPIC_NAME and text and not cmd:
+                handle_epic_name(user, text, db, send_message, upload_image)
+                continue
+
+            if cmd == "epic_restart":
+                try:
+                    payload = json.loads(payload_str) if payload_str else {}
+                    mode = payload.get("mode", "random")
+                except (json.JSONDecodeError, TypeError):
+                    mode = "random"
+                from bot.handlers.epic_care import handle_epic_restart
+                handle_epic_restart(user, mode, db, send_message, upload_image)
+                continue
+
             if cmd == "start":
                 handle_start(user, db, send_message)
             elif cmd == "help":
                 handle_help(send_message)
+            elif cmd == "balance":
+                handle_balance(user, db, send_message)
             elif cmd == "garden":
                 handle_garden(user, db, send_message)
             elif cmd == "garden_cancel":

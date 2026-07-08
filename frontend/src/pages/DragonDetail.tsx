@@ -6,6 +6,8 @@ import { mediaUrl } from '../api/media';
 
 interface Step { number: number; task: string; completed: boolean; }
 interface Dragon { is_revealed: boolean; name?: string; rarity?: number; egg_type: string; steps_count: number; description?: string; dragon_url?: string; egg_url?: string; next_step_available_at?: string; family_color?: string; user_progress: { status: string; completed_steps: number; steps: Step[] }; }
+interface LegendFrag { number: number; opened: boolean; task: string; assignment: string; image: string; }
+interface Legend { has_legend: boolean; cover: string; name: string; fragments: LegendFrag[]; }
 
 const RARITY: Record<number, string> = { 1: 'Обычный', 2: 'Редкий', 3: 'Легендарный' };
 
@@ -13,11 +15,17 @@ function DragonDetail() {
   const { id } = useParams<{ id: string }>();
   const { vkUserId, loading: bl } = useVkBridge();
   const [d, setD] = useState<Dragon | null>(null);
+  const [legend, setLegend] = useState<Legend | null>(null);
   const [load, setLoad] = useState(true);
   const [zoom, setZoom] = useState<string | null>(null);
   const nav = useNavigate();
 
   useEffect(() => { if (bl || !vkUserId) return; client.get(`/dragon/${id}`, { params: { vk_id: vkUserId } }).then((r) => setD(r.data)).finally(() => setLoad(false)); }, [id, vkUserId, bl]);
+
+  useEffect(() => {
+    if (bl || !vkUserId || !d || !d.is_revealed || d.rarity !== 3) return;
+    client.get(`/collection/${vkUserId}/legend/${id}`).then((r) => setLegend(r.data)).catch(() => setLegend(null));
+  }, [d, id, vkUserId, bl]);
 
   if (bl || load) return <div style={{ display: 'flex', justifyContent: 'center', padding: 60 }}><div className="dragon-skeleton-card" style={{ height: 300 }} /></div>;
   if (!d) return <div className="lair-card" style={{ maxWidth: 400, margin: '40px auto', textAlign: 'center' }}><div className="lair-empty-icon">🐉</div><p style={{ color: 'var(--text-secondary)' }}>Дракон не найден</p></div>;
@@ -123,6 +131,22 @@ function DragonDetail() {
          })}
        </div>
       </>
+      )}
+      {legend && legend.has_legend && (
+        <div className="lair-card" style={{ marginTop: 16 }}>
+          <h3 style={{ color: clr, marginTop: 0 }}>📖 Легенда</h3>
+          {legend.cover && (
+            <img src={mediaUrl(legend.cover)} alt="" onClick={() => setZoom(mediaUrl(legend.cover))}
+                 style={{ maxWidth: '100%', maxHeight: 200, borderRadius: 8, cursor: 'pointer', marginBottom: 10 }}
+                 onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+          )}
+          <div style={{ fontSize: 14, color: 'var(--text-secondary)', marginBottom: 10 }}>
+            Открыто {legend.fragments.filter((f) => f.opened).length} из {legend.fragments.length} отрывков
+          </div>
+          <button className="lair-btn" style={{ width: '100%' }} onClick={() => nav('/library')}>
+            📖 Открыть в Библиотеке
+          </button>
+        </div>
       )}
       <style>{`.dragon-skeleton-card{height:300px;background:var(--bg-card);border:1px solid var(--border-color);border-radius:var(--radius-md);animation:sh 1.5s infinite}@keyframes sh{0%,100%{opacity:.4}50%{opacity:.7}}.hourglass-flip{animation:hg 3s ease-in-out infinite}@keyframes hg{0%{transform:rotateY(0)}45%{transform:rotateY(0)}55%{transform:rotateY(180deg)}100%{transform:rotateY(180deg)}}`}</style>
       {zoom && (

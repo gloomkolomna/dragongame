@@ -15,7 +15,7 @@ sys.path.insert(0, os.path.join(_root, "api"))
 _IMAGES = os.path.join(_root, "images", "dragons")
 
 
-def _upload_image(vk, filepath: str, peer_id=0) -> str:
+def _upload_image(vk, filepath: str, peer_id=0, session_factory=None, user_id=None) -> str:
     last_error = None
     last_tb = ""
     for attempt in range(3):
@@ -38,6 +38,22 @@ def _upload_image(vk, filepath: str, peer_id=0) -> str:
                 time.sleep(1)
     logger = logging.getLogger("timeout_scheduler")
     logger.error(f"Upload failed after 3 retries: {last_error}\n{last_tb}")
+    if session_factory:
+        from bot.services.grow_service import log_to_db
+        db = None
+        try:
+            db = session_factory()
+            log_to_db(
+                source="scheduler",
+                error_type="UPLOAD",
+                message=f"Upload failed after 3 retries: {last_error}",
+                traceback_text=last_tb,
+                user_id=user_id,
+                db=db,
+            )
+        finally:
+            if db:
+                db.close()
     return ""
 
 
@@ -47,7 +63,8 @@ def run_timeout_checker(session_factory, vk, interval=30):
         try:
             db = session_factory()
             try:
-                _check_expired(db, vk, logger)
+                _check_expired(db, vk, logger, session_factory)
+                _check_care_due(db, vk, logger, session_factory)
                 _heartbeat(db)
             finally:
                 db.close()
@@ -86,10 +103,10 @@ def _heartbeat(db):
     db.commit()
 
 
-def _check_expired(db, vk, logger):
+def _check_expired(db, vk, logger, session_factory=None):
     from datetime import datetime
     from models import UserDragon, User, Dragon, UserProgress
-    from bot.services.grow_service import get_dragon_step, get_total_steps, rarity_name
+    from bot.services.grow_service import get_dragon_step, get_total_steps, rarity_name, rarity_stars
     from bot.handlers.grow import format_step
 
     now_str = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
@@ -144,7 +161,7 @@ def _check_expired(db, vk, logger):
             msg = (
                 f"🎉 Поздравляю! Ты вырастил дракона!\n\n"
                 f"🐉 {dragon.name} 🐉\n"
-                f"Редкость: {rarity_name(dragon.rarity)} {'⭐' * dragon.rarity}\n"
+                f"Редкость: {rarity_name(dragon.rarity)} {rarity_stars(dragon.rarity)}\n"
             )
             if family_name:
                 msg += f"Коллекция: {family_name}\n"
@@ -167,8 +184,8 @@ def _check_expired(db, vk, logger):
             if dragon.dragon_path:
                 filepath = os.path.join(_IMAGES, os.path.basename(dragon.dragon_path))
                 if os.path.isfile(filepath):
-                    attachment = _upload_image(vk, filepath, peer_id=ud.user_id)
-            _send(vk, ud.user_id, msg, keyboard_json, logger, attachment)
+                    attachment = _upload_image(vk, filepath, peer_id=ud.user_id, session_factory=session_factory, user_id=ud.user_id)
+            _send(vk, ud.user_id, msg, keyboard_json, logger, attachment, session_factory=session_factory)
             continue
 
         ud.timeout_notified = True
@@ -191,8 +208,8 @@ def _check_expired(db, vk, logger):
             if dragon and dragon.egg_path:
                 filepath = os.path.join(_IMAGES, os.path.basename(dragon.egg_path))
                 if os.path.isfile(filepath):
-                    attachment = _upload_image(vk, filepath, peer_id=ud.user_id)
-            _send(vk, ud.user_id, msg, keyboard_json, logger, attachment)
+                    attachment = _upload_image(vk, filepath, peer_id=ud.user_id, session_factory=session_factory, user_id=ud.user_id)
+            _send(vk, ud.user_id, msg, keyboard_json, logger, attachment, session_factory=session_factory)
         else:
             msg = (
                 f"⏰ Выращивание яйца «{dragon.egg_type or dragon.name or '?'}» готово к следующему этапу!\n"
@@ -203,8 +220,8 @@ def _check_expired(db, vk, logger):
             if dragon and dragon.egg_path:
                 filepath = os.path.join(_IMAGES, os.path.basename(dragon.egg_path))
                 if os.path.isfile(filepath):
-                    attachment = _upload_image(vk, filepath, peer_id=ud.user_id)
-            _send(vk, ud.user_id, msg, keyboard_json, logger, attachment)
+                    attachment = _upload_image(vk, filepath, peer_id=ud.user_id, session_factory=session_factory, user_id=ud.user_id)
+            _send(vk, ud.user_id, msg, keyboard_json, logger, attachment, session_factory=session_factory)
 
 
 def _switch_garden_keyboard(dragon_id: int):
@@ -219,7 +236,32 @@ def _switch_garden_keyboard(dragon_id: int):
     }, ensure_ascii=False)
 
 
-def _send(vk, user_id, message, keyboard, logger, attachment=""):
+def _check_care_due(db, vk, logger, session_factory=None):
+    from datetime import datetime
+    from models import EpicCareState, UserDragon
+    now_str = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
+    due = db.query(EpicCareState).filter(
+        EpicCareState.next_action_at != None,
+        EpicCareState.next_action_at <= now_str,
+        EpicCareState.care_notified == False,
+    ).all()
+    for care in due:
+        ud = db.query(UserDragon).filter(UserDragon.id == care.user_dragon_id).first()
+        care.care_notified = True
+        db.commit()
+        if not ud or ud.completed_at:
+            continue
+        kb = json.dumps({
+            "one_time": False,
+            "buttons": [
+                [{"action": {"type": "text", "label": "🐲 Продолжить заботу", "payload": json.dumps({"cmd": "epic"}, ensure_ascii=False)}, "color": "primary"}],
+                [{"action": {"type": "open_link", "label": "📖 Мой Бестиарий", "link": "https://vk.com/app54663330"}}],
+            ],
+        }, ensure_ascii=False)
+        _send(vk, ud.user_id, "🐲 Твой эпический малыш заскучал — пора продолжить заботу!", kb, logger, session_factory=session_factory)
+
+
+def _send(vk, user_id, message, keyboard, logger, attachment="", session_factory=None):
     try:
         kwargs = {
             "user_id": user_id,
@@ -231,4 +273,21 @@ def _send(vk, user_id, message, keyboard, logger, attachment=""):
             kwargs["attachment"] = attachment
         vk.messages.send(**kwargs)
     except Exception as e:
-        logger.error(f"Failed to send notification to {user_id}: {e}")
+        import traceback
+        logger.error(f"Failed to send notification to {user_id}: {e}\n{traceback.format_exc()}")
+        if session_factory:
+            from bot.services.grow_service import log_to_db
+            db = None
+            try:
+                db = session_factory()
+                log_to_db(
+                    source="scheduler",
+                    error_type="NOTIFY",
+                    message=f"Failed to send notification to {user_id}: {e}",
+                    traceback_text=traceback.format_exc(),
+                    user_id=user_id,
+                    db=db,
+                )
+            finally:
+                if db:
+                    db.close()

@@ -186,3 +186,188 @@ def test_grow_message_complete_dragon_rarity_word(db):
     full = " ".join(messages)
     assert "обычный" in full
     assert "обычный ⭐" in full
+
+
+def test_grow_message_credits_actual_crosses(db):
+    d, u = _setup(db)
+
+    def send(msg, **kw):
+        pass
+
+    handle_grow_message(u, "вышито 1500", _photos(), db, send)
+
+    db.refresh(u)
+    assert u.stitches_balance == 1500
+
+
+def test_grow_message_credits_accumulate(db):
+    d, u = _setup(db)
+    u.stitches_balance = 500
+    db.commit()
+
+    def send(msg, **kw):
+        pass
+
+    handle_grow_message(u, "вышито 1200", _photos(), db, send)
+
+    db.refresh(u)
+    assert u.stitches_balance == 1700
+
+
+def test_grow_message_no_credit_when_insufficient(db):
+    d, u = _setup(db)
+
+    def send(msg, **kw):
+        pass
+
+    handle_grow_message(u, "вышито 100", _photos(), db, send)
+
+    db.refresh(u)
+    assert u.stitches_balance == 0
+
+
+def test_grow_message_anti_cheat_creates_report(db):
+    from models import SuspiciousReport
+    d, u = _setup(db)
+
+    messages = []
+    def send(msg, **kw):
+        messages.append(msg)
+
+    handle_grow_message(u, "вышито 6000", _photos(), db, send)
+
+    db.refresh(u)
+    assert u.stitches_balance == 6000
+
+    report = db.query(SuspiciousReport).filter(SuspiciousReport.user_id == u.vk_id).first()
+    assert report is not None
+    assert report.status == "pending"
+    assert report.declared_crosses == 6000
+    assert report.normal_crosses == 1000
+    assert report.mode == "norm"
+    assert report.photo_before_id == "photo1_10"
+    assert report.raw_message == "вышито 6000"
+    assert any("подозрительным" in m.lower() for m in messages)
+
+
+def test_grow_message_anti_cheat_x2_threshold(db):
+    from models import SuspiciousReport
+    d, u = _setup(db, state="grow_step_1_x2")
+
+    def send(msg, **kw):
+        pass
+
+    handle_grow_message(u, "вышито 11000", _photos(), db, send)
+    report = db.query(SuspiciousReport).filter(SuspiciousReport.user_id == u.vk_id).first()
+    assert report is not None
+    assert report.mode == "x2"
+    assert report.normal_crosses == 2000
+    assert report.declared_crosses == 11000
+
+
+def test_grow_message_x2_not_suspicious_below_threshold(db):
+    from models import SuspiciousReport
+    d, u = _setup(db, state="grow_step_1_x2")
+
+    def send(msg, **kw):
+        pass
+
+    handle_grow_message(u, "вышито 9000", _photos(), db, send)
+    report = db.query(SuspiciousReport).filter(SuspiciousReport.user_id == u.vk_id).first()
+    assert report is None
+    db.refresh(u)
+    assert u.stitches_balance == 9000
+
+
+def test_grow_message_no_report_within_threshold(db):
+    from models import SuspiciousReport
+    d, u = _setup(db)
+
+    def send(msg, **kw):
+        pass
+
+    handle_grow_message(u, "вышито 5000", _photos(), db, send)
+
+    report = db.query(SuspiciousReport).filter(SuspiciousReport.user_id == u.vk_id).first()
+    assert report is None
+
+
+def _setup_final_rare(db, with_treasure=True):
+    from models import Treasure
+    d = Dragon(name="RareFinal", rarity=2, steps_count=1, is_active=True)
+    db.add(d)
+    db.flush()
+    db.add(DragonStep(
+        dragon_id=d.id, step_number=1, magic_action="A", task_description="T",
+        timeout_hours=0, timeout_minutes=0, crosses_norm=1000,
+    ))
+    if with_treasure:
+        db.add(Treasure(name="Кристалл", description="Сияющий", image_path="dragons/tr.png", dragon_id=d.id, is_active=True))
+    u = User(vk_id=7, state="grow_step_1_norm", current_dragon_id=d.id, current_step=1)
+    db.add(u)
+    db.flush()
+    db.add(UserDragon(user_id=u.vk_id, dragon_id=d.id, completed_at=""))
+    db.commit()
+    return d, u
+
+
+def test_grow_message_rare_final_sends_treasure_with_photo(db, monkeypatch):
+    d, u = _setup_final_rare(db)
+    monkeypatch.setattr("bot.handlers.grow.os.path.isfile", lambda p: True)
+
+    sent = []
+    def send(msg, **kw):
+        sent.append((msg, kw))
+
+    uploads = []
+    def upload_image(filepath, **kw):
+        uploads.append(filepath)
+        return "photo1_1"
+
+    handle_grow_message(u, "вышито 1500", _photos(), db, send, upload_image)
+
+    treasure_msgs = [(m, kw) for m, kw in sent if "Вы получили сокровище" in m]
+    assert len(treasure_msgs) == 1
+    msg, kw = treasure_msgs[0]
+    assert "Кристалл" in msg
+    assert "Сияющий" in msg
+    assert kw.get("attachment") == "photo1_1"
+    assert any("tr.png" in p for p in uploads)
+
+
+def test_grow_message_rare_final_no_treasure_only_savings(db):
+    d, u = _setup_final_rare(db, with_treasure=False)
+
+    sent = []
+    def send(msg, **kw):
+        sent.append(msg)
+
+    handle_grow_message(u, "вышито 1500", _photos(), db, send)
+
+    assert not any("Вы получили сокровище" in m for m in sent)
+    db.refresh(u)
+    assert u.stitches_balance == 1500
+
+
+def test_grow_message_legendary_final_mentions_library(db):
+    d = Dragon(name="Legend", rarity=3, steps_count=1, is_active=True, legend_image_path="dragons/cov.png")
+    db.add(d)
+    db.flush()
+    db.add(DragonStep(
+        dragon_id=d.id, step_number=1, magic_action="A", task_description="T",
+        timeout_hours=0, timeout_minutes=0, crosses_norm=1000,
+    ))
+    db.add(DragonStep(dragon_id=d.id, step_number=1, phase=1, magic_action="L", task_description="LT"))
+    u = User(vk_id=8, state="grow_step_1_norm", current_dragon_id=d.id, current_step=1)
+    db.add(u)
+    db.flush()
+    db.add(UserDragon(user_id=u.vk_id, dragon_id=d.id, completed_at=""))
+    db.commit()
+
+    sent = []
+    def send(msg, **kw):
+        sent.append(msg)
+
+    handle_grow_message(u, "вышито 1500", _photos(), db, send)
+
+    assert any("Библиотек" in m for m in sent)

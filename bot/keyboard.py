@@ -46,6 +46,7 @@ def idle_keyboard(has_active=True):
     bottom = [("🔄🥚 Сменить яйцо дракона", "garden"), ("❓ Помощь", "help")]
     return _keyboard([
         row(("🥚 Добавить яйцо дракона", "pin")),
+        row(("🛒 Магазин", "shop")),
         row(*bottom),
         bestiary_link_row(),
     ])
@@ -53,6 +54,7 @@ def idle_keyboard(has_active=True):
 
 def growing_keyboard():
     return _keyboard([
+        row(("🛒 Магазин", "shop")),
         row(("🔄🥚 Сменить яйцо дракона", "garden"), ("❓ Помощь", "help")),
         bestiary_link_row(),
     ])
@@ -83,6 +85,31 @@ def step_buttons_keyboard():
     ])
 
 
+def legend_buttons_keyboard():
+    return _keyboard([
+        [{"action": {"type": "text", "label": "🎯 Норма", "payload": json.dumps({"cmd": "norm"}, ensure_ascii=False)}, "color": "positive"}],
+        [{"action": {"type": "text", "label": "⚡ Штраф (x2)", "payload": json.dumps({"cmd": "x2"}, ensure_ascii=False)}, "color": "negative"}],
+        bestiary_link_row(),
+    ])
+
+
+def epic_egg_buttons_keyboard():
+    return _keyboard([
+        [{"action": {"type": "text", "label": "🎯 Норма", "payload": json.dumps({"cmd": "norm"}, ensure_ascii=False)}, "color": "positive"}],
+        [{"action": {"type": "text", "label": "⚡ Штраф (x2)", "payload": json.dumps({"cmd": "x2"}, ensure_ascii=False)}, "color": "negative"}],
+        bestiary_link_row(),
+    ])
+
+
+def epic_care_keyboard():
+    return _keyboard([
+        [{"action": {"type": "text", "label": "🎯 Норма", "payload": json.dumps({"cmd": "norm"}, ensure_ascii=False)}, "color": "positive"}],
+        [{"action": {"type": "text", "label": "⚡ Штраф (x2)", "payload": json.dumps({"cmd": "x2"}, ensure_ascii=False)}, "color": "negative"}],
+        row(("🛒 Магазин", "shop")),
+        bestiary_link_row(),
+    ])
+
+
 def await_pin_keyboard():
     return _keyboard([
         row(("🔄🥚 Сменить яйцо дракона", "garden"), ("❓ Помощь", "help")),
@@ -99,5 +126,36 @@ def await_garden_keyboard(with_cancel=False):
         bottom.insert(0, ("◀ Не менять", "garden_cancel"))
     if bottom:
         buttons.append(row(*bottom))
+    buttons.append(bestiary_link_row())
+    return _keyboard(buttons)
+
+
+def shop_keyboard(buyable_items, page, total_pages):
+    buttons = []
+    for it in buyable_items:
+        label = f"🛒 {it.name} ({it.cost_stitches})"
+        buttons.append([{
+            "action": {
+                "type": "text",
+                "label": label[:40],
+                "payload": json.dumps({"cmd": "buy", "item_id": it.id}, ensure_ascii=False),
+            },
+            "color": "positive",
+        }])
+    nav = []
+    if page > 0:
+        nav.append({
+            "action": {"type": "text", "label": "◀ Назад",
+                       "payload": json.dumps({"cmd": "shop", "page": page - 1}, ensure_ascii=False)},
+            "color": "secondary",
+        })
+    if page < total_pages - 1:
+        nav.append({
+            "action": {"type": "text", "label": "Вперёд ▶",
+                       "payload": json.dumps({"cmd": "shop", "page": page + 1}, ensure_ascii=False)},
+            "color": "secondary",
+        })
+    if nav:
+        buttons.append(nav)
     buttons.append(bestiary_link_row())
     return _keyboard(buttons)

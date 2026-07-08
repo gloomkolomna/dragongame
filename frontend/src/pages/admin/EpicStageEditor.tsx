@@ -1,0 +1,177 @@
+import { useEffect, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
+import client from '../../api/client';
+
+interface Stage { id: number; stage_number: number; name: string; }
+interface Action { id: number; stage_id: number; action_label: string; order_in_cycle: number; hint: string; crosses_norm: number; item_ids: number[]; }
+interface ShopItem { id: number; name: string; }
+
+function EpicStageEditor() {
+  const { stageId } = useParams<{ stageId: string }>();
+  const sid = Number(stageId);
+  const nav = useNavigate();
+  const [stage, setStage] = useState<Stage | null>(null);
+  const [items, setItems] = useState<ShopItem[]>([]);
+  const [actions, setActions] = useState<Action[]>([]);
+  const [error, setError] = useState('');
+
+  const loadActions = () => client.get(`/admin/epic/stages/${sid}/actions`).then((r) => setActions(r.data));
+
+  useEffect(() => {
+    client.get('/admin/epic/stages').then((r) => setStage(r.data.find((s: Stage) => s.id === sid) || null));
+    client.get('/admin/shop-items').then((r) => setItems(r.data));
+    loadActions();
+  }, [sid]);
+
+  return (
+    <>
+      <div className="lair-header">
+        <button className="lair-btn lair-btn-outline lair-btn-sm" onClick={() => nav('/admin/epic')}>← Назад</button>
+        <h2 style={{ marginLeft: 12 }}>⚙ {stage ? `Стадия ${stage.stage_number}: ${stage.name}` : 'Стадия'}</h2>
+        <button className="lair-btn lair-btn-outline lair-btn-sm" style={{ marginLeft: 'auto' }}
+                onClick={() => nav(`/admin/epic/stages/${sid}/edit`)}>✎ Редактировать этап</button>
+      </div>
+      <div className="lair-content">
+        {error && <div style={{ padding: '8px 12px', marginBottom: 12, borderRadius: 8, background: 'rgba(212,116,160,0.1)', color: '#d474a0', fontSize: 13 }}>{error}</div>}
+        <ActionsSection sid={sid} actions={actions} items={items} reload={loadActions} setError={setError} />
+      </div>
+    </>
+  );
+}
+
+function ItemPicker({ items, selected, onToggle }: { items: ShopItem[]; selected: number[]; onToggle: (id: number) => void }) {
+  return (
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+      {items.length === 0 && <span style={{ color: 'var(--text-muted)', fontSize: 13 }}>Сначала добавь товары в магазин</span>}
+      {items.map((i) => (
+        <label key={i.id} className="lair-badge" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, cursor: 'pointer', opacity: selected.includes(i.id) ? 1 : 0.5 }}>
+          <input type="checkbox" checked={selected.includes(i.id)} onChange={() => onToggle(i.id)} />
+          {i.name}
+        </label>
+      ))}
+    </div>
+  );
+}
+
+function ActionsSection({ sid, actions, items, reload, setError }: any) {
+  const [rows, setRows] = useState<Action[]>([]);
+  const [dragIdx, setDragIdx] = useState<number | null>(null);
+  const [editId, setEditId] = useState<number | null>(null);
+  const [edit, setEdit] = useState<any>({ action_label: '', crosses_norm: 1000, hint: '', item_ids: [] as number[] });
+
+  const [label, setLabel] = useState('');
+  const [crossesNorm, setCrossesNorm] = useState(1000);
+  const [selItems, setSelItems] = useState<number[]>([]);
+  const [hint, setHint] = useState('');
+
+  useEffect(() => { setRows(actions); }, [actions]);
+
+  const nextOrder = (rows.length ? Math.max(...rows.map((a) => a.order_in_cycle)) : 0) + 1;
+  const itemName = (id: number) => items.find((i: ShopItem) => i.id === id)?.name || `#${id}`;
+  const toggleAdd = (id: number) => setSelItems((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]);
+  const toggleEdit = (id: number) => setEdit((e: any) => ({ ...e, item_ids: e.item_ids.includes(id) ? e.item_ids.filter((x: number) => x !== id) : [...e.item_ids, id] }));
+
+  const add = async () => {
+    if (!label.trim()) { setError('Впиши название действия'); return; }
+    setError('');
+    await client.post(`/admin/epic/stages/${sid}/actions`, { action_label: label, item_ids: selItems, order_in_cycle: nextOrder, hint, crosses_norm: crossesNorm });
+    setLabel(''); setHint(''); setSelItems([]); setCrossesNorm(1000);
+    reload();
+  };
+  const del = async (id: number) => { await client.delete(`/admin/epic/actions/${id}`); reload(); };
+
+  const startEdit = (a: Action) => {
+    setEditId(a.id);
+    setEdit({ action_label: a.action_label, crosses_norm: a.crosses_norm, hint: a.hint, item_ids: [...(a.item_ids || [])] });
+  };
+  const saveEdit = async () => {
+    if (!edit.action_label.trim()) { setError('Впиши название действия'); return; }
+    setError('');
+    await client.put(`/admin/epic/actions/${editId}`, {
+      action_label: edit.action_label, crosses_norm: edit.crosses_norm, hint: edit.hint, item_ids: edit.item_ids,
+    });
+    setEditId(null);
+    reload();
+  };
+
+  const persistOrder = async (list: Action[]) => {
+    await Promise.all(list.map((a, i) =>
+      a.order_in_cycle === i + 1 ? Promise.resolve() : client.put(`/admin/epic/actions/${a.id}`, { order_in_cycle: i + 1 })
+    ));
+    reload();
+  };
+  const onDrop = (targetIdx: number) => {
+    if (dragIdx === null || dragIdx === targetIdx) { setDragIdx(null); return; }
+    const list = [...rows];
+    const [moved] = list.splice(dragIdx, 1);
+    list.splice(targetIdx, 0, moved);
+    setRows(list);
+    setDragIdx(null);
+    persistOrder(list);
+  };
+
+  return (
+    <div className="lair-card">
+      <h4 style={{ color: 'var(--gold)', margin: '0 0 4px' }}>Действия ухода (цикл)</h4>
+      <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 12 }}>Малыш по очереди просит выполнить эти действия. Порядок меняется перетаскиванием (⠿). Каждое засчитывается по общим правилам крестиков. Можно требовать несколько товаров.</div>
+
+      {rows.map((a: Action, idx: number) => (
+        <div key={a.id}
+             draggable={editId === null}
+             onDragStart={() => setDragIdx(idx)}
+             onDragOver={(e) => e.preventDefault()}
+             onDrop={() => onDrop(idx)}
+             style={{ padding: '8px 0', borderBottom: '1px solid rgba(255,255,255,0.05)', opacity: dragIdx === idx ? 0.4 : 1 }}>
+          {editId === a.id ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 120px', gap: 8 }}>
+                <input className="lair-input" value={edit.action_label} onChange={(e) => setEdit({ ...edit, action_label: e.target.value })} placeholder="Название" />
+                <input className="lair-input" type="text" inputMode="numeric" value={edit.crosses_norm} onChange={(e) => setEdit({ ...edit, crosses_norm: Math.max(1, parseInt(e.target.value, 10) || 1) })} />
+              </div>
+              <ItemPicker items={items} selected={edit.item_ids} onToggle={toggleEdit} />
+              <input className="lair-input" value={edit.hint} onChange={(e) => setEdit({ ...edit, hint: e.target.value })} placeholder="Подсказка (необязательно)" />
+              <div style={{ display: 'flex', gap: 6 }}>
+                <button className="lair-btn lair-btn-sm" onClick={saveEdit}>💾 Сохранить</button>
+                <button className="lair-btn lair-btn-sm lair-btn-outline" onClick={() => setEditId(null)}>Отмена</button>
+              </div>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ cursor: 'grab', color: 'var(--parchment-faded)' }} title="Перетащить">⠿</span>
+              <span style={{ color: 'var(--gold)', width: 28 }}>#{a.order_in_cycle}</span>
+              <span style={{ fontWeight: 600, minWidth: 120 }}>{a.action_label}</span>
+              <span style={{ color: 'var(--gold)', fontSize: 12 }}>{a.crosses_norm} ✚</span>
+              <span style={{ color: 'var(--parchment-faded)', fontSize: 12 }}>
+                {a.item_ids && a.item_ids.length ? `товары: ${a.item_ids.map(itemName).join(', ')}` : 'без товаров'}
+              </span>
+              <div style={{ marginLeft: 'auto', display: 'flex', gap: 4 }}>
+                <button className="lair-btn lair-btn-sm lair-btn-outline" onClick={() => startEdit(a)}>✎</button>
+                <button className="lair-btn lair-btn-sm lair-btn-danger" onClick={() => del(a.id)}>✕</button>
+              </div>
+            </div>
+          )}
+        </div>
+      ))}
+
+      <div style={{ borderTop: '1px solid var(--bronze)', paddingTop: 12, marginTop: 12 }}>
+        <div style={{ fontWeight: 600, color: 'var(--accent-gold-light)', marginBottom: 8 }}>Добавить действие (порядок #{nextOrder})</div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 120px', gap: 8, marginBottom: 8 }}>
+          <div><label className="lair-label">Название (кнопка игроку)</label>
+            <input className="lair-input" value={label} onChange={(e) => setLabel(e.target.value)} placeholder="Кормить" /></div>
+          <div><label className="lair-label">Норма крест.</label>
+            <input className="lair-input" type="text" inputMode="numeric" value={crossesNorm} onChange={(e) => setCrossesNorm(Math.max(1, parseInt(e.target.value, 10) || 1))} /></div>
+        </div>
+        <div style={{ marginBottom: 8 }}>
+          <label className="lair-label">Нужные товары (можно несколько)</label>
+          <ItemPicker items={items} selected={selItems} onToggle={toggleAdd} />
+        </div>
+        <div style={{ marginBottom: 8 }}>
+          <input className="lair-input" value={hint} onChange={(e) => setHint(e.target.value)} placeholder="Подсказка игроку (необязательно)" />
+        </div>
+        <button className="lair-btn" onClick={add}>+ Добавить действие</button>
+      </div>
+    </div>
+  );
+}
+
+export default EpicStageEditor;

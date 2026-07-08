@@ -12,3 +12,16 @@ __pycache__/
 .idea/
 .vscode/
 /.kilo
+
+# graphify
+graphify-out/
+.graphify_*
+GRAPH_REPORT.md
+graph.html
+graph.json
+graph.svg
+graph.graphml
+cypher.txt
+
+images/
+api/images/

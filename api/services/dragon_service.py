@@ -42,12 +42,14 @@ def create_dragon(
     family_id: int,
     image: UploadFile | None = None,
     silhouette: UploadFile | None = None,
+    is_epic: bool = False,
 ) -> Dragon:
     dragon = Dragon(
         name=name, rarity=rarity, egg_type=egg_type,
         description=description, steps_count=0, is_active=True,
         pin_code=_generate_pin_code(db),
         family_id=family_id,
+        is_epic=is_epic,
     )
     db.add(dragon)
     db.flush()
@@ -74,6 +76,7 @@ def update_dragon(
     family_id: int | None = None,
     image: UploadFile | None = None,
     silhouette: UploadFile | None = None,
+    is_epic: bool | None = None,
 ) -> Dragon | None:
     dragon = db.query(Dragon).filter(Dragon.id == dragon_id).first()
     if not dragon:
@@ -85,6 +88,7 @@ def update_dragon(
     if description is not None: dragon.description = description
     if is_active is not None: dragon.is_active = is_active
     if family_id is not None: dragon.family_id = family_id
+    if is_epic is not None: dragon.is_epic = is_epic
 
     if image and image.filename:
         _cleanup_old(IMAGES_DIR, str(dragon.id), dragon.egg_path)
@@ -117,8 +121,10 @@ def delete_dragon(db: Session, dragon_id: int) -> bool:
     return True
 
 def sync_steps_count(db: Session, dragon_id: int):
-    """Обновляет dragon.steps_count по реальному числу шагов в dragon_steps."""
-    count = db.query(DragonStep).filter(DragonStep.dragon_id == dragon_id).count()
+    """Обновляет dragon.steps_count по реальному числу шагов ЯЙЦА (phase=0)."""
+    count = db.query(DragonStep).filter(
+        DragonStep.dragon_id == dragon_id, DragonStep.phase == 0
+    ).count()
     dragon = db.query(Dragon).filter(Dragon.id == dragon_id).first()
     if dragon:
         dragon.steps_count = count

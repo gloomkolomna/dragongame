@@ -3,6 +3,7 @@ from models import Dragon, DragonStep, User, UserDragon, UserProgress
 from bot.handlers.commands import (
     handle_start, handle_switch_to,
     handle_garden, cancel_garden, switch_dragon,
+    handle_balance,
 )
 from bot.fsm import IDLE, AWAIT_GARDEN
 
@@ -46,6 +47,35 @@ def test_handle_start_shows_timeout(db):
 
     full = " ".join(messages)
     assert "⏳" in full or "Готов" in full
+
+
+def test_handle_balance_shows_balance(db):
+    u = User(vk_id=77, state=IDLE, stitches_balance=2500)
+    db.add(u)
+    db.commit()
+
+    messages = []
+    def send(msg, **kw):
+        messages.append(msg)
+
+    handle_balance(u, db, send)
+
+    assert len(messages) == 1
+    assert "2500" in messages[0]
+    assert "опилк" in messages[0]
+
+
+def test_handle_balance_zero(db):
+    u = User(vk_id=78, state=IDLE)
+    db.add(u)
+    db.commit()
+
+    messages = []
+    def send(msg, **kw):
+        messages.append(msg)
+
+    handle_balance(u, db, send)
+    assert "0" in messages[0]
 
 
 def test_handle_switch_to_switches_dragon(db):

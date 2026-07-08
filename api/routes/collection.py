@@ -1,9 +1,209 @@
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 from db import get_db
-from models import CollectionGrid, UserDragon, UserProgress, Dragon, Family
+from models import CollectionGrid, UserDragon, UserProgress, Dragon, Family, User
 
 router = APIRouter(prefix="/api", tags=["collection"])
+
+
+@router.get("/collection/{vk_id}/balance")
+def get_balance(vk_id: int, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.vk_id == vk_id).first()
+    return {"stitches_balance": user.stitches_balance if user else 0}
+
+
+@router.get("/collection/{vk_id}/shop")
+def get_shop(vk_id: int, db: Session = Depends(get_db)):
+    from services.shop_service import get_current_stage_key, get_stage_items, get_inventory
+    stage_key = get_current_stage_key(db, vk_id)
+    items = get_stage_items(db, stage_key)
+    owned = {it.id for it, _ in get_inventory(db, vk_id)}
+    return {
+        "stage_key": stage_key,
+        "items": [
+            {
+                "id": it.id,
+                "name": it.name,
+                "description": it.description,
+                "cost_stitches": it.cost_stitches,
+                "image_path": f"/api/static/images/{it.image_path}" if it.image_path else "",
+                "character_effect": it.character_effect,
+                "owned": it.id in owned,
+            }
+            for it in items
+        ],
+    }
+
+
+@router.get("/collection/{vk_id}/inventory")
+def get_inventory_route(vk_id: int, db: Session = Depends(get_db)):
+    from services.shop_service import get_inventory
+    return [
+        {
+            "id": it.id,
+            "name": it.name,
+            "description": it.description,
+            "image_path": f"/api/static/images/{it.image_path}" if it.image_path else "",
+            "character_effect": it.character_effect,
+            "quantity": qty,
+        }
+        for it, qty in get_inventory(db, vk_id)
+    ]
+
+
+@router.get("/collection/{vk_id}/legend/{dragon_id}")
+def get_legend_view(vk_id: int, dragon_id: int, db: Session = Depends(get_db)):
+    from models import DragonStep, UserLegendProgress
+    dragon = db.query(Dragon).filter(Dragon.id == dragon_id).first()
+    if not dragon:
+        return {"has_legend": False, "fragments": []}
+    frags = (
+        db.query(DragonStep)
+        .filter(DragonStep.dragon_id == dragon_id, DragonStep.phase == 1)
+        .order_by(DragonStep.step_number)
+        .all()
+    )
+    done = {
+        r.fragment_number
+        for r in db.query(UserLegendProgress).filter(
+            UserLegendProgress.user_id == vk_id,
+            UserLegendProgress.dragon_id == dragon_id,
+            UserLegendProgress.completed == True,
+        ).all()
+    }
+    return {
+        "has_legend": len(frags) > 0,
+        "cover": f"/api/static/images/{dragon.legend_image_path}" if dragon.legend_image_path else "",
+        "name": dragon.name,
+        "fragments": [
+            {
+                "number": f.step_number,
+                "opened": f.step_number in done,
+                "task": f.task_description if f.step_number in done else "",
+                "assignment": f.magic_action if f.step_number in done else "",
+                "image": f"/api/static/images/{f.image_path}" if (f.step_number in done and f.image_path) else "",
+            }
+            for f in frags
+        ],
+    }
+
+
+@router.get("/collection/{vk_id}/treasures")
+def get_treasures(vk_id: int, db: Session = Depends(get_db)):
+    from models import Treasure, UserTreasure
+    treasures = db.query(Treasure).filter(Treasure.is_active == True).order_by(Treasure.id).all()
+    owned_ids = {
+        ut.treasure_id
+        for ut in db.query(UserTreasure).filter(UserTreasure.user_id == vk_id).all()
+    }
+    collected = []
+    uncollected = []
+    for t in treasures:
+        image = f"/api/static/images/{t.image_path}" if t.image_path else ""
+        if t.id in owned_ids:
+            collected.append({
+                "id": t.id,
+                "name": t.name,
+                "description": t.description,
+                "image": image,
+            })
+        else:
+            uncollected.append({"id": t.id, "silhouette": image})
+    return {"collected": collected, "total": len(treasures), "uncollected": uncollected}
+
+
+@router.get("/collection/{vk_id}/legends")
+def get_legends(vk_id: int, db: Session = Depends(get_db)):
+    from models import DragonStep, UserLegendProgress
+    dragons = (
+        db.query(Dragon)
+        .filter(Dragon.rarity == 3, Dragon.is_active == True)
+        .order_by(Dragon.id)
+        .all()
+    )
+    result = []
+    for d in dragons:
+        total = db.query(DragonStep).filter(
+            DragonStep.dragon_id == d.id, DragonStep.phase == 1
+        ).count()
+        if total == 0:
+            continue
+        opened = db.query(UserLegendProgress).filter(
+            UserLegendProgress.user_id == vk_id,
+            UserLegendProgress.dragon_id == d.id,
+            UserLegendProgress.completed == True,
+        ).count()
+        result.append({
+            "dragon_id": d.id,
+            "name": d.name,
+            "cover": f"/api/static/images/{d.legend_image_path}" if d.legend_image_path else "",
+            "fragments_opened": opened,
+            "fragments_total": total,
+        })
+    return result
+
+
+@router.get("/collection/{vk_id}/epic")
+def get_epic_view(vk_id: int, db: Session = Depends(get_db)):
+    from services import epic_service
+    dragon = epic_service.get_epic_dragon(db, vk_id)
+    if not dragon:
+        return {"has_epic": False}
+
+    name = epic_service.get_epic_name(db, vk_id)
+    care = epic_service.get_care(db, vk_id)
+    moodlets = [
+        {"key": m.key, "title": m.title}
+        for m in epic_service.get_moodlets(db, vk_id)
+    ]
+    character = epic_service.character_effects(db, vk_id)
+    base = {
+        "has_epic": True,
+        "name": name,
+        "egg_type": dragon.egg_type,
+        "egg_url": f"/api/static/images/{dragon.egg_path}" if dragon.egg_path else "",
+        "dragon_url": f"/api/static/images/{dragon.dragon_path}" if dragon.dragon_path else "",
+        "moodlets": moodlets,
+        "character": character,
+    }
+
+    if not care:
+        base["phase"] = "egg"
+        base["egg_progress"] = {
+            "completed": epic_service.egg_completed_count(db, vk_id),
+            "total": epic_service.egg_total(db, vk_id),
+        }
+        base["hatched"] = epic_service.is_egg_hatched(db, vk_id)
+        return base
+
+    stage = epic_service.get_stage(db, care.stage_id)
+    action = epic_service.get_current_action(db, care)
+    remaining = epic_service.get_care_remaining(db, care)
+    owned_missing = {m.id for m in epic_service.missing_action_items(db, vk_id, action.id)} if action else set()
+    base["phase"] = "care"
+    base["stage"] = {
+        "number": stage.stage_number if stage else 0,
+        "name": stage.name if stage else "",
+        "description": stage.description if stage else "",
+        "image_start": f"/api/static/images/{stage.image_start}" if stage and stage.image_start else "",
+        "image_end": f"/api/static/images/{stage.image_end}" if stage and stage.image_end else "",
+        "cycle_completed": care.cycles_completed or 0,
+        "cycle_total": stage.cycles_count if stage else 0,
+    }
+    if action:
+        base["action"] = {
+            "label": action.action_label,
+            "hint": action.hint,
+            "crosses_norm": action.crosses_norm,
+            "items": [
+                {"id": it.id, "name": it.name, "owned": it.id not in owned_missing}
+                for it in epic_service.action_items(db, action.id)
+            ],
+        }
+    else:
+        base["action"] = None
+    base["care_remaining_seconds"] = int(remaining.total_seconds()) if remaining else 0
+    return base
 
 
 @router.get("/collection/{vk_id}/families")

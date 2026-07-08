@@ -6,7 +6,8 @@ import re
 from bot.fsm import IDLE, grow_state, step_from_state, is_waiting_text, state_mode
 from bot.services.grow_service import (
     get_dragon_step, get_total_steps, complete_step, complete_dragon,
-    get_timeout_remaining, set_step_timeout, get_step_timeout, rarity_name,
+    get_timeout_remaining, set_step_timeout, get_step_timeout, rarity_name, rarity_stars,
+    credit_stitches, is_suspicious, create_suspicious_report, notify_admin,
 )
 from bot.keyboard import step_buttons_keyboard, growing_keyboard, waiting_keyboard
 
@@ -203,10 +204,32 @@ def _handle_crosses_check(user, text, attachments, db, send_message, upload_imag
     def fmt_photo(p):
         return f"photo{p['owner_id']}_{p['id']}"
 
+    photo_before_id = fmt_photo(photo_infos[0])
+    photo_after_id = fmt_photo(photo_infos[1]) if len(photo_infos) > 1 else ""
+
+    credit_stitches(db, user.vk_id, crosses)
+
+    if is_suspicious(crosses, required):
+        create_suspicious_report(
+            db, user.vk_id, dragon_id, step, crosses, required, mode,
+            photo_before_id=photo_before_id, photo_after_id=photo_after_id,
+            raw_message=text,
+        )
+        send_message(
+            "⚠ Твой отчёт кажется подозрительным и отправлен на проверку. "
+            "Крестики зачислены в копилку, но администратор может скорректировать баланс."
+        )
+        notify_admin(
+            f"⚠ Подозрительный отчёт от id{user.vk_id}\n"
+            f"Дракон #{dragon_id}, шаг {step}, режим {mode}\n"
+            f"Заявлено: {crosses}, норма: {required}\n"
+            f"https://vk.com/gim239999455/convo/{user.vk_id}"
+        )
+
     complete_step(
         db, user.vk_id, dragon_id, step,
-        photo_before_id=fmt_photo(photo_infos[0]),
-        photo_after_id=fmt_photo(photo_infos[1]) if len(photo_infos) > 1 else "",
+        photo_before_id=photo_before_id,
+        photo_after_id=photo_after_id,
     )
     total = get_total_steps(db, dragon_id)
     from models import Dragon
@@ -234,15 +257,14 @@ def _handle_crosses_check(user, text, attachments, db, send_message, upload_imag
             db.commit()
             return True
 
-        complete_dragon(db, user.vk_id, dragon_id)
+        treasure = complete_dragon(db, user.vk_id, dragon_id)
         user.state = IDLE
         user.current_dragon_id = None
         user.current_step = 0
-
         msg = (
             f"🎉 Поздравляю! Ты вырастил дракона!\n\n"
             f"🐉 {dragon.name if dragon else '???'} 🐉\n"
-            f"Редкость: {rarity_name(dragon.rarity if dragon else 1)} {'⭐' * (dragon.rarity if dragon else 1)}\n"
+            f"Редкость: {rarity_name(dragon.rarity if dragon else 1)} {rarity_stars(dragon.rarity if dragon else 1)}\n"
         )
         if family_name:
             msg += f"Коллекция: {family_name}\n"
@@ -251,9 +273,19 @@ def _handle_crosses_check(user, text, attachments, db, send_message, upload_imag
         msg += "\nЗагляни в мини-приложение Мой Бестиарий, чтобы увидеть его в своей коллекции!"
 
         import json as j
+        from bot.services.legend_service import get_legend_total
+        has_legend = dragon and dragon.rarity == 3 and get_legend_total(db, dragon_id) > 0
+        legend_rows = []
+        if has_legend:
+            msg += (
+                "\n\n📖 У этого дракона есть легенда — нажми «🐉 Рассказать легенду», чтобы открыть её."
+                "\nСобранные легенды можно перечитать в разделе «📖 Библиотека» мини-приложения."
+            )
+            legend_rows.append([{"action": {"type": "text", "label": "🐉 Рассказать легенду", "payload": j.dumps({"cmd": "legend", "dragon_id": dragon_id}, ensure_ascii=False)}, "color": "primary"}])
+
         keyboard = j.dumps({
             "one_time": True,
-            "buttons": [
+            "buttons": legend_rows + [
                 [{"action": {"type": "text", "label": "🥚 Добавить яйцо дракона", "payload": j.dumps({"cmd": "pin"}, ensure_ascii=False)}, "color": "primary"}],
                 [{"action": {"type": "text", "label": "🔄🥚 Сменить яйцо дракона", "payload": j.dumps({"cmd": "garden"}, ensure_ascii=False)}, "color": "secondary"},
                  {"action": {"type": "text", "label": "❓ Помощь", "payload": j.dumps({"cmd": "help"}, ensure_ascii=False)}, "color": "secondary"}],
@@ -272,6 +304,28 @@ def _handle_crosses_check(user, text, attachments, db, send_message, upload_imag
             attachment = upload_image(filepath, log_error=log_err, peer_id=user.vk_id)
 
         send_message(msg, attachment=attachment, keyboard=keyboard)
+
+        if treasure:
+            t_msg = f"💎 Вы получили сокровище: {treasure.name}!"
+            if treasure.description:
+                t_msg += f"\n{treasure.description}"
+            t_attach = ""
+            if upload_image and treasure.image_path:
+                t_filepath = os.path.join(_IMAGES, os.path.basename(treasure.image_path))
+                if os.path.isfile(t_filepath):
+                    def log_err_t(msg, tb=""):
+                        from datetime import datetime
+                        from models import ErrorLog
+                        db.add(ErrorLog(source="bot", error_type="UPLOAD", message=f"{msg} (file={t_filepath})", user_id=user.vk_id, traceback_text=tb, created_at=datetime.now().isoformat()))
+                        db.commit()
+                    t_attach = upload_image(t_filepath, log_error=log_err_t, peer_id=user.vk_id)
+            send_message(t_msg, attachment=t_attach)
+
+        from services.epic_service import maybe_spawn_first_epic
+        epic = maybe_spawn_first_epic(db, user.vk_id)
+        if epic:
+            from bot.handlers.epic import send_epic_spawn_notice
+            send_epic_spawn_notice(epic, user, db, send_message, upload_image)
     else:
         step_hours, step_minutes = get_step_timeout(db, dragon_id, step)
         total_timeout_min = step_hours * 60 + step_minutes

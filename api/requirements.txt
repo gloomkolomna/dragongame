@@ -8,6 +8,7 @@ alembic==1.*
 sqlalchemy==2.*
 vk_api==11.*
 python-multipart==0.*
+openpyxl==3.*
 
 # Testing
 pytest==8.*

@@ -7,6 +7,15 @@ VK Mini App + Bot для выращивания драконов через вы
 сообщение с количеством вышитых крестиков (например, «вышито 1500»),
 в конце получает карточку дракона в коллекции.
 
+## graphify
+This project has a graphify knowledge graph at graphify-out/.
+
+### Rules:
+
+- Before answering architecture or codebase questions, read graphify-out/GRAPH_REPORT.md for god nodes and community structure
+- If graphify-out/wiki/index.md exists, navigate it instead of reading raw files
+- After modifying code files in this session, run graphify update . to keep the graph current (AST-only, no API cost)
+
 ## Важное
 
 - Если пользователь задает вопрос - сперва ответить.
@@ -158,7 +167,7 @@ api\venv\Scripts\python.exe -m pytest api/tests bot/tests -v --tb=short
 
 Если тесты не проходят — исправить до завершения задачи.
 
-**_63 теста (Python): 14 API + 4 модели + 17 grow_service + 8 grow_handler + 9 commands + 4 FSM + 7 scheduler._**
+**_179 тестов (Python)._**
 
 ## Конвенции кода
 
@@ -182,6 +191,15 @@ api\venv\Scripts\python.exe -m pytest api/tests bot/tests -v --tb=short
 - `state_mode(state)` — возвращает "norm" или "x2" из суффикса состояния
 - `COMPLETED` — дракон выращен (завершён)
 
+### Расширение (фазы 1–7)
+
+- `legend_N` / `legend_N_norm` / `legend_N_x2` — прохождение отрывка легенды N (rarity 3); `is_legend`, `is_legend_waiting`, `legend_fragment_from_state`
+- `epic_egg_N` / `epic_egg_N_norm` / `epic_egg_N_x2` — рост яйца эпического; `is_epic_egg`, `is_epic_egg_waiting`, `epic_egg_step_from_state`
+- `await_epic_name` — ожидание имени эпического дракона после вылупления
+- `epic_care_<stage_id>` / `..._norm` / `..._x2` — уход за эпическим на стадии; `is_epic_care`, `is_epic_care_waiting`, `epic_care_state(stage_id, suffix="")`
+- `await_epic_restart` — выбор после финала эпического (такого же / случайного)
+- Магазин работает без отдельного FSM-состояния (по payload-командам `shop`/`buy`)
+
 ## Клавиатуры бота
 
 - `idle_keyboard()` — Добавить дракона / Сменить / Помощь / Бестиарий
@@ -191,6 +209,11 @@ api\venv\Scripts\python.exe -m pytest api/tests bot/tests -v --tb=short
 - `step_buttons_keyboard()` — Норма / Штраф(x2) / Статус / Сменить / Бестиарий
 - `await_pin_keyboard()` — при вводе PIN
 - `await_garden_keyboard()` — при выборе дракона
+- `shop_keyboard(items, page, total_pages)` — товары стадии + пагинация (магазин)
+- `legend_buttons_keyboard()` — Норма / Штраф(x2) / Бестиарий (легенда)
+- `epic_egg_buttons_keyboard()` — Норма / Штраф(x2) / Бестиарий (яйцо эпического)
+- `epic_care_keyboard()` — Норма / Штраф(x2) / Магазин / Бестиарий (уход)
+- `idle_keyboard()`/`growing_keyboard()` содержат кнопку «🛒 Магазин»
 - Бестиарий всегда самая нижняя строка (кроме complete-дракона)
 
 ## Команды бота
@@ -205,6 +228,11 @@ api\venv\Scripts\python.exe -m pytest api/tests bot/tests -v --tb=short
 - `x2` / `штраф` — начать задание в режиме Штраф (x2)
 - `switch_to` (payload: `{"cmd":"switch_to","dragon_id":N}`) — с нотификации
 - `garden_cancel` / `0` / `не менять` — отмена переключения (с проверкой таймаута)
+- `balance` / `копилка` / `баланс` — показать копилку крестиков
+- `shop` / `магазин` / `лавка` — магазин стадии; `buy` (payload `{"cmd":"buy","item_id":N}`) — покупка
+- `epic` / `эпический` / `пещера` — уход за эпическим (яйцо/имя/стадии)
+- `legend` (payload `{"cmd":"legend","dragon_id":N}`) — рассказать легенду легендарного
+- `epic_restart` (payload `{"cmd":"epic_restart","mode":"same"|"random"}`) — после финала эпического
 
 ## Обработка шагов (grow.py)
 
@@ -238,9 +266,13 @@ api\venv\Scripts\python.exe -m pytest api/tests bot/tests -v --tb=short
 - `POST /admin/users/{vk_id}/skip-step` — пропустить шаг (принимает `{dragon_id}` в body)
 - `POST /admin/users/{vk_id}/reset-dragon` — сбросить прогресс (принимает `{dragon_id}` в body)
 - `DELETE /admin/users/{vk_id}/dragons/{dragon_id}` — удалить дракона у игрока
+- `DELETE /admin/users/{vk_id}` — удалить игрока со всем прогрессом (драконы, прогресс, легенды, сокровища, инвентарь, подозрительные, эпик care/moodlets); логи не трогаются
 - `GET /admin/logs/api` — последние строки gunicorn error log
 - `GET /admin/logs/api-requests` — логи ошибочных запросов (4xx/5xx)
 - `POST /admin/logs/clear` — очистить error_logs + api_request_logs
+- `GET /admin/suspicious/detailed` — подозрительные отчёты для страницы (vk_id, ФИО, ссылка на чат сообщества, текст сообщения, заявлено/норма, дата) + total
+- `DELETE /admin/suspicious/{report_id}` — удалить подозрительный отчёт
+- `GET /admin/stats` — включает suspicious_total (для плашки на дашборде)
 - `GET /collection/{vk_id}/families` — возвращает color семейства
 - `GET /collection/dragon/{dragon_id}` — возвращает family_color, next_step_available_at
 

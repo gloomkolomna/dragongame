@@ -29,3 +29,12 @@ def test_max_five_columns():
         rows = json.loads(kb)["buttons"]
         for i, r in enumerate(rows):
             assert len(r) <= 5, f"{name} row {i} has too many columns"
+
+
+def test_shop_keyboard_cols():
+    from types import SimpleNamespace
+    items = [SimpleNamespace(id=i, name=f"Item{i}", cost_stitches=100) for i in range(5)]
+    kb = keyboard.shop_keyboard(items, page=1, total_pages=3)
+    rows = json.loads(kb)["buttons"]
+    for i, r in enumerate(rows):
+        assert 1 <= len(r) <= 5, f"shop row {i} bad width"

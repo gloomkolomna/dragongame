@@ -227,6 +227,9 @@ function DragonForm() {
             <button className="lair-btn" disabled={saving} onClick={handleSubmit}>
               {saving ? 'Сохранение...' : isEdit ? '💾 Сохранить' : '🐣 Создать'}
             </button>
+            {isEdit && rarity === 2 && (
+              <button className="lair-btn lair-btn-outline" type="button" onClick={() => navigate(`/admin/dragons/${id}/treasure`)}>💎 Сокровище</button>
+            )}
             <button className="lair-btn lair-btn-outline" onClick={() => navigate('/admin/dragons')}>Отмена</button>
           </div>
         </div>

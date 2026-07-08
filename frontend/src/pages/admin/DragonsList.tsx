@@ -2,13 +2,13 @@ import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import client from '../../api/client';
 
-interface Dragon { id: number; name: string; rarity: number; egg_type: string; steps_count: number; is_active: boolean; family_id: number | null; pin_code: string | null; }
+interface Dragon { id: number; name: string; rarity: number; egg_type: string; steps_count: number; is_active: boolean; family_id: number | null; pin_code: string | null; is_epic: boolean; }
 interface Family { id: number; name: string; color: string; }
 
 const RARITY: Record<number, string> = { 1: 'Обычный', 2: 'Редкий', 3: 'Легендарный' };
 
 function RarityStars({ rarity }: { rarity: number }) {
-  return <span style={{ color: 'var(--gold)' }}>{'★'.repeat(Math.max(rarity, 1))}</span>;
+  return <span style={{ color: 'var(--gold)' }}>{'★'.repeat(Math.min(Math.max(rarity, 1), 3))}</span>;
 }
 
 type SortCol = 'name' | 'rarity' | 'egg_type' | 'steps_count' | 'is_active' | 'family';
@@ -28,6 +28,7 @@ function DragonsList() {
   const [sortCol, setSortCol] = useState<SortCol>('name');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
   const [filters, setFilters] = useState<Record<string, string>>({});
+  const [exporting, setExporting] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -35,7 +36,7 @@ function DragonsList() {
       client.get('/admin/dragons'),
       client.get('/admin/families'),
     ]).then(([dr, fa]) => {
-      setDragons(dr.data);
+      setDragons(dr.data.filter((d: Dragon) => !d.is_epic));
       setFamilies(fa.data);
     }).finally(() => setLoading(false));
   }, []);
@@ -92,6 +93,24 @@ function DragonsList() {
     setFilters((prev) => ({ ...prev, [col]: val }));
   }, []);
 
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      const resp = await client.get('/admin/dragons/export', { responseType: 'blob' });
+      const url = window.URL.createObjectURL(new Blob([resp.data]));
+      const a = document.createElement('a');
+      a.href = url;
+      const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
+      a.download = `dragons_export_${stamp}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } finally {
+      setExporting(false);
+    }
+  };
+
   const SortIcon = ({ col }: { col: SortCol }) => {
     if (sortCol !== col) return <span style={{ opacity: 0.3, marginLeft: 3 }}>⇅</span>;
     return <span style={{ marginLeft: 3 }}>{sortDir === 'asc' ? '↑' : '↓'}</span>;
@@ -102,7 +121,10 @@ function DragonsList() {
       <div className="lair-header">
         <h2>Драконы</h2>
         <span style={{ marginLeft: 'auto', color: 'var(--parchment-faded)', fontSize: 14 }}>{sorted.length} из {dragons.length}</span>
-        <button className="lair-btn" style={{ marginLeft: 12 }} onClick={() => navigate('/admin/dragons/new')}>+ Создать</button>
+        <button className="lair-btn lair-btn-outline" style={{ marginLeft: 12 }} disabled={exporting} onClick={handleExport}>
+          {exporting ? 'Выгрузка...' : '💾 Выгрузить в Excel'}
+        </button>
+        <button className="lair-btn" style={{ marginLeft: 8 }} onClick={() => navigate('/admin/dragons/new')}>+ Создать</button>
       </div>
       <div className="lair-content">
         {loading ? <div className="lair-skeleton" /> : (
@@ -162,6 +184,9 @@ function DragonsList() {
                       <td style={{ fontFamily: 'var(--font-mono)', fontSize: 13 }}>{d.pin_code || '—'}</td>
                       <td>
                         <button className="lair-btn lair-btn-sm lair-btn-outline" onClick={() => navigate(`/admin/dragons/${d.id}/steps`)} style={{ marginRight: 4 }}>📝 Шаги</button>
+                        {d.rarity === 3 && (
+                          <button className="lair-btn lair-btn-sm lair-btn-outline" onClick={() => navigate(`/admin/dragons/${d.id}/legend`)} style={{ marginRight: 4 }}>📜 Легенда</button>
+                        )}
                         <button className="lair-btn lair-btn-sm lair-btn-outline" onClick={() => navigate(`/admin/dragons/${d.id}/edit`)} style={{ marginRight: 4 }}>Ред.</button>
                         <button className="lair-btn lair-btn-sm lair-btn-danger" onClick={() => { if (window.confirm(`Удалить «${d.name}»?`)) { client.delete(`/admin/dragons/${d.id}`).then(() => setDragons((prev) => prev.filter((x) => x.id !== d.id))); } }}>Уд.</button>
                       </td>

@@ -11,6 +11,17 @@ from bot.keyboard import idle_keyboard, step_buttons_keyboard, start_growing_key
 _IMAGES = os.path.join(os.path.dirname(__file__), "..", "..", "images", "dragons")
 
 
+def _regular_user_dragons(db, vk_id):
+    """UserDragon entries excluding the epic slot (decision: epic не смешивается с обычными)."""
+    return (
+        db.query(UserDragon)
+        .join(Dragon, Dragon.id == UserDragon.dragon_id)
+        .filter(UserDragon.user_id == vk_id, Dragon.is_epic == False)
+        .order_by(UserDragon.id)
+        .all()
+    )
+
+
 def _attach_egg(db, user, dragon, upload_image):
     if not upload_image or not dragon or not dragon.egg_path:
         return ""
@@ -78,6 +89,7 @@ def handle_start(user, db, send_message):
             send_message(
                 f"🪴 Ты выращиваешь: {dragon.egg_type or 'яйцо'}\n"
                 f"📋 Завершено шагов: {completed} из {total}\n"
+                f"✚ Копилка: {user.stitches_balance or 0}\n"
                 f"{timeout_line}"
             )
         else:
@@ -87,6 +99,7 @@ def handle_start(user, db, send_message):
                 f"🪴 Ты выращиваешь: {dragon.egg_type or 'яйцо'}\n"
                 f"📋 Текущий шаг: {step}\n"
                 f"🎯 Норма крестиков: {norm}\n"
+                f"✚ Копилка: {user.stitches_balance or 0}\n"
                 f"{timeout_line}",
                 keyboard=start_growing_keyboard(),
             )
@@ -108,10 +121,16 @@ def handle_help(send_message):
     )
 
 
+def handle_balance(user, db, send_message):
+    balance = user.stitches_balance or 0
+    send_message(
+        f"✚ Копилка крестиков: {balance}\n"
+        f"Крестики копятся со всех выполненных шагов выращивания."
+    )
+
+
 def handle_garden(user, db, send_message):
-    all_entries = db.query(UserDragon).filter(
-        UserDragon.user_id == user.vk_id,
-    ).order_by(UserDragon.id).all()
+    all_entries = _regular_user_dragons(db, user.vk_id)
 
     if not all_entries:
         from bot.keyboard import idle_keyboard
@@ -207,9 +226,7 @@ def cancel_garden(user, db, send_message, upload_image=None):
 
 
 def switch_dragon(user, num: int, db, send_message, upload_image=None):
-    all_entries = db.query(UserDragon).filter(
-        UserDragon.user_id == user.vk_id,
-    ).order_by(UserDragon.id).all()
+    all_entries = _regular_user_dragons(db, user.vk_id)
 
     if num < 1 or num > len(all_entries):
         send_message("❌ Неверный номер. Напиши номер из списка.")
