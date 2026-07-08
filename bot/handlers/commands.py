@@ -127,29 +127,32 @@ def handle_garden(user, db, send_message):
     completed_entries = [e for e in all_entries if e.completed_at]
     index_map = {e.id: i + 1 for i, e in enumerate(all_entries)}
 
-    lines = ["🥚🐉 Твои выращенные драконы и те, кого еще выращиваешь:\n"]
-    ordered = entries + completed_entries
+    lines = ["🥚🐉 Яйца драконов, которые ты выращиваешь:\n"]
+    ordered = entries
     for ud in ordered:
         dragon = db.query(Dragon).filter(Dragon.id == ud.dragon_id).first()
         if not dragon:
             continue
         is_current = user.current_dragon_id == ud.dragon_id
-        if ud.completed_at:
-            bar = "🟡" * dragon.steps_count
-            status = "🐉"
-        else:
-            total = dragon.steps_count
-            completed = db.query(UserProgress).filter(
-                UserProgress.user_id == user.vk_id,
-                UserProgress.dragon_id == ud.dragon_id,
-                UserProgress.completed == True,
-            ).count()
-            bar = "🟡" * completed + "⚪" * (total - completed)
-            status = "🐣" if completed > 0 else "🥚"
-        marker = " ← сейчас" if is_current else ""
-        label = dragon.name if ud.completed_at else (dragon.egg_type or dragon.name or "?")
+        remaining_str = ""
+        total = dragon.steps_count
+        completed = db.query(UserProgress).filter(
+            UserProgress.user_id == user.vk_id,
+            UserProgress.dragon_id == ud.dragon_id,
+            UserProgress.completed == True,
+        ).count()
+        bar = "🟡" * completed + "⚪" * (total - completed)
+        status = "🐣" if completed > 0 else "🥚"
+        remaining = get_timeout_remaining(db, user.vk_id, ud.dragon_id)
+        if remaining is not None:
+            total_secs = int(remaining.total_seconds())
+            hours, rem = divmod(total_secs, 3600)
+            minutes = rem // 60
+            remaining_str = f" ⏳ ещё {hours} ч. {minutes} мин."
+        marker = " 👈 сейчас" if is_current else ""
+        label = dragon.egg_type or dragon.name or "?"
         num = index_map[ud.id]
-        lines.append(f"{num}. {status} {label} {bar}{marker}")
+        lines.append(f"{num}. {status} {label} {bar}{remaining_str}{marker}")
 
     if entries:
         user.state = AWAIT_GARDEN

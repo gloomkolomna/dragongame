@@ -89,7 +89,7 @@ def _heartbeat(db):
 def _check_expired(db, vk, logger):
     from datetime import datetime
     from models import UserDragon, User, Dragon, UserProgress
-    from bot.services.grow_service import get_dragon_step, get_total_steps
+    from bot.services.grow_service import get_dragon_step, get_total_steps, rarity_name
     from bot.handlers.grow import format_step
 
     now_str = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
@@ -144,7 +144,7 @@ def _check_expired(db, vk, logger):
             msg = (
                 f"🎉 Поздравляю! Ты вырастил дракона!\n\n"
                 f"🐉 {dragon.name} 🐉\n"
-                f"Редкость: {'⭐' * dragon.rarity}\n"
+                f"Редкость: {rarity_name(dragon.rarity)} {'⭐' * dragon.rarity}\n"
             )
             if family_name:
                 msg += f"Коллекция: {family_name}\n"
@@ -163,7 +163,12 @@ def _check_expired(db, vk, logger):
                     [{"action": {"type": "open_link", "label": "📖 Мой Бестиарий", "link": "https://vk.com/app54663330"}}],
                 ],
             }, ensure_ascii=False)
-            _send(vk, ud.user_id, msg, keyboard_json, logger)
+            attachment = ""
+            if dragon.dragon_path:
+                filepath = os.path.join(_IMAGES, os.path.basename(dragon.dragon_path))
+                if os.path.isfile(filepath):
+                    attachment = _upload_image(vk, filepath, peer_id=ud.user_id)
+            _send(vk, ud.user_id, msg, keyboard_json, logger, attachment)
             continue
 
         ud.timeout_notified = True

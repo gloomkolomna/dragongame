@@ -2,6 +2,12 @@
 
 from datetime import datetime, timedelta
 
+RARITY_NAMES = {1: "обычный", 2: "редкий", 3: "легендарный"}
+
+
+def rarity_name(rarity: int) -> str:
+    return RARITY_NAMES.get(rarity, "легендарный")
+
 
 def get_dragon_step(db, dragon_id: int, step_number: int):
     from models import DragonStep

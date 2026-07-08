@@ -161,3 +161,28 @@ def test_grow_message_no_active_dragon(db):
     handle_grow_message(u, "вышито 1000", [], db, send)
     assert len(messages) == 1
     assert "нет активного яйца дракона" in messages[0].lower()
+
+
+def test_grow_message_complete_dragon_rarity_word(db):
+    d = Dragon(name="Final", rarity=1, steps_count=1, is_active=True)
+    db.add(d)
+    db.flush()
+    db.add(DragonStep(
+        dragon_id=d.id, step_number=1, magic_action="A", task_description="T",
+        timeout_hours=0, timeout_minutes=0, crosses_norm=1000,
+    ))
+    u = User(vk_id=5, state="grow_step_1_norm", current_dragon_id=d.id, current_step=1)
+    db.add(u)
+    db.flush()
+    db.add(UserDragon(user_id=u.vk_id, dragon_id=d.id, completed_at=""))
+    db.commit()
+
+    messages = []
+    def send(msg, **kw):
+        messages.append(msg)
+
+    handle_grow_message(u, "вышито 1500", _photos(), db, send)
+
+    full = " ".join(messages)
+    assert "обычный" in full
+    assert "обычный ⭐" in full

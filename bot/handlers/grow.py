@@ -6,7 +6,7 @@ import re
 from bot.fsm import IDLE, grow_state, step_from_state, is_waiting_text, state_mode
 from bot.services.grow_service import (
     get_dragon_step, get_total_steps, complete_step, complete_dragon,
-    get_timeout_remaining, set_step_timeout, get_step_timeout,
+    get_timeout_remaining, set_step_timeout, get_step_timeout, rarity_name,
 )
 from bot.keyboard import step_buttons_keyboard, growing_keyboard, waiting_keyboard
 
@@ -242,7 +242,7 @@ def _handle_crosses_check(user, text, attachments, db, send_message, upload_imag
         msg = (
             f"🎉 Поздравляю! Ты вырастил дракона!\n\n"
             f"🐉 {dragon.name if dragon else '???'} 🐉\n"
-            f"Редкость: {'⭐' * (dragon.rarity if dragon else 1)}\n"
+            f"Редкость: {rarity_name(dragon.rarity if dragon else 1)} {'⭐' * (dragon.rarity if dragon else 1)}\n"
         )
         if family_name:
             msg += f"Коллекция: {family_name}\n"

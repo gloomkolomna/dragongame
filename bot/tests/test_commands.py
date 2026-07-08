@@ -120,6 +120,59 @@ def test_handle_garden_lists_dragons(db):
     assert u.state == AWAIT_GARDEN
 
 
+def test_handle_garden_excludes_completed_keeps_numbers(db):
+    d1 = Dragon(name="Grown1", rarity=1, steps_count=2, is_active=True, egg_type="золотое")
+    d2 = Dragon(name="Grown2", rarity=1, steps_count=2, is_active=True, egg_type="серебряное")
+    d3 = Dragon(name="Growing", rarity=1, steps_count=2, is_active=True, egg_type="красное")
+    db.add_all([d1, d2, d3])
+    db.flush()
+    u = User(vk_id=22, state="grow_step_1", current_dragon_id=d3.id, current_step=1)
+    db.add(u)
+    db.add_all([
+        UserDragon(user_id=22, dragon_id=d1.id, completed_at="2026-07-01T12:00:00"),
+        UserDragon(user_id=22, dragon_id=d2.id, completed_at="2026-07-02T12:00:00"),
+        UserDragon(user_id=22, dragon_id=d3.id, completed_at=""),
+    ])
+    db.commit()
+
+    messages = []
+    def send(msg, **kw):
+        messages.append(msg)
+
+    handle_garden(u, db, send)
+
+    full = " ".join(messages)
+    assert "Grown1" not in full
+    assert "Grown2" not in full
+    assert "золотое" not in full
+    assert "серебряное" not in full
+    assert "3. 🥚 красное" in full
+
+
+def test_handle_garden_shows_incubation_time(db):
+    d = Dragon(name="TimerEgg", rarity=2, steps_count=3, is_active=True, egg_type="ледяное")
+    db.add(d)
+    db.flush()
+    u = User(vk_id=21, state="grow_step_2", current_dragon_id=d.id, current_step=2)
+    db.add(u)
+    db.flush()
+    future = (datetime.now() + timedelta(hours=3, minutes=15)).strftime("%Y-%m-%dT%H:%M:%S")
+    ud = UserDragon(user_id=21, dragon_id=d.id, completed_at="", next_step_available_at=future)
+    db.add(ud)
+    db.add(UserProgress(user_id=21, dragon_id=d.id, step_number=1, completed=True))
+    db.commit()
+
+    messages = []
+    def send(msg, **kw):
+        messages.append(msg)
+
+    handle_garden(u, db, send)
+
+    full = " ".join(messages)
+    assert "🟡" in full
+    assert "ещё 3 ч." in full
+
+
 def test_cancel_garden_restores_state(db):
     d, u = _setup_user_with_dragon(db, step=2)
     u.state = AWAIT_GARDEN
