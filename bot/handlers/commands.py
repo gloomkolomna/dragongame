@@ -206,9 +206,10 @@ def handle_garden(user, db, send_message):
     if entries or epic:
         import json as _j
         sd = _j.loads(user.state_data or "{}")
-        sd["_prev_state"] = user.state
-        sd["_prev_dragon"] = user.current_dragon_id
-        sd["_prev_step"] = user.current_step
+        if user.state != AWAIT_GARDEN:
+            sd["_prev_state"] = user.state
+            sd["_prev_dragon"] = user.current_dragon_id
+            sd["_prev_step"] = user.current_step
         user.state_data = _j.dumps(sd, ensure_ascii=False)
         user.state = AWAIT_GARDEN
         db.commit()
@@ -289,7 +290,12 @@ def switch_dragon(user, num: int, db, send_message, upload_image=None):
 
     ud = all_entries[num - 1]
 
-    if ud.dragon_id == user.current_dragon_id:
+    import json as _j
+    _sd = _j.loads(user.state_data or "{}")
+    _prev = _sd.get("_prev_state", "")
+    _was_on_epic = _prev and (_prev.startswith("epic_egg_") or _prev.startswith("epic_care_") or _prev in ("await_epic_name", "await_epic_restart"))
+
+    if ud.dragon_id == user.current_dragon_id and not _was_on_epic:
         user.state = grow_state(user.current_step)
         db.commit()
         remaining = get_timeout_remaining(db, user.vk_id, ud.dragon_id)
