@@ -1452,6 +1452,7 @@ def _action_dict(db, action: EpicStageAction) -> dict:
         "order_in_cycle": action.order_in_cycle,
         "hint": action.hint,
         "crosses_norm": action.crosses_norm,
+        "image_path": action.image_path or "",
         "item_ids": _action_items(db, action.id),
     }
 
@@ -1479,6 +1480,7 @@ async def create_epic_action(stage_id: int, request: Request, db: Session = Depe
         order_in_cycle=int(b.get("order_in_cycle", 0) or 0),
         hint=b.get("hint", ""),
         crosses_norm=max(1, int(b.get("crosses_norm", 1000) or 1000)),
+        image_path=b.get("image_path", ""),
     )
     db.add(action)
     db.commit()
@@ -1499,6 +1501,7 @@ async def update_epic_action(action_id: int, request: Request, db: Session = Dep
     if "order_in_cycle" in b: action.order_in_cycle = int(b["order_in_cycle"] or 0)
     if "hint" in b: action.hint = b["hint"]
     if "crosses_norm" in b: action.crosses_norm = max(1, int(b["crosses_norm"] or 1000))
+    if "image_path" in b: action.image_path = b["image_path"]
     db.commit()
     db.refresh(action)
     if "item_ids" in b:

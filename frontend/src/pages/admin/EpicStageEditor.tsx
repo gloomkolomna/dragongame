@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import client from '../../api/client';
 
 interface Stage { id: number; stage_number: number; name: string; }
-interface Action { id: number; stage_id: number; action_label: string; order_in_cycle: number; hint: string; crosses_norm: number; item_ids: number[]; }
+interface Action { id: number; stage_id: number; action_label: string; order_in_cycle: number; hint: string; crosses_norm: number; image_path: string; item_ids: number[]; }
 interface ShopItem { id: number; name: string; }
 
 function EpicStageEditor() {
@@ -14,6 +14,15 @@ function EpicStageEditor() {
   const [items, setItems] = useState<ShopItem[]>([]);
   const [actions, setActions] = useState<Action[]>([]);
   const [error, setError] = useState('');
+  const [zoom, setZoom] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+
+  const uploadImage = async (file: File): Promise<string> => {
+    const form = new FormData();
+    form.append('image', file);
+    const r = await client.post('/admin/upload-image', form, { headers: { 'Content-Type': 'multipart/form-data' } });
+    return r.data.path;
+  };
 
   const loadActions = () => client.get(`/admin/epic/stages/${sid}/actions`).then((r) => setActions(r.data));
 
@@ -33,7 +42,7 @@ function EpicStageEditor() {
       </div>
       <div className="lair-content">
         {error && <div style={{ padding: '8px 12px', marginBottom: 12, borderRadius: 8, background: 'rgba(212,116,160,0.1)', color: '#d474a0', fontSize: 13 }}>{error}</div>}
-        <ActionsSection sid={sid} actions={actions} items={items} reload={loadActions} setError={setError} />
+        <ActionsSection sid={sid} actions={actions} items={items} reload={loadActions} setError={setError} setZoom={setZoom} />
       </div>
     </>
   );
@@ -53,16 +62,24 @@ function ItemPicker({ items, selected, onToggle }: { items: ShopItem[]; selected
   );
 }
 
-function ActionsSection({ sid, actions, items, reload, setError }: any) {
+function ActionsSection({ sid, actions, items, reload, setError, setZoom }: any) {
   const [rows, setRows] = useState<Action[]>([]);
   const [dragIdx, setDragIdx] = useState<number | null>(null);
   const [editId, setEditId] = useState<number | null>(null);
-  const [edit, setEdit] = useState<any>({ action_label: '', crosses_norm: 1000, hint: '', item_ids: [] as number[] });
+  const [edit, setEdit] = useState<any>({ action_label: '', crosses_norm: 1000, hint: '', image_path: '', item_ids: [] as number[] });
 
   const [label, setLabel] = useState('');
   const [crossesNorm, setCrossesNorm] = useState(1000);
   const [selItems, setSelItems] = useState<number[]>([]);
   const [hint, setHint] = useState('');
+  const [addImagePath, setAddImagePath] = useState('');
+
+  const uploadImage = async (file: File): Promise<string> => {
+    const form = new FormData();
+    form.append('image', file);
+    const r = await client.post('/admin/upload-image', form, { headers: { 'Content-Type': 'multipart/form-data' } });
+    return r.data.path;
+  };
 
   useEffect(() => { setRows(actions); }, [actions]);
 
@@ -74,21 +91,21 @@ function ActionsSection({ sid, actions, items, reload, setError }: any) {
   const add = async () => {
     if (!label.trim()) { setError('Впиши название действия'); return; }
     setError('');
-    await client.post(`/admin/epic/stages/${sid}/actions`, { action_label: label, item_ids: selItems, order_in_cycle: nextOrder, hint, crosses_norm: crossesNorm });
-    setLabel(''); setHint(''); setSelItems([]); setCrossesNorm(1000);
+    await client.post(`/admin/epic/stages/${sid}/actions`, { action_label: label, item_ids: selItems, order_in_cycle: nextOrder, hint, crosses_norm: crossesNorm, image_path: addImagePath });
+    setLabel(''); setHint(''); setSelItems([]); setCrossesNorm(1000); setAddImagePath('');
     reload();
   };
   const del = async (id: number) => { await client.delete(`/admin/epic/actions/${id}`); reload(); };
 
   const startEdit = (a: Action) => {
     setEditId(a.id);
-    setEdit({ action_label: a.action_label, crosses_norm: a.crosses_norm, hint: a.hint, item_ids: [...(a.item_ids || [])] });
+    setEdit({ action_label: a.action_label, crosses_norm: a.crosses_norm, hint: a.hint, image_path: a.image_path || '', item_ids: [...(a.item_ids || [])] });
   };
   const saveEdit = async () => {
     if (!edit.action_label.trim()) { setError('Впиши название действия'); return; }
     setError('');
     await client.put(`/admin/epic/actions/${editId}`, {
-      action_label: edit.action_label, crosses_norm: edit.crosses_norm, hint: edit.hint, item_ids: edit.item_ids,
+      action_label: edit.action_label, crosses_norm: edit.crosses_norm, hint: edit.hint, item_ids: edit.item_ids, image_path: edit.image_path,
     });
     setEditId(null);
     reload();
@@ -130,6 +147,15 @@ function ActionsSection({ sid, actions, items, reload, setError }: any) {
               </div>
               <ItemPicker items={items} selected={edit.item_ids} onToggle={toggleEdit} />
               <input className="lair-input" value={edit.hint} onChange={(e) => setEdit({ ...edit, hint: e.target.value })} placeholder="Подсказка (необязательно)" />
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                <label className="lair-file" style={{ margin: 0 }}><input type="file" accept="image/*" style={{ display: 'none' }} onChange={async (e) => { const f = e.target.files?.[0]; if (f) setEdit({ ...edit, image_path: await uploadImage(f) }); }} />{edit.image_path ? 'Заменить...' : 'Фото...'}</label>
+                {edit.image_path && (
+                  <img src={`/dragons/api/static/images/${edit.image_path}?t=${Date.now()}`} alt=""
+                       onClick={() => setZoom(`/dragons/api/static/images/${edit.image_path}`)}
+                       style={{ width: 48, height: 48, objectFit: 'cover', borderRadius: 6, border: '1px solid var(--bronze)', cursor: 'pointer' }}
+                       onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                )}
+              </div>
               <div style={{ display: 'flex', gap: 6 }}>
                 <button className="lair-btn lair-btn-sm" onClick={saveEdit}>💾 Сохранить</button>
                 <button className="lair-btn lair-btn-sm lair-btn-outline" onClick={() => setEditId(null)}>Отмена</button>
@@ -141,6 +167,12 @@ function ActionsSection({ sid, actions, items, reload, setError }: any) {
               <span style={{ color: 'var(--gold)', width: 28 }}>#{a.order_in_cycle}</span>
               <span style={{ fontWeight: 600, minWidth: 120 }}>{a.action_label}</span>
               <span style={{ color: 'var(--gold)', fontSize: 12 }}>{a.crosses_norm} ✚</span>
+              {a.image_path && (
+                <img src={`/dragons/api/static/images/${a.image_path}?t=${Date.now()}`} alt=""
+                     onClick={() => setZoom(`/dragons/api/static/images/${a.image_path}`)}
+                     style={{ width: 36, height: 36, objectFit: 'cover', borderRadius: 4, border: '1px solid var(--bronze)', cursor: 'pointer' }}
+                     onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+              )}
               <span style={{ color: 'var(--parchment-faded)', fontSize: 12 }}>
                 {a.item_ids && a.item_ids.length ? `товары: ${a.item_ids.map(itemName).join(', ')}` : 'без товаров'}
               </span>
@@ -167,6 +199,15 @@ function ActionsSection({ sid, actions, items, reload, setError }: any) {
         </div>
         <div style={{ marginBottom: 8 }}>
           <input className="lair-input" value={hint} onChange={(e) => setHint(e.target.value)} placeholder="Подсказка игроку (необязательно)" />
+        </div>
+        <div style={{ marginBottom: 8, display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+          <label className="lair-file" style={{ margin: 0 }}><input type="file" accept="image/*" style={{ display: 'none' }} onChange={async (e) => { const f = e.target.files?.[0]; if (f) setAddImagePath(await uploadImage(f)); }} />{addImagePath ? 'Заменить...' : 'Фото действия...'}</label>
+          {addImagePath && (
+            <img src={`/dragons/api/static/images/${addImagePath}?t=${Date.now()}`} alt=""
+                 onClick={() => setZoom(`/dragons/api/static/images/${addImagePath}`)}
+                 style={{ width: 48, height: 48, objectFit: 'cover', borderRadius: 6, border: '1px solid var(--bronze)', cursor: 'pointer' }}
+                 onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+          )}
         </div>
         <button className="lair-btn" onClick={add}>+ Добавить действие</button>
       </div>

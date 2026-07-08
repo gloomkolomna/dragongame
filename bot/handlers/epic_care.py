@@ -86,7 +86,8 @@ def show_care_action(user, db, send_message, upload_image=None):
     if action.hint:
         msg += f"💡 {action.hint}\n"
     msg += f"\n🎯 Норма крестиков: {action.crosses_norm}\nВыбери режим:"
-    attachment = _attach(upload_image, stage.image_start if stage else "", user.vk_id)
+    action_img = getattr(action, "image_path", "") or ""
+    attachment = _attach(upload_image, action_img or (stage.image_start if stage else ""), user.vk_id)
     send_message(msg, attachment=attachment, keyboard=epic_care_keyboard())
 
 

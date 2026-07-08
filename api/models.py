@@ -219,6 +219,7 @@ class EpicStageAction(Base):
     order_in_cycle = Column(Integer, default=0)
     hint = Column(Text, default="")
     crosses_norm = Column(Integer, default=1000)
+    image_path = Column(String, default="")
 
 
 class EpicActionItem(Base):
