@@ -428,3 +428,24 @@ def test_cancel_legends_restores_state(db):
 
     cancel_legends(u, db, send)
     assert u.state == "grow_step_3"
+
+
+def test_cancel_garden_restores_epic_state(db):
+    d = Dragon(name="Reg", rarity=1, steps_count=2, is_active=True, egg_type="красное")
+    db.add(d)
+    db.flush()
+    u = User(vk_id=70, state="epic_egg_2", current_dragon_id=d.id, current_step=1)
+    db.add(u)
+    db.add(UserDragon(user_id=70, dragon_id=d.id, completed_at=""))
+    db.commit()
+    _make_epic(db, 70)
+
+    messages = []
+    def send(msg, **kw):
+        messages.append(msg)
+
+    handle_garden(u, db, send)
+    assert u.state == AWAIT_GARDEN
+
+    cancel_garden(u, db, send)
+    assert u.state == "epic_egg_2", f"Expected epic_egg_2, got {u.state}"

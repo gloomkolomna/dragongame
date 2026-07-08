@@ -190,11 +190,17 @@ def handle_garden(user, db, send_message):
             bar = "🟡" * done_egg + "⚪" * (epic.steps_count - done_egg)
             epic_label = f"🐲🥚 {epic_label} {bar}"
         epic_num = len(all_entries) + 1
-        is_epic_current = user.current_dragon_id == epic.id
+        is_epic_current = (user.epic_dragon_id or None) == epic.id
         epic_marker = " 👈 сейчас" if is_epic_current else ""
         lines.append(f"{epic_num}. {epic_label}{epic_marker}")
 
     if entries or epic:
+        import json as _j
+        sd = _j.loads(user.state_data or "{}")
+        sd["_prev_state"] = user.state
+        sd["_prev_dragon"] = user.current_dragon_id
+        sd["_prev_step"] = user.current_step
+        user.state_data = _j.dumps(sd, ensure_ascii=False)
         user.state = AWAIT_GARDEN
         db.commit()
         if completed_entries:
@@ -216,6 +222,18 @@ def handle_garden(user, db, send_message):
 
 
 def cancel_garden(user, db, send_message, upload_image=None):
+    import json as _j
+    sd = _j.loads(user.state_data or "{}")
+    prev_state = sd.pop("_prev_state", None)
+    sd.pop("_prev_dragon", None)
+    sd.pop("_prev_step", None)
+    user.state_data = _j.dumps(sd, ensure_ascii=False)
+    if prev_state and (prev_state.startswith("epic_egg_") or prev_state.startswith("epic_care_") or prev_state == "await_epic_name" or prev_state == "await_epic_restart"):
+        user.state = prev_state
+        db.commit()
+        send_message("Остаёмся на эпическом драконе.")
+        return
+
     if not user.current_dragon_id:
         user.state = IDLE
         db.commit()
