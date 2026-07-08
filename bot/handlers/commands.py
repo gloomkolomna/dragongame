@@ -5,7 +5,7 @@ import re
 from models import Dragon, UserDragon, UserProgress
 from bot.fsm import IDLE, GROW_STEP, AWAIT_GARDEN, step_from_state, grow_state
 from bot.services.grow_service import get_total_steps, get_dragon_step, get_timeout_remaining
-from bot.handlers.grow import format_step
+from bot.handlers.grow import format_step, step_attachment
 from bot.keyboard import idle_keyboard, step_buttons_keyboard, start_growing_keyboard, await_garden_keyboard
 
 _IMAGES = os.path.join(os.path.dirname(__file__), "..", "..", "images", "dragons")
@@ -221,7 +221,7 @@ def cancel_garden(user, db, send_message, upload_image=None):
         msg = f"Остаёмся на «{label}».\n{format_step(step_def, user.current_step, total)}"
         if step_def:
             msg += f"\n\n🎯 Норма: {step_def.crosses_norm} крестиков\nВыбери режим:"
-        attachment = _attach_egg(db, user, dragon, upload_image)
+        attachment = step_attachment(db, user, dragon, step_def, upload_image)
         send_message(msg, attachment=attachment, keyboard=step_buttons_keyboard())
 
 
@@ -251,7 +251,7 @@ def switch_dragon(user, num: int, db, send_message, upload_image=None):
             msg = f"Ты уже выращиваешь это яйцо дракона.\n{format_step(step_def, user.current_step, get_total_steps(db, ud.dragon_id))}"
             if step_def:
                 msg += f"\n\n🎯 Норма: {step_def.crosses_norm} крестиков\nВыбери режим:"
-            attachment = _attach_egg(db, user, dragon, upload_image)
+            attachment = step_attachment(db, user, dragon, step_def, upload_image)
             send_message(msg, attachment=attachment, keyboard=step_buttons_keyboard())
         return
 
@@ -318,7 +318,7 @@ def switch_dragon(user, num: int, db, send_message, upload_image=None):
         msg = f"▸ Переключился на «{dragon.egg_type or dragon.name or '?'}».\n{format_step(next_def, curr_step, total)}"
         if next_def:
             msg += f"\n\n🎯 Норма: {next_def.crosses_norm} крестиков\nВыбери режим:"
-        attachment = _attach_egg(db, user, dragon, upload_image)
+        attachment = step_attachment(db, user, dragon, next_def, upload_image)
         send_message(msg, attachment=attachment, keyboard=step_buttons_keyboard())
 
 
@@ -327,7 +327,7 @@ def handle_switch_to(user, dragon_id: int, db, send_message, upload_image=None):
     from bot.fsm import grow_state, IDLE
     from models import Dragon, UserDragon, UserProgress
     from bot.services.grow_service import get_dragon_step, get_total_steps, get_timeout_remaining
-    from bot.handlers.grow import format_step
+    from bot.handlers.grow import format_step, step_attachment
 
     ud = db.query(UserDragon).filter(
         UserDragon.user_id == user.vk_id,
@@ -392,7 +392,7 @@ def handle_switch_to(user, dragon_id: int, db, send_message, upload_image=None):
         msg = f"▸ Переключился на «{dragon.egg_type or dragon.name or '?'}».\n{format_step(step_def, next_step, total)}"
         if step_def:
             msg += f"\n\n🎯 Норма: {step_def.crosses_norm} крестиков\nВыбери режим:"
-        attachment = _attach_egg(db, user, dragon, upload_image)
+        attachment = step_attachment(db, user, dragon, step_def, upload_image)
         send_message(msg, attachment=attachment, keyboard=step_buttons_keyboard())
 
 

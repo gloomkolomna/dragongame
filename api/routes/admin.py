@@ -282,7 +282,7 @@ async def save_steps(dragon_id: int, request: Request, db: Session = Depends(get
                               task_description=s.get("task_description", ""),
                               hint=s.get("hint", ""), keyword="вышито",
                               timeout_hours=th, timeout_minutes=tm,
-                              crosses_norm=cn)
+                              crosses_norm=cn, image_path=s.get("image_path", ""))
             db.add(step)
         else:
             step = db.query(DragonStep).filter(DragonStep.id == sid, DragonStep.dragon_id == dragon_id).first()
@@ -295,6 +295,7 @@ async def save_steps(dragon_id: int, request: Request, db: Session = Depends(get
                 step.timeout_hours = th
                 step.timeout_minutes = tm
                 step.crosses_norm = cn
+                step.image_path = s.get("image_path", step.image_path)
     db.commit()
     sync_steps_count(db, dragon_id)
     return {"ok": True, "saved": len(steps_data)}

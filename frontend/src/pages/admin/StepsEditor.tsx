@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import client from '../../api/client';
 
-interface Step { id: number; dragon_id: number; step_number: number; magic_action: string; task_description: string; hint: string; timeout_hours: number; timeout_minutes: number; crosses_norm: number; }
+interface Step { id: number; dragon_id: number; step_number: number; magic_action: string; task_description: string; hint: string; timeout_hours: number; timeout_minutes: number; crosses_norm: number; image_path: string; }
 
 function StepsEditor() {
   const { id } = useParams<{ id: string }>();
@@ -11,6 +11,7 @@ function StepsEditor() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [dragonName, setDragonName] = useState('');
+  const [zoom, setZoom] = useState<string | null>(null);
 
   useEffect(() => {
     Promise.all([
@@ -47,7 +48,20 @@ function StepsEditor() {
     });
   };
 
-  const add = () => setSteps((prev) => [...prev, { id: 0, dragon_id: Number(id), step_number: prev.length + 1, magic_action: '', task_description: '', hint: '', timeout_hours: 0, timeout_minutes: 0, crosses_norm: 1000 }]);
+  const add = () => setSteps((prev) => [...prev, { id: 0, dragon_id: Number(id), step_number: prev.length + 1, magic_action: '', task_description: '', hint: '', timeout_hours: 0, timeout_minutes: 0, crosses_norm: 1000, image_path: '' }]);
+
+  const uploadImage = async (file: File): Promise<string> => {
+    const form = new FormData();
+    form.append('image', file);
+    const r = await client.post('/admin/upload-image', form, { headers: { 'Content-Type': 'multipart/form-data' } });
+    return r.data.path;
+  };
+
+  const onFragImage = async (i: number, e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]; if (!file) return;
+    const path = await uploadImage(file);
+    setSteps((prev) => prev.map((s, idx) => idx === i ? { ...s, image_path: path } : s));
+  };
 
   const remove = (i: number) => setSteps((prev) => prev.filter((_, idx) => idx !== i));
 
@@ -118,6 +132,18 @@ function StepsEditor() {
                      onChange={(e) => upd(i, 'crosses_norm', e.target.value)}
                      style={{ width: 120 }} placeholder="1000" />
             </div>
+            <div className="lair-form-group">
+              <label className="lair-label">Изображение шага (опционально)</label>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                <label className="lair-file" style={{ margin: 0 }}><input type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => onFragImage(i, e)} />{s.image_path ? 'Заменить...' : 'Выбрать файл...'}</label>
+                {s.image_path && (
+                  <img src={`/dragons/api/static/images/${s.image_path}?t=${Date.now()}`} alt=""
+                       onClick={() => setZoom(`/dragons/api/static/images/${s.image_path}`)}
+                       style={{ width: 64, height: 64, objectFit: 'cover', borderRadius: 6, border: '1px solid var(--bronze)', cursor: 'pointer' }}
+                       onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                )}
+              </div>
+            </div>
           </div>
         ))}
         <div style={{ display: 'flex', gap: 8 }}>
@@ -127,6 +153,15 @@ function StepsEditor() {
         </div>
       </div>
       <style>{`.dragon-skeleton-card{height:400px;background:var(--bg-card);border:1px solid var(--border-color);border-radius:var(--radius-md);animation:shimmer 1.5s infinite}@keyframes shimmer{0%{opacity:.4}50%{opacity:.7}100%{opacity:.4}}`}</style>
+      {zoom && (
+        <div onClick={() => setZoom(null)}
+             style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+          <img src={zoom} alt="" onClick={(e) => e.stopPropagation()}
+               style={{ maxWidth: '90vw', maxHeight: '90vh', objectFit: 'contain', borderRadius: 8, boxShadow: '0 0 60px rgba(153,102,255,0.3)' }} />
+          <button onClick={() => setZoom(null)}
+                  style={{ position: 'absolute', top: 16, right: 16, background: 'none', border: 'none', color: '#fff', fontSize: 32, cursor: 'pointer', lineHeight: 1 }}>✕</button>
+        </div>
+      )}
     </>
   );
 }

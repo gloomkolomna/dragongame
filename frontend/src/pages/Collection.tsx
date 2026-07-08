@@ -36,7 +36,6 @@ function Collection() {
   const [families, setFamilies] = useState<Family[]>([]);
   const [selectedFamilyId, setSelectedFamilyId] = useState<number | null>(null);
   const [grid, setGrid] = useState<Cell[]>([]);
-  const [balance, setBalance] = useState<number | null>(null);
   const [load, setLoad] = useState(true);
   const [error, setError] = useState('');
   const [gridWidth, setGridWidth] = useState(0);
@@ -55,13 +54,6 @@ function Collection() {
       })
       .catch(() => setError('Не удалось загрузить данные. Проверьте, запущен ли сервер.'))
       .finally(() => setLoad(false));
-  }, [vkUserId, bl]);
-
-  useEffect(() => {
-    if (bl || !vkUserId) return;
-    client.get(`/collection/${vkUserId}/balance`)
-      .then((r) => setBalance(r.data.stitches_balance))
-      .catch(() => setBalance(null));
   }, [vkUserId, bl]);
 
   useEffect(() => {
@@ -267,15 +259,6 @@ function Collection() {
           borderRadius: 8, fontSize: 12, color: 'var(--text-muted)',
         }}>
           ⚠ Демо-режим — данные для vk_id={vkUserId}
-        </div>
-      )}
-      {balance !== null && (
-        <div style={{
-          marginBottom: 12, padding: '8px 14px', textAlign: 'center',
-          background: 'rgba(153,102,255,0.1)', border: '1px solid rgba(153,102,255,0.3)',
-          borderRadius: 8, fontSize: 15, color: 'var(--accent-gold-light)', fontWeight: 600,
-        }}>
-          ✚ Копилка крестиков: {balance}
         </div>
       )}
       {families.length > 0 && (

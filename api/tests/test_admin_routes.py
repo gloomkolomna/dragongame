@@ -98,6 +98,42 @@ def test_save_steps_with_timeout(client):
     assert steps[1]["timeout_minutes"] == 15
 
 
+def test_save_steps_with_image_path(client):
+    fam = _create_family(client)
+    dragon_resp = client.post(
+        "/api/admin/dragons",
+        data={"name": "ImgD", "rarity": 1, "egg_type": "e", "description": "", "family_id": fam.json()["id"]},
+    )
+    dragon_id = dragon_resp.json()["id"]
+
+    resp = client.put(
+        f"/api/admin/dragons/{dragon_id}/steps",
+        json={
+            "steps": [
+                {"id": 0, "step_number": 1, "magic_action": "M1", "image_path": "dragons/step1.png"},
+                {"id": 0, "step_number": 2, "magic_action": "M2", "image_path": ""},
+            ],
+        },
+    )
+    assert resp.status_code == 200
+
+    steps = client.get(f"/api/admin/dragons/{dragon_id}/steps").json()
+    assert steps[0]["image_path"] == "dragons/step1.png"
+    assert steps[1]["image_path"] == ""
+
+    resp2 = client.put(
+        f"/api/admin/dragons/{dragon_id}/steps",
+        json={
+            "steps": [
+                {"id": steps[0]["id"], "step_number": 1, "magic_action": "M1", "image_path": "dragons/step1_new.png"},
+            ],
+        },
+    )
+    assert resp2.status_code == 200
+    steps2 = client.get(f"/api/admin/dragons/{dragon_id}/steps").json()
+    assert steps2[0]["image_path"] == "dragons/step1_new.png"
+
+
 def test_add_step_with_default_timeout(client):
     fam = _create_family(client)
     dragon_resp = client.post(

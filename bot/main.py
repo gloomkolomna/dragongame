@@ -53,15 +53,8 @@ def _handle_growing_chat(user, db, send_message, upload_image=None):
         msg = f"{'🐣' if has_progress else '🥚'} {label}\n📋 Шаг {user.current_step} из {total}"
         if step_def:
             msg += f"\n\n🎯 Норма: {step_def.crosses_norm} крестиков\nВыбери режим:"
-        attachment = ""
-        if upload_image and dragon and dragon.egg_path:
-            filepath = os.path.join(
-                os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-                "images", "dragons",
-                os.path.basename(dragon.egg_path),
-            )
-            if os.path.isfile(filepath):
-                attachment = upload_image(filepath, peer_id=user.vk_id)
+        from bot.handlers.grow import step_attachment
+        attachment = step_attachment(db, user, dragon, step_def, upload_image)
         send_message(msg, attachment=attachment, keyboard=step_buttons_keyboard())
 
 

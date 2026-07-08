@@ -14,6 +14,29 @@ from bot.keyboard import step_buttons_keyboard, growing_keyboard, waiting_keyboa
 _IMAGES = os.path.join(os.path.dirname(__file__), "..", "..", "images", "dragons")
 
 
+def _upload_rel(db, user, rel_path, upload_image):
+    if not upload_image or not rel_path:
+        return ""
+    filepath = os.path.join(_IMAGES, os.path.basename(rel_path))
+    if not os.path.isfile(filepath):
+        return ""
+    def log_err(msg, tb=""):
+        from datetime import datetime
+        from models import ErrorLog
+        db.add(ErrorLog(source="bot", error_type="UPLOAD", message=f"{msg} (file={filepath})", user_id=user.vk_id, traceback_text=tb, created_at=datetime.now().isoformat()))
+        db.commit()
+    return upload_image(filepath, log_error=log_err, peer_id=user.vk_id)
+
+
+def step_attachment(db, user, dragon, step_def, upload_image):
+    rel = ""
+    if step_def and getattr(step_def, "image_path", ""):
+        rel = step_def.image_path
+    elif dragon and dragon.egg_path:
+        rel = dragon.egg_path
+    return _upload_rel(db, user, rel, upload_image)
+
+
 def format_step(step_def, step_num: int, total: int) -> str:
     lines = [f"📋 Шаг {step_num} из {total}"]
     if step_def and step_def.magic_action:
@@ -56,16 +79,7 @@ def handle_grow_command(user, db, send_message, upload_image=None):
     msg += f"\n\nНорма крестиков: {step_def.crosses_norm}\n"
     msg += "Выбери режим:"
 
-    attachment = ""
-    if upload_image and dragon and dragon.egg_path:
-        filepath = os.path.join(_IMAGES, os.path.basename(dragon.egg_path))
-        if os.path.isfile(filepath):
-            def log_err(msg, tb=""):
-                from datetime import datetime
-                from models import ErrorLog
-                db.add(ErrorLog(source="bot", error_type="UPLOAD", message=f"{msg} (file={filepath})", user_id=user.vk_id, traceback_text=tb, created_at=datetime.now().isoformat()))
-                db.commit()
-            attachment = upload_image(filepath, log_error=log_err, peer_id=user.vk_id)
+    attachment = step_attachment(db, user, dragon, step_def, upload_image)
 
     send_message(msg, attachment=attachment, keyboard=step_buttons_keyboard())
 
@@ -347,16 +361,7 @@ def _handle_crosses_check(user, text, attachments, db, send_message, upload_imag
             if next_def:
                 msg += format_step(next_def, next_step, total)
                 msg += f"\n\n🎯 Норма крестиков: {next_def.crosses_norm}\nВыбери режим:"
-            attachment = ""
-            if upload_image and dragon and dragon.egg_path:
-                filepath = os.path.join(_IMAGES, os.path.basename(dragon.egg_path))
-                if os.path.isfile(filepath):
-                    def log_err(msg, tb=""):
-                        from datetime import datetime
-                        from models import ErrorLog
-                        db.add(ErrorLog(source="bot", error_type="UPLOAD", message=f"{msg} (file={filepath})", user_id=user.vk_id, traceback_text=tb, created_at=datetime.now().isoformat()))
-                        db.commit()
-                    attachment = upload_image(filepath, log_error=log_err, peer_id=user.vk_id)
+            attachment = step_attachment(db, user, dragon, next_def, upload_image)
             send_message(msg, attachment=attachment, keyboard=step_buttons_keyboard())
 
     db.commit()

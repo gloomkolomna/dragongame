@@ -371,3 +371,43 @@ def test_grow_message_legendary_final_mentions_library(db):
     handle_grow_message(u, "вышито 1500", _photos(), db, send)
 
     assert any("Библиотек" in m for m in sent)
+
+
+def test_step_attachment_prefers_step_image(monkeypatch):
+    from types import SimpleNamespace
+    from bot.handlers import grow
+
+    monkeypatch.setattr(grow.os.path, "isfile", lambda p: True)
+    captured = {}
+
+    def fake_upload(filepath, **kw):
+        captured["filepath"] = filepath
+        return "photoX"
+
+    user = SimpleNamespace(vk_id=1)
+    dragon = SimpleNamespace(egg_path="dragons/egg.png")
+    step = SimpleNamespace(image_path="dragons/step5.png")
+
+    result = grow.step_attachment(None, user, dragon, step, fake_upload)
+    assert result == "photoX"
+    assert captured["filepath"].endswith("step5.png")
+
+
+def test_step_attachment_falls_back_to_egg(monkeypatch):
+    from types import SimpleNamespace
+    from bot.handlers import grow
+
+    monkeypatch.setattr(grow.os.path, "isfile", lambda p: True)
+    captured = {}
+
+    def fake_upload(filepath, **kw):
+        captured["filepath"] = filepath
+        return "photoEgg"
+
+    user = SimpleNamespace(vk_id=1)
+    dragon = SimpleNamespace(egg_path="dragons/egg.png")
+    step = SimpleNamespace(image_path="")
+
+    result = grow.step_attachment(None, user, dragon, step, fake_upload)
+    assert result == "photoEgg"
+    assert captured["filepath"].endswith("egg.png")
