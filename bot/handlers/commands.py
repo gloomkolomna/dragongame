@@ -153,6 +153,12 @@ def handle_garden(user, db, send_message):
     _sd = _j.loads(user.state_data or "{}")
     _prev_state = _sd.get("_prev_state", user.state)
 
+    if user.state != AWAIT_GARDEN:
+        _sd["_prev_state"] = user.state
+        _sd["_prev_dragon"] = user.current_dragon_id
+        _sd["_prev_step"] = user.current_step
+        _prev_state = user.state
+
     lines = ["🥚🐉 Яйца драконов, которые ты выращиваешь:\n"]
     for ud in entries:
         dragon = db.query(Dragon).filter(Dragon.id == ud.dragon_id).first()
@@ -204,13 +210,7 @@ def handle_garden(user, db, send_message):
         lines.append(f"{epic_num}. {epic_label}{epic_marker}")
 
     if entries or epic:
-        import json as _j
-        sd = _j.loads(user.state_data or "{}")
-        if user.state != AWAIT_GARDEN:
-            sd["_prev_state"] = user.state
-            sd["_prev_dragon"] = user.current_dragon_id
-            sd["_prev_step"] = user.current_step
-        user.state_data = _j.dumps(sd, ensure_ascii=False)
+        user.state_data = _j.dumps(_sd, ensure_ascii=False)
         user.state = AWAIT_GARDEN
         db.commit()
         if completed_entries:
