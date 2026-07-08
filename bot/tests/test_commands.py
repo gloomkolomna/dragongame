@@ -147,6 +147,8 @@ def test_handle_garden_excludes_completed_keeps_numbers(db):
     assert "золотое" not in full
     assert "серебряное" not in full
     assert "3. 🥚 красное" in full
+    assert "Выращено драконов: 2" in full
+    assert "Мой Бестиарий" in full
 
 
 def test_handle_garden_shows_incubation_time(db):

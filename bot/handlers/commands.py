@@ -157,6 +157,8 @@ def handle_garden(user, db, send_message):
     if entries:
         user.state = AWAIT_GARDEN
         db.commit()
+        if completed_entries:
+            lines.append(f"\n🐉 Выращено драконов: {len(completed_entries)}. Их можно посмотреть в мини-приложении «Мой Бестиарий».")
         if user.current_dragon_id:
             lines.append("\nНапиши номер яйца, чтобы переключиться, или 0 чтобы не менять.")
         else:
