@@ -209,10 +209,11 @@ api\venv\Scripts\python.exe -m pytest api/tests bot/tests -v --tb=short
 - `step_buttons_keyboard()` — Норма / Штраф(x2) / Статус / Сменить / Бестиарий
 - `await_pin_keyboard()` — при вводе PIN
 - `await_garden_keyboard()` — при выборе дракона
-- `shop_keyboard(items, page, total_pages)` — товары стадии + пагинация (магазин)
-- `legend_buttons_keyboard()` — Норма / Штраф(x2) / Бестиарий (легенда)
-- `epic_egg_buttons_keyboard()` — Норма / Штраф(x2) / Бестиарий (яйцо эпического)
-- `epic_care_keyboard()` — Норма / Штраф(x2) / Магазин / Бестиарий (уход)
+- `shop_keyboard(items, page, total_pages)` — товары стадии + пагинация + Сменить яйцо (магазин)
+- `legend_buttons_keyboard()` — Норма / Штраф(x2) / Сменить яйцо / Бестиарий (легенда)
+- `epic_egg_buttons_keyboard()` — Норма / Штраф(x2) / Сменить яйцо / Бестиарий (яйцо эпического)
+- `epic_care_keyboard()` — Норма / Штраф(x2) / Магазин / Сменить яйцо / Бестиарий (уход)
+- Кнопка «🔄🥚 Сменить яйцо дракона» (garden) присутствует на всех клавиатурах
 - `idle_keyboard()`/`growing_keyboard()` содержат кнопку «🛒 Магазин»
 - Бестиарий всегда самая нижняя строка (кроме complete-дракона)
 

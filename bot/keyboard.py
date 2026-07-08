@@ -42,6 +42,10 @@ def bestiary_link_row():
     }]
 
 
+def garden_row():
+    return row(("🔄🥚 Сменить яйцо дракона", "garden"))
+
+
 def idle_keyboard(has_active=True):
     bottom = [("🔄🥚 Сменить яйцо дракона", "garden"), ("❓ Помощь", "help")]
     return _keyboard([
@@ -89,6 +93,7 @@ def legend_buttons_keyboard():
     return _keyboard([
         [{"action": {"type": "text", "label": "🎯 Норма", "payload": json.dumps({"cmd": "norm"}, ensure_ascii=False)}, "color": "positive"}],
         [{"action": {"type": "text", "label": "⚡ Штраф (x2)", "payload": json.dumps({"cmd": "x2"}, ensure_ascii=False)}, "color": "negative"}],
+        garden_row(),
         bestiary_link_row(),
     ])
 
@@ -97,6 +102,7 @@ def epic_egg_buttons_keyboard():
     return _keyboard([
         [{"action": {"type": "text", "label": "🎯 Норма", "payload": json.dumps({"cmd": "norm"}, ensure_ascii=False)}, "color": "positive"}],
         [{"action": {"type": "text", "label": "⚡ Штраф (x2)", "payload": json.dumps({"cmd": "x2"}, ensure_ascii=False)}, "color": "negative"}],
+        garden_row(),
         bestiary_link_row(),
     ])
 
@@ -106,6 +112,7 @@ def epic_care_keyboard():
         [{"action": {"type": "text", "label": "🎯 Норма", "payload": json.dumps({"cmd": "norm"}, ensure_ascii=False)}, "color": "positive"}],
         [{"action": {"type": "text", "label": "⚡ Штраф (x2)", "payload": json.dumps({"cmd": "x2"}, ensure_ascii=False)}, "color": "negative"}],
         row(("🛒 Магазин", "shop")),
+        garden_row(),
         bestiary_link_row(),
     ])
 
@@ -126,6 +133,7 @@ def await_garden_keyboard(with_cancel=False):
         bottom.insert(0, ("◀ Не менять", "garden_cancel"))
     if bottom:
         buttons.append(row(*bottom))
+    buttons.append(garden_row())
     buttons.append(bestiary_link_row())
     return _keyboard(buttons)
 
@@ -157,5 +165,6 @@ def shop_keyboard(buyable_items, page, total_pages):
         })
     if nav:
         buttons.append(nav)
+    buttons.append(garden_row())
     buttons.append(bestiary_link_row())
     return _keyboard(buttons)
