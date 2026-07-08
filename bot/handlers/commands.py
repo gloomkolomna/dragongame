@@ -3,7 +3,7 @@
 import os
 import re
 from models import Dragon, UserDragon, UserProgress
-from bot.fsm import IDLE, GROW_STEP, AWAIT_GARDEN, AWAIT_LEGENDS, step_from_state, grow_state
+from bot.fsm import IDLE, GROW_STEP, AWAIT_GARDEN, AWAIT_LEGENDS, is_growing, is_epic_egg, is_epic_care, step_from_state, grow_state
 from bot.services.grow_service import get_total_steps, get_dragon_step, get_timeout_remaining
 from bot.handlers.grow import format_step, step_attachment
 from bot.keyboard import idle_keyboard, step_buttons_keyboard, start_growing_keyboard, await_garden_keyboard
@@ -149,12 +149,18 @@ def handle_garden(user, db, send_message):
     completed_entries = [e for e in all_entries if e.completed_at]
     index_map = {e.id: i + 1 for i, e in enumerate(all_entries)}
 
+    import json as _j
+    _sd = _j.loads(user.state_data or "{}")
+    _prev_state = _sd.get("_prev_state", user.state)
+
     lines = ["🥚🐉 Яйца драконов, которые ты выращиваешь:\n"]
     for ud in entries:
         dragon = db.query(Dragon).filter(Dragon.id == ud.dragon_id).first()
         if not dragon:
             continue
-        is_current = user.current_dragon_id == ud.dragon_id
+        is_current = user.current_dragon_id == ud.dragon_id and (
+            is_growing(_prev_state) or _prev_state == IDLE
+        )
         remaining_str = ""
         total = dragon.steps_count
         completed = db.query(UserProgress).filter(
@@ -190,7 +196,10 @@ def handle_garden(user, db, send_message):
             bar = "🟡" * done_egg + "⚪" * (epic.steps_count - done_egg)
             epic_label = f"🐲🥚 {epic_label} {bar}"
         epic_num = len(all_entries) + 1
-        is_epic_current = (user.epic_dragon_id or None) == epic.id
+        _state_for_check = _prev_state
+        is_epic_current = ((user.epic_dragon_id or None) == epic.id
+                           and (is_epic_egg(_state_for_check) or is_epic_care(_state_for_check)
+                                or _state_for_check in ("await_epic_name", "await_epic_restart")))
         epic_marker = " 👈 сейчас" if is_epic_current else ""
         lines.append(f"{epic_num}. {epic_label}{epic_marker}")
 
