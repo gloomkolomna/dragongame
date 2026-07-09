@@ -68,7 +68,7 @@ function ItemPicker({ items, selected, onToggle }: { items: ShopItem[]; selected
       )}
       <input className="lair-input" type="text" value={q} onChange={(e) => setQ(e.target.value)}
              placeholder="🔍 Поиск товаров…" style={{ marginBottom: 4 }} />
-      {q && (
+      {items.length > 0 ? (
         <div style={{ maxHeight: 160, overflowY: 'auto', border: '1px solid var(--bronze)', borderRadius: 6, padding: 4 }}>
           {matched.length === 0 && <span style={{ color: 'var(--text-muted)', fontSize: 13, padding: 4 }}>Ничего не найдено</span>}
           {matched.map((i) => (
@@ -78,8 +78,9 @@ function ItemPicker({ items, selected, onToggle }: { items: ShopItem[]; selected
             </label>
           ))}
         </div>
+      ) : (
+        <span style={{ color: 'var(--text-muted)', fontSize: 13 }}>Сначала добавь товары в магазин</span>
       )}
-      {!q && items.length === 0 && <span style={{ color: 'var(--text-muted)', fontSize: 13 }}>Сначала добавь товары в магазин</span>}
     </div>
   );
 }
