@@ -5,7 +5,7 @@ import client from '../../api/client';
 interface Species { id: number; name: string; egg_type: string; rarity: number; is_epic: boolean; }
 interface Stage {
   id: number; stage_number: number; name: string; description: string;
-  image_path: string; cycles_count: number; care_timeout_hours: number; care_timeout_minutes: number;
+  image_path: string; cycles_count: number;
 }
 
 function EpicDragons() {
@@ -71,7 +71,7 @@ function EpicDragons() {
             <button className="lair-btn lair-btn-sm" style={{ marginLeft: 'auto' }} onClick={() => nav('/admin/epic/stages/new')}>+ Стадия</button>
           </div>
           <table className="lair-table">
-            <thead><tr><th style={{ width: 40 }}></th><th style={{ width: 40 }}>№</th><th>Название</th><th>Циклы</th><th>Таймаут</th><th style={{ width: 200 }}></th></tr></thead>
+            <thead><tr><th style={{ width: 40 }}></th><th style={{ width: 40 }}>№</th><th>Название</th><th>Циклы</th><th style={{ width: 200 }}></th></tr></thead>
             <tbody>{stages.map((s, idx) => (
               <tr key={s.id}
                   draggable
@@ -83,7 +83,6 @@ function EpicDragons() {
                 <td>{s.stage_number}</td>
                 <td style={{ fontWeight: 600 }}>{s.name}</td>
                 <td>{s.cycles_count}</td>
-                <td>{s.care_timeout_hours}ч {s.care_timeout_minutes}м</td>
                 <td>
                   <button className="lair-btn lair-btn-sm lair-btn-outline" style={{ marginRight: 4 }} onClick={() => nav(`/admin/epic/stages/${s.id}`)}>⚙ Настроить</button>
                   <button className="lair-btn lair-btn-sm lair-btn-outline" style={{ marginRight: 4 }} onClick={() => nav(`/admin/epic/stages/${s.id}/edit`)}>Ред.</button>
@@ -91,7 +90,7 @@ function EpicDragons() {
                 </td>
               </tr>
             ))}
-            {stages.length === 0 && <tr><td colSpan={6} style={{ textAlign: 'center', color: 'var(--text-muted)', padding: 16 }}>Стадий пока нет</td></tr>}
+            {stages.length === 0 && <tr><td colSpan={5} style={{ textAlign: 'center', color: 'var(--text-muted)', padding: 16 }}>Стадий пока нет</td></tr>}
             </tbody>
           </table>
         </div>

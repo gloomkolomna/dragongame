@@ -14,8 +14,6 @@ function EpicStageForm() {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [cycles, setCycles] = useState(3);
-  const [timeoutH, setTimeoutH] = useState(24);
-  const [timeoutM, setTimeoutM] = useState(0);
   const [imageStart, setImageStart] = useState('');
   const [imageEnd, setImageEnd] = useState('');
 
@@ -23,7 +21,7 @@ function EpicStageForm() {
     client.get('/admin/epic/stages').then((r) => {
       if (isEdit) {
         const s = r.data.find((x: any) => x.id === Number(stageId));
-        if (s) { setStageNumber(s.stage_number); setName(s.name); setDescription(s.description); setCycles(s.cycles_count); setTimeoutH(s.care_timeout_hours); setTimeoutM(s.care_timeout_minutes); setImageStart(s.image_start || ''); setImageEnd(s.image_end || ''); }
+        if (s) { setStageNumber(s.stage_number); setName(s.name); setDescription(s.description); setCycles(s.cycles_count); setImageStart(s.image_start || ''); setImageEnd(s.image_end || ''); }
       } else {
         const maxNum = r.data.length ? Math.max(...r.data.map((x: any) => x.stage_number)) : 0;
         setStageNumber(maxNum + 1);
@@ -49,7 +47,7 @@ function EpicStageForm() {
   const save = async () => {
     if (!name.trim()) { setError('Название стадии обязательно'); return; }
     setSaving(true); setError('');
-    const payload = { stage_number: stageNumber, name, description, cycles_count: cycles, care_timeout_hours: timeoutH, care_timeout_minutes: timeoutM, image_start: imageStart, image_end: imageEnd };
+    const payload = { stage_number: stageNumber, name, description, cycles_count: cycles, image_start: imageStart, image_end: imageEnd };
     try {
       if (isEdit) await client.put(`/admin/epic/stages/${stageId}`, payload);
       else await client.post('/admin/epic/stages', payload);
@@ -89,13 +87,9 @@ function EpicStageForm() {
               {imageEnd && <img src={`/dragons/api/static/images/${imageEnd}?t=${Date.now()}`} alt="" style={{ maxWidth: '100%', maxHeight: 150, marginTop: 8, borderRadius: 8 }} onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />}
             </div>
           </div>
-          <div className="lair-form-group" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
+          <div className="lair-form-group" style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 8 }}>
             <div><label className="lair-label">Циклы</label>
               <input className="lair-input" type="text" inputMode="numeric" value={cycles} onChange={(e) => setCycles(parseInt(e.target.value, 10) || 1)} /></div>
-            <div><label className="lair-label">Таймаут ч</label>
-              <input className="lair-input" type="text" inputMode="numeric" value={timeoutH} onChange={(e) => setTimeoutH(parseInt(e.target.value, 10) || 0)} /></div>
-            <div><label className="lair-label">мин</label>
-              <input className="lair-input" type="text" inputMode="numeric" value={timeoutM} onChange={(e) => setTimeoutM(parseInt(e.target.value, 10) || 0)} /></div>
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
             <button className="lair-btn" disabled={saving} onClick={save}>{saving ? '...' : '💾 Сохранить'}</button>

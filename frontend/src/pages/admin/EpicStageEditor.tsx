@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import client from '../../api/client';
 
 interface Stage { id: number; stage_number: number; name: string; }
-interface Action { id: number; stage_id: number; action_label: string; order_in_cycle: number; hint: string; crosses_norm: number; image_path: string; item_ids: number[]; }
+interface Action { id: number; stage_id: number; action_label: string; order_in_cycle: number; task: string; hint: string; crosses_norm: number; image_path: string; timeout_hours: number; timeout_minutes: number; item_ids: number[]; }
 interface ShopItem { id: number; name: string; }
 
 function EpicStageEditor() {
@@ -66,12 +66,15 @@ function ActionsSection({ sid, actions, items, reload, setError, setZoom }: any)
   const [rows, setRows] = useState<Action[]>([]);
   const [dragIdx, setDragIdx] = useState<number | null>(null);
   const [editId, setEditId] = useState<number | null>(null);
-  const [edit, setEdit] = useState<any>({ action_label: '', crosses_norm: 1000, hint: '', image_path: '', item_ids: [] as number[] });
+  const [edit, setEdit] = useState<any>({ action_label: '', task: '', crosses_norm: 1000, hint: '', image_path: '', timeout_hours: 24, timeout_minutes: 0, item_ids: [] as number[] });
 
   const [label, setLabel] = useState('');
+  const [task, setTask] = useState('');
   const [crossesNorm, setCrossesNorm] = useState(1000);
   const [selItems, setSelItems] = useState<number[]>([]);
   const [hint, setHint] = useState('');
+  const [addTimeoutH, setAddTimeoutH] = useState(24);
+  const [addTimeoutM, setAddTimeoutM] = useState(0);
   const [addImagePath, setAddImagePath] = useState('');
 
   const uploadImage = async (file: File): Promise<string> => {
@@ -91,21 +94,21 @@ function ActionsSection({ sid, actions, items, reload, setError, setZoom }: any)
   const add = async () => {
     if (!label.trim()) { setError('Впиши название действия'); return; }
     setError('');
-    await client.post(`/admin/epic/stages/${sid}/actions`, { action_label: label, item_ids: selItems, order_in_cycle: nextOrder, hint, crosses_norm: crossesNorm, image_path: addImagePath });
-    setLabel(''); setHint(''); setSelItems([]); setCrossesNorm(1000); setAddImagePath('');
+    await client.post(`/admin/epic/stages/${sid}/actions`, { action_label: label, task, item_ids: selItems, order_in_cycle: nextOrder, hint, crosses_norm: crossesNorm, image_path: addImagePath, timeout_hours: addTimeoutH, timeout_minutes: addTimeoutM });
+    setLabel(''); setTask(''); setHint(''); setSelItems([]); setCrossesNorm(1000); setAddTimeoutH(24); setAddTimeoutM(0); setAddImagePath('');
     reload();
   };
   const del = async (id: number) => { await client.delete(`/admin/epic/actions/${id}`); reload(); };
 
   const startEdit = (a: Action) => {
     setEditId(a.id);
-    setEdit({ action_label: a.action_label, crosses_norm: a.crosses_norm, hint: a.hint, image_path: a.image_path || '', item_ids: [...(a.item_ids || [])] });
+    setEdit({ action_label: a.action_label, task: a.task || '', crosses_norm: a.crosses_norm, hint: a.hint, image_path: a.image_path || '', timeout_hours: a.timeout_hours ?? 24, timeout_minutes: a.timeout_minutes ?? 0, item_ids: [...(a.item_ids || [])] });
   };
   const saveEdit = async () => {
     if (!edit.action_label.trim()) { setError('Впиши название действия'); return; }
     setError('');
     await client.put(`/admin/epic/actions/${editId}`, {
-      action_label: edit.action_label, crosses_norm: edit.crosses_norm, hint: edit.hint, item_ids: edit.item_ids, image_path: edit.image_path,
+      action_label: edit.action_label, task: edit.task, crosses_norm: edit.crosses_norm, hint: edit.hint, item_ids: edit.item_ids, image_path: edit.image_path, timeout_hours: edit.timeout_hours, timeout_minutes: edit.timeout_minutes,
     });
     setEditId(null);
     reload();
@@ -130,7 +133,7 @@ function ActionsSection({ sid, actions, items, reload, setError, setZoom }: any)
   return (
     <div className="lair-card">
       <h4 style={{ color: 'var(--gold)', margin: '0 0 4px' }}>Действия ухода (цикл)</h4>
-      <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 12 }}>Малыш по очереди просит выполнить эти действия. Порядок меняется перетаскиванием (⠿). Каждое засчитывается по общим правилам крестиков. Можно требовать несколько товаров.</div>
+      <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 12 }}>Действия выполняются по порядку (перетаскивание ⠿). Если указаны товары — игрок нажимает «Использовать» и товары списываются. Если товаров нет — игрок сдаёт крестики (задание + норма). После каждого действия — таймаут.</div>
 
       {rows.map((a: Action, idx: number) => (
         <div key={a.id}
@@ -145,7 +148,19 @@ function ActionsSection({ sid, actions, items, reload, setError, setZoom }: any)
                 <input className="lair-input" value={edit.action_label} onChange={(e) => setEdit({ ...edit, action_label: e.target.value })} placeholder="Название" />
                 <input className="lair-input" type="text" inputMode="numeric" value={edit.crosses_norm} onChange={(e) => setEdit({ ...edit, crosses_norm: Math.max(1, parseInt(e.target.value, 10) || 1) })} />
               </div>
-              <ItemPicker items={items} selected={edit.item_ids} onToggle={toggleEdit} />
+              {edit.item_ids && edit.item_ids.length > 0 ? (
+                <ItemPicker items={items} selected={edit.item_ids} onToggle={toggleEdit} />
+              ) : (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                  <input className="lair-input" value={edit.task} onChange={(e) => setEdit({ ...edit, task: e.target.value })} placeholder="Задание (текст)" />
+                  <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                    <input className="lair-input" type="text" inputMode="numeric" value={edit.timeout_hours} onChange={(e) => setEdit({ ...edit, timeout_hours: Math.max(0, parseInt(e.target.value, 10) || 0) })} placeholder="ч" style={{ width: '50%' }} />
+                    <span style={{ color: 'var(--parchment-dim)', fontSize: 12 }}>ч</span>
+                    <input className="lair-input" type="text" inputMode="numeric" value={edit.timeout_minutes} onChange={(e) => setEdit({ ...edit, timeout_minutes: Math.max(0, parseInt(e.target.value, 10) || 0) })} placeholder="мин" style={{ width: '50%' }} />
+                    <span style={{ color: 'var(--parchment-dim)', fontSize: 12 }}>мин</span>
+                  </div>
+                </div>
+              )}
               <input className="lair-input" value={edit.hint} onChange={(e) => setEdit({ ...edit, hint: e.target.value })} placeholder="Подсказка (необязательно)" />
               <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
                 <label className="lair-file" style={{ margin: 0 }}><input type="file" accept="image/*" style={{ display: 'none' }} onChange={async (e) => { const f = e.target.files?.[0]; if (f) setEdit({ ...edit, image_path: await uploadImage(f) }); }} />{edit.image_path ? 'Заменить...' : 'Фото...'}</label>
@@ -166,16 +181,22 @@ function ActionsSection({ sid, actions, items, reload, setError, setZoom }: any)
               <span style={{ cursor: 'grab', color: 'var(--parchment-faded)' }} title="Перетащить">⠿</span>
               <span style={{ color: 'var(--gold)', width: 28 }}>#{a.order_in_cycle}</span>
               <span style={{ fontWeight: 600, minWidth: 120 }}>{a.action_label}</span>
-              <span style={{ color: 'var(--gold)', fontSize: 12 }}>{a.crosses_norm} ✚</span>
+              {a.item_ids && a.item_ids.length > 0 ? (
+                <span style={{ color: 'var(--parchment-dim)', fontSize: 12 }}>
+                  📦 {a.item_ids.map(itemName).join(', ')}
+                </span>
+              ) : (
+                <span style={{ color: 'var(--gold)', fontSize: 12 }}>{a.crosses_norm} ✚</span>
+              )}
+              <span style={{ color: 'var(--parchment-faded)', fontSize: 12 }}>
+                ⏳ {a.timeout_hours ?? 24}ч {a.timeout_minutes ?? 0}м
+              </span>
               {a.image_path && (
                 <img src={`/dragons/api/static/images/${a.image_path}?t=${Date.now()}`} alt=""
                      onClick={() => setZoom(`/dragons/api/static/images/${a.image_path}`)}
                      style={{ width: 36, height: 36, objectFit: 'cover', borderRadius: 4, border: '1px solid var(--bronze)', cursor: 'pointer' }}
                      onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
               )}
-              <span style={{ color: 'var(--parchment-faded)', fontSize: 12 }}>
-                {a.item_ids && a.item_ids.length ? `товары: ${a.item_ids.map(itemName).join(', ')}` : 'без товаров'}
-              </span>
               <div style={{ marginLeft: 'auto', display: 'flex', gap: 4 }}>
                 <button className="lair-btn lair-btn-sm lair-btn-outline" onClick={() => startEdit(a)}>✎</button>
                 <button className="lair-btn lair-btn-sm lair-btn-danger" onClick={() => del(a.id)}>✕</button>
@@ -187,18 +208,29 @@ function ActionsSection({ sid, actions, items, reload, setError, setZoom }: any)
 
       <div style={{ borderTop: '1px solid var(--bronze)', paddingTop: 12, marginTop: 12 }}>
         <div style={{ fontWeight: 600, color: 'var(--accent-gold-light)', marginBottom: 8 }}>Добавить действие (порядок #{nextOrder})</div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 120px', gap: 8, marginBottom: 8 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 8, marginBottom: 8 }}>
           <div><label className="lair-label">Название (кнопка игроку)</label>
             <input className="lair-input" value={label} onChange={(e) => setLabel(e.target.value)} placeholder="Кормить" /></div>
-          <div><label className="lair-label">Норма крест.</label>
-            <input className="lair-input" type="text" inputMode="numeric" value={crossesNorm} onChange={(e) => setCrossesNorm(Math.max(1, parseInt(e.target.value, 10) || 1))} /></div>
         </div>
         <div style={{ marginBottom: 8 }}>
-          <label className="lair-label">Нужные товары (можно несколько)</label>
+          <label className="lair-label">Нужные товары (можно несколько) — если пусто, действие считается заданием с крестиками</label>
           <ItemPicker items={items} selected={selItems} onToggle={toggleAdd} />
         </div>
-        <div style={{ marginBottom: 8 }}>
-          <input className="lair-input" value={hint} onChange={(e) => setHint(e.target.value)} placeholder="Подсказка игроку (необязательно)" />
+        {selItems.length === 0 && (
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 8 }}>
+            <div><label className="lair-label">Задание (текст)</label>
+              <input className="lair-input" value={task} onChange={(e) => setTask(e.target.value)} placeholder="Вышей узор из 1000 крестиков" /></div>
+            <div><label className="lair-label">Норма крестиков</label>
+              <input className="lair-input" type="text" inputMode="numeric" value={crossesNorm} onChange={(e) => setCrossesNorm(Math.max(1, parseInt(e.target.value, 10) || 1))} /></div>
+          </div>
+        )}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 90px 90px', gap: 8, marginBottom: 8 }}>
+          <div><label className="lair-label">Подсказка (необязательно)</label>
+            <input className="lair-input" value={hint} onChange={(e) => setHint(e.target.value)} placeholder="💡 Вкусняшка для дракона" /></div>
+          <div><label className="lair-label">Таймаут, ч</label>
+            <input className="lair-input" type="text" inputMode="numeric" value={addTimeoutH} onChange={(e) => setAddTimeoutH(Math.max(0, parseInt(e.target.value, 10) || 0))} /></div>
+          <div><label className="lair-label">мин</label>
+            <input className="lair-input" type="text" inputMode="numeric" value={addTimeoutM} onChange={(e) => setAddTimeoutM(Math.max(0, parseInt(e.target.value, 10) || 0))} /></div>
         </div>
         <div style={{ marginBottom: 8, display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
           <label className="lair-file" style={{ margin: 0 }}><input type="file" accept="image/*" style={{ display: 'none' }} onChange={async (e) => { const f = e.target.files?.[0]; if (f) setAddImagePath(await uploadImage(f)); }} />{addImagePath ? 'Заменить...' : 'Фото действия...'}</label>
