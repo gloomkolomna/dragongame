@@ -84,7 +84,7 @@ function EpicDragons() {
                 <td style={{ fontWeight: 600 }}>{s.name}</td>
                 <td>{s.cycles_count}</td>
                 <td>
-                  <button className="lair-btn lair-btn-sm lair-btn-outline" style={{ marginRight: 4 }} onClick={() => nav(`/admin/epic/stages/${s.id}`)}>⚙ Настроить</button>
+                  <button className="lair-btn lair-btn-sm lair-btn-outline" style={{ marginRight: 4 }} onClick={() => nav(`/admin/epic/stages/${s.id}`)}>⚙ Действия ухода</button>
                   <button className="lair-btn lair-btn-sm lair-btn-outline" style={{ marginRight: 4 }} onClick={() => nav(`/admin/epic/stages/${s.id}/edit`)}>Ред.</button>
                   <button className="lair-btn lair-btn-sm lair-btn-danger" onClick={() => delStage(s.id)}>✕</button>
                 </td>
