@@ -49,15 +49,37 @@ function EpicStageEditor() {
 }
 
 function ItemPicker({ items, selected, onToggle }: { items: ShopItem[]; selected: number[]; onToggle: (id: number) => void }) {
+  const [q, setQ] = useState('');
+  const matched = items.filter((i) => i.name.toLowerCase().includes(q.toLowerCase()));
   return (
-    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-      {items.length === 0 && <span style={{ color: 'var(--text-muted)', fontSize: 13 }}>Сначала добавь товары в магазин</span>}
-      {items.map((i) => (
-        <label key={i.id} className="lair-badge" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, cursor: 'pointer', opacity: selected.includes(i.id) ? 1 : 0.5 }}>
-          <input type="checkbox" checked={selected.includes(i.id)} onChange={() => onToggle(i.id)} />
-          {i.name}
-        </label>
-      ))}
+    <div>
+      {selected.length > 0 && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 6 }}>
+          {selected.map((id) => {
+            const it = items.find((x) => x.id === id);
+            return it ? (
+              <span key={id} className="lair-badge" style={{ display: 'inline-flex', alignItems: 'center', gap: 4, cursor: 'pointer', background: 'var(--accent-dark)' }}
+                    onClick={() => onToggle(id)}>
+                {it.name} ✕
+              </span>
+            ) : null;
+          })}
+        </div>
+      )}
+      <input className="lair-input" type="text" value={q} onChange={(e) => setQ(e.target.value)}
+             placeholder="🔍 Поиск товаров…" style={{ marginBottom: 4 }} />
+      {q && (
+        <div style={{ maxHeight: 160, overflowY: 'auto', border: '1px solid var(--bronze)', borderRadius: 6, padding: 4 }}>
+          {matched.length === 0 && <span style={{ color: 'var(--text-muted)', fontSize: 13, padding: 4 }}>Ничего не найдено</span>}
+          {matched.map((i) => (
+            <label key={i.id} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 6px', cursor: 'pointer', borderRadius: 4, background: selected.includes(i.id) ? 'rgba(153,102,255,0.15)' : 'transparent' }}>
+              <input type="checkbox" checked={selected.includes(i.id)} onChange={() => onToggle(i.id)} />
+              <span style={{ fontSize: 13 }}>{i.name}</span>
+            </label>
+          ))}
+        </div>
+      )}
+      {!q && items.length === 0 && <span style={{ color: 'var(--text-muted)', fontSize: 13 }}>Сначала добавь товары в магазин</span>}
     </div>
   );
 }
