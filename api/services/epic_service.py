@@ -181,10 +181,17 @@ def get_stage(db, stage_id):
     return db.query(EpicStage).filter(EpicStage.id == stage_id).first()
 
 
-def get_stage_actions(db, stage_id):
+def care_dragon_id(db, care):
+    if not care:
+        return None
+    ud = db.query(UserDragon).filter(UserDragon.id == care.user_dragon_id).first()
+    return ud.dragon_id if ud else None
+
+
+def get_stage_actions(db, stage_id, dragon_id):
     return (
         db.query(EpicStageAction)
-        .filter(EpicStageAction.stage_id == stage_id)
+        .filter(EpicStageAction.stage_id == stage_id, EpicStageAction.dragon_id == dragon_id)
         .order_by(EpicStageAction.order_in_cycle, EpicStageAction.id)
         .all()
     )
@@ -193,7 +200,10 @@ def get_stage_actions(db, stage_id):
 def get_current_action(db, care):
     if not care or not care.stage_id:
         return None
-    actions = get_stage_actions(db, care.stage_id)
+    dragon_id = care_dragon_id(db, care)
+    if not dragon_id:
+        return None
+    actions = get_stage_actions(db, care.stage_id, dragon_id)
     if not actions:
         return None
     idx = care.current_action_order or 0
@@ -297,7 +307,7 @@ def get_care_remaining(db, care):
 def advance_care(db, care):
     """Advance past the just-completed action. Returns event dict."""
     stage = get_stage(db, care.stage_id)
-    actions = get_stage_actions(db, care.stage_id)
+    actions = get_stage_actions(db, care.stage_id, care_dragon_id(db, care))
     completed_action = get_current_action(db, care)
     n = len(actions)
     care.current_action_order = (care.current_action_order or 0) + 1

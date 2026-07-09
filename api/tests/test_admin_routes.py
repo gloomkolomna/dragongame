@@ -474,16 +474,18 @@ def test_epic_stage_crud(client):
 
 
 def test_epic_stage_action_crud(client):
+    dragon = client.post("/api/admin/dragons", data={"name": "Epic1", "rarity": 1, "egg_type": "e", "description": "", "is_epic": True}).json()
     stage = client.post("/api/admin/epic/stages", json={"stage_number": 1, "name": "S1"}).json()
     item = client.post("/api/admin/shop-items", json={"name": "Смесь", "cost_stitches": 100}).json()
-    resp = client.post(f"/api/admin/epic/stages/{stage['id']}/actions",
+    resp = client.post(f"/api/admin/epic/species/{dragon['id']}/stages/{stage['id']}/actions",
                        json={"action_label": "Кормить", "order_in_cycle": 1, "crosses_norm": 300, "item_ids": [item["id"]]})
     assert resp.status_code == 200
     action_id = resp.json()["id"]
     assert resp.json()["crosses_norm"] == 300
     assert resp.json()["item_ids"] == [item["id"]]
+    assert resp.json()["dragon_id"] == dragon["id"]
 
-    lst = client.get(f"/api/admin/epic/stages/{stage['id']}/actions")
+    lst = client.get(f"/api/admin/epic/species/{dragon['id']}/stages/{stage['id']}/actions")
     assert len(lst.json()) == 1
 
     upd = client.put(f"/api/admin/epic/actions/{action_id}", json={"action_label": "Покормить", "crosses_norm": 500, "item_ids": []})
@@ -503,12 +505,13 @@ def test_shop_item_character_effect(client):
 
 
 def test_stage_shop_binding_synced_from_care_action(client):
+    dragon = client.post("/api/admin/dragons", data={"name": "Epic2", "rarity": 1, "egg_type": "e", "description": "", "is_epic": True}).json()
     stage = client.post("/api/admin/epic/stages", json={"stage_number": 2, "name": "S2"}).json()
     item1 = client.post("/api/admin/shop-items", json={"name": "Смесь", "cost_stitches": 100}).json()
     item2 = client.post("/api/admin/shop-items", json={"name": "Ванночка", "cost_stitches": 150}).json()
 
     # care action with multiple items → bindings auto-created for epic:2
-    act = client.post(f"/api/admin/epic/stages/{stage['id']}/actions",
+    act = client.post(f"/api/admin/epic/species/{dragon['id']}/stages/{stage['id']}/actions",
                       json={"action_label": "Кормить", "item_ids": [item1["id"], item2["id"]], "order_in_cycle": 1}).json()
     assert sorted(act["item_ids"]) == sorted([item1["id"], item2["id"]])
     links = client.get("/api/admin/stage-shop-items", params={"stage_key": "epic:2"}).json()

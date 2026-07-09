@@ -3,8 +3,9 @@ import { useNavigate, useParams } from 'react-router-dom';
 import client from '../../api/client';
 
 interface Stage { id: number; stage_number: number; name: string; }
-interface Action { id: number; stage_id: number; action_label: string; order_in_cycle: number; task: string; hint: string; crosses_norm: number; image_path: string; timeout_hours: number; timeout_minutes: number; item_ids: number[]; }
+interface Action { id: number; dragon_id: number; stage_id: number; action_label: string; order_in_cycle: number; task: string; hint: string; crosses_norm: number; image_path: string; timeout_hours: number; timeout_minutes: number; item_ids: number[]; }
 interface ShopItem { id: number; name: string; }
+interface Species { id: number; name: string; }
 
 function EpicStageEditor() {
   const { stageId } = useParams<{ stageId: string }>();
@@ -13,24 +14,26 @@ function EpicStageEditor() {
   const [stage, setStage] = useState<Stage | null>(null);
   const [items, setItems] = useState<ShopItem[]>([]);
   const [actions, setActions] = useState<Action[]>([]);
+  const [species, setSpecies] = useState<Species[]>([]);
+  const [did, setDid] = useState<number | null>(null);
   const [error, setError] = useState('');
   const [zoom, setZoom] = useState<string | null>(null);
-  const [uploading, setUploading] = useState(false);
 
-  const uploadImage = async (file: File): Promise<string> => {
-    const form = new FormData();
-    form.append('image', file);
-    const r = await client.post('/admin/upload-image', form, { headers: { 'Content-Type': 'multipart/form-data' } });
-    return r.data.path;
+  const loadActions = () => {
+    if (!did) { setActions([]); return Promise.resolve(); }
+    return client.get(`/admin/epic/species/${did}/stages/${sid}/actions`).then((r) => setActions(r.data));
   };
-
-  const loadActions = () => client.get(`/admin/epic/stages/${sid}/actions`).then((r) => setActions(r.data));
 
   useEffect(() => {
     client.get('/admin/epic/stages').then((r) => setStage(r.data.find((s: Stage) => s.id === sid) || null));
     client.get('/admin/shop-items').then((r) => setItems(r.data));
-    loadActions();
+    client.get('/admin/epic/species').then((r) => {
+      setSpecies(r.data);
+      setDid((prev) => prev ?? (r.data[0]?.id ?? null));
+    });
   }, [sid]);
+
+  useEffect(() => { loadActions(); }, [sid, did]);
 
   return (
     <>
@@ -42,7 +45,18 @@ function EpicStageEditor() {
       </div>
       <div className="lair-content">
         {error && <div style={{ padding: '8px 12px', marginBottom: 12, borderRadius: 8, background: 'rgba(212,116,160,0.1)', color: '#d474a0', fontSize: 13 }}>{error}</div>}
-        <ActionsSection sid={sid} actions={actions} items={items} reload={loadActions} setError={setError} setZoom={setZoom} />
+        <div className="lair-card" style={{ marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
+          <label className="lair-label" style={{ margin: 0 }}>Эпический дракон:</label>
+          <select className="lair-input" value={did ?? ''} onChange={(e) => setDid(Number(e.target.value) || null)} style={{ maxWidth: 260 }}>
+            {species.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+          </select>
+          <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Действия уникальны для каждого дракона</span>
+        </div>
+        {species.length === 0 ? (
+          <div className="lair-card" style={{ color: 'var(--text-muted)', fontSize: 14 }}>Сначала создай эпический вид дракона.</div>
+        ) : (
+          <ActionsSection did={did} sid={sid} actions={actions} items={items} reload={loadActions} setError={setError} setZoom={setZoom} />
+        )}
       </div>
     </>
   );
@@ -85,7 +99,7 @@ function ItemPicker({ items, selected, onToggle }: { items: ShopItem[]; selected
   );
 }
 
-function ActionsSection({ sid, actions, items, reload, setError, setZoom }: any) {
+function ActionsSection({ did, sid, actions, items, reload, setError, setZoom }: any) {
   const [rows, setRows] = useState<Action[]>([]);
   const [dragIdx, setDragIdx] = useState<number | null>(null);
   const [editId, setEditId] = useState<number | null>(null);
@@ -116,8 +130,9 @@ function ActionsSection({ sid, actions, items, reload, setError, setZoom }: any)
 
   const add = async () => {
     if (!label.trim()) { setError('Впиши название действия'); return; }
+    if (!did) { setError('Выбери эпического дракона'); return; }
     setError('');
-    await client.post(`/admin/epic/stages/${sid}/actions`, { action_label: label, task, item_ids: selItems, order_in_cycle: nextOrder, hint, crosses_norm: crossesNorm, image_path: addImagePath, timeout_hours: addTimeoutH, timeout_minutes: addTimeoutM });
+    await client.post(`/admin/epic/species/${did}/stages/${sid}/actions`, { action_label: label, task, item_ids: selItems, order_in_cycle: nextOrder, hint, crosses_norm: crossesNorm, image_path: addImagePath, timeout_hours: addTimeoutH, timeout_minutes: addTimeoutM });
     setLabel(''); setTask(''); setHint(''); setSelItems([]); setCrossesNorm(1000); setAddTimeoutH(24); setAddTimeoutM(0); setAddImagePath('');
     reload();
   };

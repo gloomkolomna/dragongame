@@ -162,10 +162,12 @@ def test_epic_stage_crud(db):
 
 
 def test_epic_stage_action(db):
+    dragon = Dragon(name="E", rarity=1, steps_count=1, is_active=True, is_epic=True)
+    db.add(dragon)
     stage = EpicStage(stage_number=1, name="Stage 1")
     db.add(stage)
     db.flush()
-    action = EpicStageAction(stage_id=stage.id, action_label="Кормить", order_in_cycle=1)
+    action = EpicStageAction(dragon_id=dragon.id, stage_id=stage.id, action_label="Кормить", order_in_cycle=1)
     db.add(action)
     db.commit()
     assert action.id is not None

@@ -7,8 +7,8 @@ import { DataTableHead, TableToolbar } from '../../components/admin/DataTable';
 
 const GROUP_ID = 239999455;
 
-interface User { vk_id: number; first_name: string; last_name: string; state: string; registered_at: string; pins_activated: number; last_pin_code: string | null; dragons_collected: number; current_dragon_id: number | null; current_step: number; suspicious_pending: number; is_don: boolean; }
-interface Detail { vk_id: number; first_name: string; last_name: string; registered_at: string; stitches_balance: number; epic_unlocked: boolean; is_don: boolean; don_since: string | null; don_synced_at: string | null; pins_activated: number; pins: { code: string; dragon_name: string; egg_type: string; status: string; activated_at: string }[]; dragons: { dragon_id: number; name: string | null; egg_type: string; status: string; progress_pct: number; completed_at: string | null }[]; dragons_collected: number; dragons_active: number; dragons_total: number; suspicious_reports: Suspicious[]; treasures_collected: TreasureCollected[]; }
+interface User { vk_id: number; first_name: string; last_name: string; state: string; registered_at: string; pins_activated: number; last_pin_code: string | null; dragons_collected: number; current_dragon_id: number | null; current_step: number; suspicious_pending: number; is_don: boolean; custom_price_per_dragon: number | null; }
+interface Detail { vk_id: number; first_name: string; last_name: string; registered_at: string; stitches_balance: number; epic_unlocked: boolean; is_don: boolean; don_since: string | null; don_synced_at: string | null; pins_activated: number; pins: { code: string; dragon_name: string; egg_type: string; status: string; activated_at: string }[]; dragons: { dragon_id: number; name: string | null; egg_type: string; status: string; progress_pct: number; completed_at: string | null }[]; dragons_collected: number; dragons_active: number; dragons_total: number; suspicious_reports: Suspicious[]; treasures_collected: TreasureCollected[]; custom_price_per_dragon: number | null; }
 interface TreasureCollected { id: number; name: string; description: string; image_path: string; dragon_id: number; is_active: boolean; }
 interface Suspicious { id: number; user_id: number; dragon_id: number | null; step_number: number; declared_crosses: number; normal_crosses: number; mode: string; status: string; created_at: string; }
 
@@ -16,6 +16,7 @@ const USER_COLUMNS: Column<User>[] = [
   { key: 'player', label: 'Игрок', value: (u) => `${[u.first_name, u.last_name].filter(Boolean).join(' ')} id${u.vk_id}`, sortValue: (u) => [u.first_name, u.last_name].filter(Boolean).join(' ').toLowerCase(), filter: 'text' },
   { key: 'dragons', label: '🐉', value: (u) => String(u.dragons_collected), sortValue: (u) => u.dragons_collected, width: 60 },
   { key: 'current', label: 'Текущий', value: (u) => (u.state === 'idle' ? '—' : `шаг ${u.current_step}`), sortValue: (u) => u.current_step },
+  { key: 'price', label: 'Цена', value: (u) => (u.custom_price_per_dragon != null ? `${u.custom_price_per_dragon / 100}₽` : '—'), sortValue: (u) => u.custom_price_per_dragon ?? 0 },
   { key: 'registered', label: 'Дата рег.', value: (u) => u.registered_at || '', sortValue: (u) => u.registered_at || '' },
   { key: 'chat', label: 'Чат', width: 80 },
 ];
@@ -25,6 +26,7 @@ function UsersList() {
   const [detail, setDetail] = useState<Detail | null>(null);
   const [suspicious, setSuspicious] = useState<Suspicious[]>([]);
   const [balanceInput, setBalanceInput] = useState('');
+  const [priceInput, setPriceInput] = useState('');
   const [load, setLoad] = useState(true);
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -42,6 +44,7 @@ function UsersList() {
     const r = await client.get(`/admin/users/${id}`);
     setDetail(r.data);
     setBalanceInput(String(r.data.stitches_balance ?? 0));
+    setPriceInput(r.data.custom_price_per_dragon != null ? String(r.data.custom_price_per_dragon / 100) : '');
     setSearchParams({ vk_id: String(id) });
     setSuspicious(r.data.suspicious_reports ?? []);
   };
@@ -52,6 +55,16 @@ function UsersList() {
     if (isNaN(val)) return;
     const r = await client.post(`/admin/users/${detail.vk_id}/balance`, { balance: val });
     setDetail({ ...detail, stitches_balance: r.data.stitches_balance });
+  };
+
+  const saveCustomPrice = async () => {
+    if (!detail) return;
+    const trimmed = priceInput.trim();
+    const r = await client.post(`/admin/users/${detail.vk_id}/custom-price`, {
+      custom_price_per_dragon: trimmed === '' ? null : Math.max(0, parseInt(trimmed, 10) || 0),
+    });
+    setDetail({ ...detail, custom_price_per_dragon: r.data.custom_price_per_dragon });
+    setPriceInput(r.data.custom_price_per_dragon != null ? String(r.data.custom_price_per_dragon / 100) : '');
   };
 
   const resolveSuspicious = async (reportId: number) => {
@@ -154,6 +167,22 @@ function UsersList() {
                        onChange={(e) => setBalanceInput(e.target.value)} style={{ width: 160 }} />
                 <button className="lair-btn lair-btn-sm" onClick={saveBalance}>💾 Установить баланс</button>
                 {detail.epic_unlocked && <span className="lair-badge" style={{ marginLeft: 'auto' }}>🐲 эпический открыт</span>}
+              </div>
+            </div>
+
+            <div className="lair-card" style={{ marginBottom: 16 }}>
+              <h4 style={{ color: 'var(--gold)', margin: '0 0 12px' }}>💰 Индивидуальная цена</h4>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <input className="lair-input" type="text" inputMode="numeric" value={priceInput}
+                       onChange={(e) => setPriceInput(e.target.value)} placeholder="Стандартная"
+                       style={{ width: 160 }} />
+                <span style={{ color: 'var(--parchment-dim)', fontSize: 13 }}>₽ за дракона</span>
+                <button className="lair-btn lair-btn-sm" onClick={saveCustomPrice}>💾 Установить</button>
+              </div>
+              <div style={{ color: 'var(--parchment-faded)', fontSize: 12, marginTop: 6 }}>
+                {detail.custom_price_per_dragon != null
+                  ? `Текущая: ${detail.custom_price_per_dragon / 100}₽ за дракона. Скидки наборов применяются сверху.`
+                  : 'Используется стандартная цена из раздела Финансы.'}
               </div>
             </div>
 
@@ -281,6 +310,7 @@ function UsersList() {
                       </td>
                       <td>{u.dragons_collected}</td>
                       <td style={{ fontSize: 14 }}>{u.state === 'idle' ? '—' : `шаг ${u.current_step}`}</td>
+                      <td style={{ fontSize: 14 }}>{u.custom_price_per_dragon != null ? `${u.custom_price_per_dragon / 100}₽` : '—'}</td>
                       <td style={{ fontSize: 13, color: 'var(--parchment-faded)' }}>{u.registered_at?.slice(0, 10)}</td>
                       <td>
                         <a href={chatUrl(u.vk_id)} target="_blank" rel="noopener noreferrer"
@@ -291,7 +321,7 @@ function UsersList() {
                     </tr>
                   );
                 })}
-                {t.rows.length === 0 && <tr><td colSpan={5} style={{ textAlign: 'center', color: 'var(--parchment-faded)', padding: 16 }}>Ничего не найдено</td></tr>}
+                {t.rows.length === 0 && <tr><td colSpan={6} style={{ textAlign: 'center', color: 'var(--parchment-faded)', padding: 16 }}>Ничего не найдено</td></tr>}
                 </tbody>
               </table>
             </div>

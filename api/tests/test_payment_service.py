@@ -34,16 +34,26 @@ def test_is_donor(db):
 
 def test_calc_set_price_normal(db):
     s = DragonSet(name="5", quantity=5, discount_percent=5, donor_discount_percent=15)
-    total, per_pin = calc_set_price(s, False, db)
+    total, per_pin = calc_set_price(s, False, 1, db)
     assert total == 47500
     assert per_pin == 9500
 
 
 def test_calc_set_price_donor(db):
     s = DragonSet(name="5", quantity=5, discount_percent=5, donor_discount_percent=15)
-    total, per_pin = calc_set_price(s, True, db)
+    total, per_pin = calc_set_price(s, True, 1, db)
     assert total == 42500
     assert per_pin == 8500
+
+
+def test_calc_set_price_custom(db):
+    from models import User
+    db.add(User(vk_id=99, custom_price_per_dragon=5000))
+    db.commit()
+    s = DragonSet(name="5", quantity=5, discount_percent=5, donor_discount_percent=15)
+    total, per_pin = calc_set_price(s, False, 99, db)
+    assert total == 23750
+    assert per_pin == 4750
 
 
 def test_count_available_excludes_owned(db):

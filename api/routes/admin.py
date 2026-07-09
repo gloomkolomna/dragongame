@@ -524,6 +524,7 @@ def list_users(db: Session = Depends(get_db)):
             "current_step": u.current_step,
             "suspicious_pending": susp_map.get(u.vk_id, 0),
             "is_don": u.vk_id in don_ids,
+            "custom_price_per_dragon": u.custom_price_per_dragon,
         })
     return result
 
@@ -598,6 +599,7 @@ def get_user_detail(vk_id: int, db: Session = Depends(get_db)):
         "is_don": bool(donor.is_don) if donor else False,
         "don_since": donor.don_since if donor else None,
         "don_synced_at": donor.last_synced_at if donor else None,
+        "custom_price_per_dragon": user.custom_price_per_dragon,
         "pins_activated": len(pins),
         "pins": pins,
         "dragons": dragons_list,
@@ -1468,6 +1470,7 @@ def _set_action_items(db, action_id: int, item_ids):
 def _action_dict(db, action: EpicStageAction) -> dict:
     return {
         "id": action.id,
+        "dragon_id": action.dragon_id,
         "stage_id": action.stage_id,
         "action_label": action.action_label,
         "order_in_cycle": action.order_in_cycle,
@@ -1481,24 +1484,27 @@ def _action_dict(db, action: EpicStageAction) -> dict:
     }
 
 
-@router.get("/epic/stages/{stage_id}/actions")
-def list_epic_actions(stage_id: int, db: Session = Depends(get_db)):
+@router.get("/epic/species/{dragon_id}/stages/{stage_id}/actions")
+def list_epic_actions(dragon_id: int, stage_id: int, db: Session = Depends(get_db)):
     actions = (
         db.query(EpicStageAction)
-        .filter(EpicStageAction.stage_id == stage_id)
+        .filter(EpicStageAction.stage_id == stage_id, EpicStageAction.dragon_id == dragon_id)
         .order_by(EpicStageAction.order_in_cycle, EpicStageAction.id)
         .all()
     )
     return [_action_dict(db, a) for a in actions]
 
 
-@router.post("/epic/stages/{stage_id}/actions")
-async def create_epic_action(stage_id: int, request: Request, db: Session = Depends(get_db)):
+@router.post("/epic/species/{dragon_id}/stages/{stage_id}/actions")
+async def create_epic_action(dragon_id: int, stage_id: int, request: Request, db: Session = Depends(get_db)):
     if not db.query(EpicStage).filter(EpicStage.id == stage_id).first():
         raise HTTPException(status_code=404, detail="Stage not found")
+    if not db.query(Dragon).filter(Dragon.id == dragon_id, Dragon.is_epic == True).first():
+        raise HTTPException(status_code=404, detail="Epic dragon not found")
     b = await _json_body(request)
     label = b.get("action_label", "")
     action = EpicStageAction(
+        dragon_id=dragon_id,
         stage_id=stage_id,
         action_label=label,
         order_in_cycle=int(b.get("order_in_cycle", 0) or 0),
@@ -1834,3 +1840,19 @@ def list_payment_orders(
         }
         result.append(d)
     return {"items": result, "total": total, "page": page, "per_page": per_page}
+
+
+@router.post("/users/{vk_id}/custom-price")
+async def set_custom_price(vk_id: int, request: Request, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.vk_id == vk_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    b = await _json_body(request)
+    val = b.get("custom_price_per_dragon")
+    if val is None or val == "":
+        user.custom_price_per_dragon = None
+    else:
+        user.custom_price_per_dragon = max(0, int(val) * 100)
+    db.commit()
+    db.refresh(user)
+    return {"custom_price_per_dragon": user.custom_price_per_dragon}

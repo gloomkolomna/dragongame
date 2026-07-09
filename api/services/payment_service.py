@@ -34,8 +34,16 @@ def is_donor(vk_id: int, db) -> bool:
     return bool(row and row.is_don)
 
 
-def calc_set_price(dset, donor: bool, db) -> tuple[int, int]:
-    base = get_base_price(db)
+def get_effective_price(vk_id: int, db) -> int:
+    from models import User
+    user = db.query(User).filter(User.vk_id == vk_id).first()
+    if user and user.custom_price_per_dragon is not None:
+        return user.custom_price_per_dragon
+    return get_base_price(db)
+
+
+def calc_set_price(dset, donor: bool, vk_id: int, db) -> tuple[int, int]:
+    base = get_effective_price(vk_id, db)
     discount = dset.donor_discount_percent if donor else dset.discount_percent
     total = dset.quantity * base * (100 - discount) // 100
     price_per_pin = base * (100 - discount) // 100

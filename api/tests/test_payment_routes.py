@@ -278,3 +278,27 @@ def test_list_payment_orders_filters(client, db):
     pending_resp = client.get("/api/admin/payment-orders?status=pending")
     assert pending_resp.json()["total"] == 1
     assert pending_resp.json()["items"][0]["notified"] is False
+
+
+# ─── Custom price ───
+
+def test_custom_price_set_and_list(client, db):
+    from models import User
+    u = User(vk_id=555, state="idle")
+    db.add(u)
+    db.commit()
+
+    resp = client.post("/api/admin/users/555/custom-price", json={"custom_price_per_dragon": 200})
+    assert resp.status_code == 200
+    assert resp.json()["custom_price_per_dragon"] == 20000
+
+    user_resp = client.get("/api/admin/users/555")
+    assert user_resp.json()["custom_price_per_dragon"] == 20000
+
+    users_resp = client.get("/api/admin/users")
+    u_data = next(u for u in users_resp.json() if u["vk_id"] == 555)
+    assert u_data["custom_price_per_dragon"] == 20000
+
+    resp_clear = client.post("/api/admin/users/555/custom-price", json={"custom_price_per_dragon": None})
+    assert resp_clear.status_code == 200
+    assert resp_clear.json()["custom_price_per_dragon"] is None

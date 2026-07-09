@@ -72,6 +72,7 @@ class User(Base):
     stitches_balance = Column(Integer, default=0)
     epic_unlocked = Column(Boolean, default=False)
     epic_dragon_id = Column(Integer, nullable=True)
+    custom_price_per_dragon = Column(Integer, nullable=True)
 
 
 class UserProgress(Base):
@@ -213,6 +214,7 @@ class EpicStage(Base):
 class EpicStageAction(Base):
     __tablename__ = "epic_stage_actions"
     id = Column(Integer, primary_key=True, autoincrement=True)
+    dragon_id = Column(Integer, ForeignKey("dragons.id", ondelete="CASCADE"), nullable=False)
     stage_id = Column(Integer, ForeignKey("epic_stages.id", ondelete="CASCADE"), nullable=False)
     action_label = Column(String, default="")
     order_in_cycle = Column(Integer, default=0)

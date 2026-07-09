@@ -32,7 +32,7 @@ def test_epic_view_egg(client, db):
 
 def test_epic_view_care(client, db):
     db.add(User(vk_id=3))
-    _epic_dragon(db, steps=1)
+    d = _epic_dragon(db, steps=1)
     epic_service.spawn_random_epic(db, 3)
     st = EpicStage(stage_number=1, name="Малыш", cycles_count=2)
     db.add(st)
@@ -40,7 +40,7 @@ def test_epic_view_care(client, db):
     it = ShopItem(name="Молоко", is_active=True)
     db.add(it)
     db.flush()
-    a = EpicStageAction(stage_id=st.id, action_label="кормить", order_in_cycle=0, crosses_norm=500)
+    a = EpicStageAction(dragon_id=d.id, stage_id=st.id, action_label="кормить", order_in_cycle=0, crosses_norm=500)
     db.add(a)
     db.flush()
     db.add(EpicActionItem(action_id=a.id, item_id=it.id))
@@ -97,3 +97,22 @@ def test_legend_view_all_completed_shows_full_text(client, db):
     assert r["all_completed"] is True
     assert r["full_text"] == "Полная история."
     assert r["name"] == "Leg2"
+
+
+def test_admin_actions_scoped_by_dragon(client, db):
+    d1 = _epic_dragon(db, steps=1)
+    d2 = _epic_dragon(db, steps=1)
+    st = EpicStage(stage_number=1, name="S1", cycles_count=1)
+    db.add(st)
+    db.commit()
+
+    r1 = client.post(f"/api/admin/epic/species/{d1.id}/stages/{st.id}/actions", json={"action_label": "d1act", "crosses_norm": 100})
+    assert r1.status_code == 200
+    assert r1.json()["dragon_id"] == d1.id
+
+    client.post(f"/api/admin/epic/species/{d2.id}/stages/{st.id}/actions", json={"action_label": "d2act", "crosses_norm": 100})
+
+    l1 = client.get(f"/api/admin/epic/species/{d1.id}/stages/{st.id}/actions").json()
+    l2 = client.get(f"/api/admin/epic/species/{d2.id}/stages/{st.id}/actions").json()
+    assert [a["action_label"] for a in l1] == ["d1act"]
+    assert [a["action_label"] for a in l2] == ["d2act"]

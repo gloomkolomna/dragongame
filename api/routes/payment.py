@@ -106,7 +106,7 @@ async def create_order(request: Request, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Set not found")
 
     donor = is_donor(vk_id, db)
-    total, price_per_pin = calc_set_price(dset, donor, db)
+    total, price_per_pin = calc_set_price(dset, donor, vk_id, db)
 
     available = count_available(vk_id, db)
     if available <= 0:
