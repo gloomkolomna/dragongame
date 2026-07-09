@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import client from '../../api/client';
 
-function PricingConfig() {
+function PricingConfig({ hideHeader }: { hideHeader?: boolean }) {
   const [price, setPrice] = useState(0);
   const [load, setLoad] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -32,7 +32,7 @@ function PricingConfig() {
 
   return (
     <>
-      <div className="lair-header"><h2>💰 Стоимость одного яйца</h2></div>
+      {!hideHeader && <div className="lair-header"><h2>💰 Стоимость одного яйца</h2></div>}
       <div className="lair-content">
         {error && <div style={{ padding: '10px 16px', marginBottom: 16, borderRadius: 8, background: 'rgba(212,116,160,0.1)', color: '#d474a0', fontSize: 13 }}>{error}</div>}
         {saved && <div style={{ padding: '10px 16px', marginBottom: 16, borderRadius: 8, background: 'rgba(120,200,120,0.12)', color: 'var(--success)', fontSize: 13 }}>Сохранено</div>}

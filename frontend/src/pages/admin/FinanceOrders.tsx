@@ -32,7 +32,7 @@ const COLUMNS: Column<PaymentOrder>[] = [
   { key: 'completed_at', label: 'Завершён', value: (o) => o.completed_at?.slice(0, 16).replace('T', ' ') || '—', sortValue: (o) => o.completed_at || '' },
 ];
 
-function FinanceOrders() {
+function FinanceOrders({ hideHeader }: { hideHeader?: boolean }) {
   const [items, setItems] = useState<PaymentOrder[]>([]);
   const [load, setLoad] = useState(true);
   const t = useTableControls(items, COLUMNS);
@@ -54,7 +54,7 @@ function FinanceOrders() {
 
   return (
     <>
-      <div className="lair-header"><h2>💳 Платежи пользователей</h2></div>
+      {!hideHeader && <div className="lair-header"><h2>💳 Платежи пользователей</h2></div>}
       <div className="lair-content">
         {load ? <div className="lair-skeleton" /> : (
           <>

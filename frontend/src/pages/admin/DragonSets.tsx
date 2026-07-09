@@ -14,7 +14,7 @@ interface DragonSet {
 
 const EMPTY = { name: '', quantity: 5, discount_percent: 0, donor_discount_percent: 0, is_active: true };
 
-function DragonSets() {
+function DragonSets({ hideHeader }: { hideHeader?: boolean }) {
   const [sets, setSets] = useState<DragonSet[]>([]);
   const [base, setBase] = useState(0);
   const [load, setLoad] = useState(true);
@@ -90,7 +90,7 @@ function DragonSets() {
 
   return (
     <>
-      <div className="lair-header"><h2>📦 Наборы драконов</h2></div>
+      {!hideHeader && <div className="lair-header"><h2>📦 Наборы драконов</h2></div>}
       <div className="lair-content">
         {error && <div style={{ padding: '10px 16px', marginBottom: 16, borderRadius: 8, background: 'rgba(212,116,160,0.1)', color: '#d474a0', fontSize: 13 }}>{error}</div>}
 
