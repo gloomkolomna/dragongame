@@ -6,6 +6,7 @@ from datetime import datetime
 from fastapi import APIRouter, Depends, UploadFile, File, Form, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 from typing import Optional
 from db import get_db
 from auth import get_current_admin
@@ -15,8 +16,9 @@ from models import (
     SuspiciousReport, ShopItem, StageShopItem, UserInventory,
     EpicStage, EpicStageAction, EpicActionItem, EpicMoodlet,
     Treasure, UserTreasure, DonorCache,
+    PricingConfig, DragonSet, PaymentOrder,
 )
-from config import API_ERROR_LOG
+from config import API_ERROR_LOG, DONOR_SYNC_INTERVAL_HOURS
 from services.dragon_service import (
     get_dragons, get_dragon, create_dragon, update_dragon, delete_dragon, sync_steps_count,
 )
@@ -1099,19 +1101,25 @@ def get_health(db: Session = Depends(get_db)):
     now = datetime.now()
     services = {}
 
-    for name in ("bot",):
-        hb = db.query(ServiceHeartbeat).filter(ServiceHeartbeat.service_name == name).first()
-        if hb and hb.last_seen:
-            try:
-                last = datetime.fromisoformat(hb.last_seen)
-                online = (now - last).total_seconds() < 90
-                services[name] = {"status": "online" if online else "offline", "last_seen": hb.last_seen}
-            except ValueError:
-                services[name] = {"status": "unknown", "last_seen": hb.last_seen}
-        else:
-            services[name] = {"status": "unknown", "last_seen": None}
+    hb = db.query(ServiceHeartbeat).filter(ServiceHeartbeat.service_name == "bot").first()
+    services["bot"] = _service_status(hb.last_seen if hb else None, now, 90)
+
+    last_sync = db.query(func.max(DonorCache.last_synced_at)).scalar()
+    donor_threshold = max(1, DONOR_SYNC_INTERVAL_HOURS) * 2 * 3600
+    services["donor_sync"] = _service_status(last_sync, now, donor_threshold)
 
     return {"services": services, "checked_at": now.isoformat()}
+
+
+def _service_status(last_seen, now: datetime, threshold_seconds: int) -> dict:
+    if not last_seen:
+        return {"status": "unknown", "last_seen": None}
+    try:
+        last = datetime.fromisoformat(last_seen)
+    except ValueError:
+        return {"status": "unknown", "last_seen": last_seen}
+    online = (now - last).total_seconds() < threshold_seconds
+    return {"status": "online" if online else "offline", "last_seen": last_seen}
 
 
 # ═══════════════════════════════════════════════════════════
@@ -1718,3 +1726,76 @@ async def adjust_balance(vk_id: int, request: Request, db: Session = Depends(get
         raise HTTPException(status_code=400, detail="balance or delta required")
     db.commit()
     return {"ok": True, "stitches_balance": user.stitches_balance}
+
+
+# ─── Магазин: цена и наборы (Robokassa) ───
+
+@router.get("/pricing")
+def get_pricing(db: Session = Depends(get_db)):
+    from services.payment_service import get_base_price
+    return {"base_price_rub": get_base_price(db) // 100}
+
+
+@router.put("/pricing")
+async def update_pricing(request: Request, db: Session = Depends(get_db)):
+    from services.payment_service import set_base_price
+    b = await _json_body(request)
+    if "base_price_rub" not in b:
+        raise HTTPException(status_code=400, detail="base_price_rub required")
+    rub = max(0, int(b["base_price_rub"] or 0))
+    set_base_price(db, rub * 100)
+    return {"base_price_rub": rub}
+
+
+@router.get("/sets")
+def list_sets(db: Session = Depends(get_db)):
+    return db.query(DragonSet).order_by(DragonSet.id).all()
+
+
+@router.post("/sets")
+async def create_set(request: Request, db: Session = Depends(get_db)):
+    b = await _json_body(request)
+    name = (b.get("name") or "").strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="Name is required")
+    quantity = int(b.get("quantity", 0) or 0)
+    if quantity < 1:
+        raise HTTPException(status_code=400, detail="quantity must be >= 1")
+    s = DragonSet(
+        name=name,
+        quantity=quantity,
+        discount_percent=max(0, int(b.get("discount_percent", 0) or 0)),
+        donor_discount_percent=max(0, int(b.get("donor_discount_percent", 0) or 0)),
+        is_active=bool(b.get("is_active", True)),
+        created_at=datetime.now().strftime("%Y-%m-%dT%H:%M:%S"),
+    )
+    db.add(s)
+    db.commit()
+    db.refresh(s)
+    return s
+
+
+@router.put("/sets/{set_id}")
+async def update_set(set_id: int, request: Request, db: Session = Depends(get_db)):
+    s = db.query(DragonSet).filter(DragonSet.id == set_id).first()
+    if not s:
+        raise HTTPException(status_code=404, detail="Set not found")
+    b = await _json_body(request)
+    if "name" in b: s.name = b["name"]
+    if "quantity" in b: s.quantity = max(1, int(b["quantity"] or 1))
+    if "discount_percent" in b: s.discount_percent = max(0, int(b["discount_percent"] or 0))
+    if "donor_discount_percent" in b: s.donor_discount_percent = max(0, int(b["donor_discount_percent"] or 0))
+    if "is_active" in b: s.is_active = bool(b["is_active"])
+    db.commit()
+    db.refresh(s)
+    return s
+
+
+@router.delete("/sets/{set_id}")
+def delete_set(set_id: int, db: Session = Depends(get_db)):
+    s = db.query(DragonSet).filter(DragonSet.id == set_id).first()
+    if not s:
+        raise HTTPException(status_code=404, detail="Set not found")
+    s.is_active = False
+    db.commit()
+    return {"ok": True}

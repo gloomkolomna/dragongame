@@ -25,6 +25,8 @@ import LegendEditor from './pages/admin/LegendEditor';
 import GridEditor from './pages/admin/GridEditor';
 import ShopList from './pages/admin/ShopList';
 import ShopForm from './pages/admin/ShopForm';
+import PricingConfig from './pages/admin/PricingConfig';
+import DragonSets from './pages/admin/DragonSets';
 import EpicDragons from './pages/admin/EpicDragons';
 import EpicSpeciesForm from './pages/admin/EpicSpeciesForm';
 import EpicStageForm from './pages/admin/EpicStageForm';
@@ -116,6 +118,8 @@ function App() {
           <Route path="grid" element={<GridEditor />} />
           <Route path="shop" element={<ShopList />} />
           <Route path="shop/new" element={<ShopForm />} />
+          <Route path="shop/pricing" element={<PricingConfig />} />
+          <Route path="shop/sets" element={<DragonSets />} />
           <Route path="shop/:id/edit" element={<ShopForm />} />
           <Route path="epic" element={<EpicDragons />} />
           <Route path="epic/species/new" element={<EpicSpeciesForm />} />

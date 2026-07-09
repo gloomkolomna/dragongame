@@ -24,10 +24,12 @@ app.add_middleware(BaseHTTPMiddleware, dispatch=log_failed_requests)
 from routes.auth import router as auth_router
 from routes.admin import router as admin_router
 from routes.collection import router as collection_router
+from routes.payment import router as payment_router
 
 app.include_router(auth_router)
 app.include_router(admin_router)
 app.include_router(collection_router)
+app.include_router(payment_router)
 
 # Каталог изображений — корневой <repo>/images (туда же пишет services/dragon_service).
 # Раздаём через /api/static/images/{rest:path} -> <repo>/images/{rest}.

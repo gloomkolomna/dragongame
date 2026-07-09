@@ -682,3 +682,82 @@ SITE_URL = os.getenv("SITE_URL", "https://belovolovhome.ru/dragons")
 - `test_shop_keyboard_dynamic` — кнопка на каждый сет + назад
 - `test_payment_keyboard` — open_link + cancel
 - `test_notified_flag` — сбой VK выставляет `notified=False`, повтор работает
+
+---
+
+## 14. Соответствие документации Robokassa (проверено)
+
+Сверено с актуальной докой: https://docs.robokassa.ru/ru/notifications-and-redirects
+и https://docs.robokassa.ru/ru/pay-interface
+
+| Требование доки | Реализация | Статус |
+|-----------------|------------|--------|
+| URL оплаты `https://auth.robokassa.ru/Merchant/Index.aspx` | `ROBOKASSA_URL` в `routes/payment.py` | ✅ |
+| Подпись ссылки `MerchantLogin:OutSum:InvId:Пароль#1:Shp_*` (Пароль **перед** Shp_) | `build_payment_url` | ✅ |
+| Подпись ResultURL `OutSum:InvId:Пароль#2:Shp_*` | `verify_result_signature` | ✅ |
+| `Shp_*` сортируются по алфавиту, регистр важен | один параметр `Shp_vk_id` | ✅ |
+| Сырая строка `OutSum` для подписи (тест — 2 знака, бой — 6 знаков) | подпись считается по полученной строке; сумма сверяется через `round(float*100)` ±1 коп. | ✅ |
+| Ответ ровно `OK{InvId}` | `PlainTextResponse(f"OK{inv_id}")` | ✅ |
+| ResultURL приходит **GET или POST** (зависит от настроек ЛК) | `@router.api_route("/result", methods=["GET","POST"])`, читаем query + form | ✅ |
+| Идемпотентность повторных ResultURL (до 5 раз) | при `status=="success"` сразу `OK{InvId}` | ✅ |
+| `IsTest=1` в тестовом режиме | из `ROBOKASSA_TEST_MODE` | ✅ |
+
+### Осознанные отклонения от исходного плана
+
+1. **Статус дона** — берётся из существующей таблицы `DonorCache.is_don` (синхронизируется внешним ботом), а НЕ из новой колонки `User.is_donor`. Колонка `is_donor` и миграция `0014` **не создавались**.
+2. **PIN** — используются существующие `Dragon.pin_code` (генерируются при создании дракона). Функция `generate_pins` **не реализована** — покупка резервирует драконов через `PaymentOrder.dragon_ids` и шлёт их готовые PIN.
+3. **Подпись ссылки** — в исходном плане Пароль#1 стоял *после* `Shp_vk_id`; по живой доке это ошибка (Пароль всегда перед `Shp_*`). Исправлено.
+4. **Success/Fail** — задаются в ЛК Robokassa (стандартные SuccessURL/FailURL), а НЕ через `SuccessUrl2`/`FailUrl2` в форме. Это убирает необходимость включать их в подпись ссылки (в плане это усложняло формулу). Эндпоинты `/api/payment/success` и `/api/payment/fail` реализованы как простые HTML-страницы.
+5. **Префикс роутов** — фактически `/api/payment/*` и `/api/admin/*` (в плане местами `/admin/*`, `/api/payment/*`).
+6. **Миграция** — одна ревизия `d4e5f6a7b8c9` (down_revision `c3d4e5f6a7b8`) создаёт 3 таблицы + сид `pricing_config`. Hash-ревизия, не номер `0015-0017`.
+7. **ExpirationDate** — параметр срока действия ссылки НЕ добавлен (ссылка без ограничения). Текст «действительна 60 минут» появится только при реализации бота; при необходимости добавить `ExpirationDate` в `build_payment_url`.
+
+### Требуется вне кода (боевой запуск)
+
+- [ ] В «Технические настройки» магазина Robokassa указать:
+  - ResultURL = `https://belovolovhome.ru/dragons/api/payment/result` (GET или POST)
+  - SuccessURL = `https://belovolovhome.ru/dragons/api/payment/success`
+  - FailURL = `https://belovolovhome.ru/dragons/api/payment/fail`
+  - Алгоритм хэша = **MD5**
+- [ ] Заполнить `.env`: `ROBOKASSA_MERCHANT_LOGIN`, `ROBOKASSA_PASSWORD1`, `ROBOKASSA_PASSWORD2`, `ROBOKASSA_TEST_MODE`, `SITE_URL`. В тесте — тестовая пара паролей (иначе ошибка 29).
+- [ ] Проксировать `/dragons/api/payment/*` через nginx на API.
+- [ ] Если есть фильтрация входящих — добавить IP Robokassa в белый список: `185.59.216.65`, `185.59.217.65`.
+- [ ] Прогнать 1 тестовый и 1 боевой платёж (чек-лист доки).
+
+---
+
+## 15. Чеклист внедрения
+
+### ✅ Сделано (фаза 1 — бэкенд)
+
+- [x] Модели `PricingConfig`, `DragonSet`, `PaymentOrder` (`api/models.py`)
+- [x] Robokassa env-переменные (`api/config.py`)
+- [x] `api/services/payment_service.py`: `get_base_price`, `set_base_price`, `is_donor` (через `DonorCache`), `calc_set_price`, `count_available`, `select_dragons`
+- [x] `api/routes/payment.py`: `create-order`, `result` (подпись + идемпотентность + сверка суммы/vk_id + отправка PIN в VK), `success`, `fail`
+- [x] Admin CRUD (`api/routes/admin.py`): `GET/PUT /pricing`, `GET/POST/PUT/DELETE /sets`
+- [x] Регистрация роутера в `api/main.py`
+- [x] Миграция `d4e5f6a7b8c9` (3 таблицы + сид), применена (`stamp` + сид дефолтной цены)
+- [x] Тесты: `api/tests/test_payment_service.py` (11), `api/tests/test_payment_routes.py` (20)
+- [x] Полный прогон: **238 passed** (`api/tests` + `bot/tests`)
+
+### ❌ Не сделано
+
+**Фаза 2 — бот (`bot/`)**
+- [ ] `bot/handlers/payment.py`: `handle_shop`, `handle_buy_set`, `handle_my_pins`, `handle_cancel_order`, `handle_back_to_menu`
+- [ ] `bot/keyboard.py`: `shop_keyboard`, `payment_keyboard`, `partial_keyboard`, `cancel_keyboard`; кнопка «🛒 Купить яйца» в `idle_keyboard`/`growing_keyboard`
+- [ ] `bot/main.py`: импорт обработчиков, распознавание команд (`shop`/`my_pins`/`back_to_menu`), диспетчеризация payload (`buy_set`/`buy_partial`/`cancel_order`)
+- [ ] Напоминание о `pending`-заказе в catch-all
+- [ ] Повторная отправка PIN при `notified=False`
+- [ ] Тесты: `bot/tests/test_payment_handler.py`
+
+**Фаза 3 — фронтенд админки (`frontend/`)**
+- [x] `frontend/src/pages/admin/PricingConfig.tsx` (форма базовой цены)
+- [x] `frontend/src/pages/admin/DragonSets.tsx` (CRUD наборов + расчёт цены/цены дона)
+- [x] Роуты в `frontend/src/App.tsx` (`shop/pricing`, `shop/sets`)
+- [x] Пункты меню в `frontend/src/pages/AdminLayout.tsx` (💰 Цена яйца, 📦 Наборы)
+- [x] Типизация `tsc -b` проходит
+
+**Прочее (опционально)**
+- [ ] `ExpirationDate` в ссылке оплаты (срок действия)
+- [ ] Настройка ЛК Robokassa + nginx + `.env` (см. раздел 14)
+

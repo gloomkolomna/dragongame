@@ -9,6 +9,8 @@ const NAV_ITEMS = [
   { path: '/admin/treasures', label: 'Сокровища', icon: '💎' },
   { path: '/admin/epic', label: 'Эпические драконы', icon: '🐲' },
   { path: '/admin/shop', label: 'Магазин', icon: '🛒' },
+  { path: '/admin/shop/pricing', label: 'Цена яйца', icon: '💰' },
+  { path: '/admin/shop/sets', label: 'Наборы', icon: '📦' },
   { path: '/admin/grid', label: 'Сетка', icon: '📐' },
   { path: '/admin/users', label: 'Игроки', icon: '👥' },
   { path: '/admin/suspicious', label: 'Подозрительные', icon: '⚠' },

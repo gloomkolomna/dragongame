@@ -42,6 +42,13 @@ DONUT_API_URL = os.getenv("DONUT_API_URL", "").rstrip("/")
 DONUT_API_KEY = os.getenv("DONUT_API_KEY", "")
 DONOR_SYNC_INTERVAL_HOURS = _env_int("DONOR_SYNC_INTERVAL_HOURS", 24)
 
+# ── Robokassa ──
+ROBOKASSA_MERCHANT_LOGIN = os.getenv("ROBOKASSA_MERCHANT_LOGIN", "")
+ROBOKASSA_PASSWORD1 = os.getenv("ROBOKASSA_PASSWORD1", "")
+ROBOKASSA_PASSWORD2 = os.getenv("ROBOKASSA_PASSWORD2", "")
+ROBOKASSA_TEST_MODE = os.getenv("ROBOKASSA_TEST_MODE", "1")
+SITE_URL = os.getenv("SITE_URL", "https://belovolovhome.ru/dragons")
+
 API_ERROR_LOG = os.getenv("API_ERROR_LOG", "/var/log/dragons/api-error.log")
 
 

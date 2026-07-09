@@ -314,6 +314,42 @@ class UserTreasure(Base):
     __table_args__ = (UniqueConstraint("user_id", "treasure_id"),)
 
 
+# ─── Robokassa: покупка наборов драконов ───
+
+class PricingConfig(Base):
+    __tablename__ = "pricing_config"
+    id = Column(Integer, primary_key=True, default=1)
+    base_price_per_dragon = Column(Integer, default=10000)
+    updated_at = Column(String, default="")
+
+
+class DragonSet(Base):
+    __tablename__ = "dragon_sets"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String(100), nullable=False)
+    quantity = Column(Integer, nullable=False)
+    discount_percent = Column(Integer, default=0)
+    donor_discount_percent = Column(Integer, default=0)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(String, default="")
+
+
+class PaymentOrder(Base):
+    __tablename__ = "payment_orders"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    vk_id = Column(Integer, ForeignKey("users.vk_id", ondelete="CASCADE"), nullable=False)
+    set_id = Column(Integer, ForeignKey("dragon_sets.id", ondelete="SET NULL"), nullable=True)
+    amount_rub = Column(Integer, default=0)
+    quantity = Column(Integer, default=0)
+    price_per_pin = Column(Integer, default=0)
+    robokassa_inv_id = Column(Integer, nullable=True)
+    status = Column(String(20), default="pending")
+    dragon_ids = Column(Text, default="[]")
+    notified = Column(Boolean, default=False)
+    created_at = Column(String, default="")
+    completed_at = Column(String, nullable=True)
+
+
 # ─── Донат (VK Donut) ───
 
 class DonorCache(Base):

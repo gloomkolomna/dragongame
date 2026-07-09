@@ -158,7 +158,7 @@ function Dashboard() {
                 <span style={{ fontSize: 24 }}>{statusEmoji(svc.status)}</span>
                 <div>
                   <div style={{ fontWeight: 700, fontSize: 16, textTransform: 'uppercase', color: 'var(--gold)' }}>
-                    {name === 'bot' ? '🤖 Бот' : name}
+                    {name === 'bot' ? '🤖 Бот' : name === 'donor_sync' ? '💎 Бот донатов' : name}
                   </div>
                   <div style={{ fontSize: 14, color: svc.status === 'online' ? 'var(--success)' : 'var(--fire)', fontWeight: 600 }}>
                     {statusLabel(svc.status)}
