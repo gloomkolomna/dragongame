@@ -2,7 +2,7 @@
 
 ## Исходные данные
 
-- **Группа А** (krestiki_s_korgi, ID ~206593200): основная группа, VK Donut уже работает
+- **Группа А** (krestiki_s_korgi, ID 206593200): основная группа, VK Donut уже работает
 - **Группа Б** (ID 239999455): игровая группа, бот выращивания драконов
 - Привилегии для донов — **отдельная задача**, в этом плане только инфраструктура
 
@@ -71,6 +71,54 @@ API_KEY=<сгенерировать ключ для защиты GET /api/donor/
 ```
 
 `API_KEY` нужен, чтобы игровые боты авторизовывались при запросе статуса дона. Передаётся в заголовке `X-API-Key`.
+
+### 1.4 Настроить nginx (обязательно **до** нажатия «Подтвердить»)
+
+Callback API VK стучится по публичному URL `https://belovolovhome.ru/krestiki-s-korgi/api/webhooks/donut`. Значит nginx должен принять запрос по префиксу `/krestiki-s-korgi/` и проксировать его на локальный процесс донат-бэкенда (uvicorn/gunicorn, например `127.0.0.1:8010`).
+
+Ключевой момент: приложение отдаёт роуты без префикса (`/api/webhooks/donut`, `/api/donor/...`, `/api/health`), поэтому в nginx префикс `/krestiki-s-korgi` нужно **срезать** (trailing slash в `proxy_pass`).
+
+Пример блока внутри `server { ... }` (тот же, что обслуживает `belovolovhome.ru`, с уже настроенным SSL):
+
+```nginx
+location /krestiki-s-korgi/ {
+    proxy_pass http://127.0.0.1:8010/;   # слэш в конце срезает /krestiki-s-korgi/
+
+    proxy_set_header Host              $host;
+    proxy_set_header X-Real-IP         $remote_addr;
+    proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+
+    proxy_read_timeout 30s;
+}
+```
+
+Проверка сопоставления путей:
+
+| Публичный URL | Уходит на бэкенд как |
+|---|---|
+| `/krestiki-s-korgi/api/webhooks/donut` | `/api/webhooks/donut` |
+| `/krestiki-s-korgi/api/donor/123` | `/api/donor/123` |
+| `/krestiki-s-korgi/api/health` | `/api/health` |
+
+Применить конфиг:
+
+```bash
+sudo nginx -t          # проверить синтаксис
+sudo systemctl reload nginx
+```
+
+Проверить, что эндпоинт доступен снаружи (до подтверждения в VK):
+
+```bash
+curl https://belovolovhome.ru/krestiki-s-korgi/api/health
+# ожидаем: {"status":"ok","service":"donut-backend"}
+```
+
+Важно:
+- Донат-бэкенд должен быть запущен и слушать `127.0.0.1:8010` (порт согласовать с юзером/деплоем) **до** нажатия «Подтвердить» в VK — иначе VK получит 502 и подтверждение не пройдёт.
+- Убедиться, что для `belovolovhome.ru` есть валидный SSL-сертификат (VK требует HTTPS).
+- VK при подтверждении ждёт ответ **простой строкой** с `confirmation_token` (без JSON, без кавычек, `Content-Type: text/plain`) и HTTP 200.
 
 ---
 

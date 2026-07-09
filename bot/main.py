@@ -24,6 +24,7 @@ from bot.handlers.legend import handle_legend_start, handle_legend_mode, handle_
 from bot.handlers.epic import handle_epic_command, handle_epic_egg_mode, handle_epic_egg_message, handle_epic_name
 from bot.services.user_service import get_or_create_user
 from bot.scheduler import run_timeout_checker
+from bot.services.donor_sync import run_donor_sync
 from bot.keyboard import idle_keyboard, growing_keyboard, waiting_keyboard, start_growing_keyboard, step_buttons_keyboard, await_pin_keyboard, await_garden_keyboard, keyboard_with_legends
 from datetime import datetime
 
@@ -129,6 +130,14 @@ def main():
     )
     scheduler_thread.start()
     print("Timeout scheduler started")
+
+    donor_sync_thread = threading.Thread(
+        target=run_donor_sync,
+        args=(SessionLocal, config.DONOR_SYNC_INTERVAL_HOURS),
+        daemon=True,
+    )
+    donor_sync_thread.start()
+    print("Donor sync started")
 
     def upload_image(filepath: str, log_error=None, peer_id=0) -> str:
         last_error = None

@@ -37,6 +37,11 @@ ADMIN_VK_ID = _env_int("ADMIN_VK_ID", 0)
 # ── Анти-чит ──
 ANTI_CHEAT_MULTIPLIER = _env_int("ANTI_CHEAT_MULTIPLIER", 5)
 
+# ── Донат (VK Donut) ──
+DONUT_API_URL = os.getenv("DONUT_API_URL", "").rstrip("/")
+DONUT_API_KEY = os.getenv("DONUT_API_KEY", "")
+DONOR_SYNC_INTERVAL_HOURS = _env_int("DONOR_SYNC_INTERVAL_HOURS", 24)
+
 API_ERROR_LOG = os.getenv("API_ERROR_LOG", "/var/log/dragons/api-error.log")
 
 

@@ -312,3 +312,14 @@ class UserTreasure(Base):
     treasure_id = Column(Integer, ForeignKey("treasures.id", ondelete="CASCADE"), nullable=False)
     acquired_at = Column(String, default=lambda: datetime.now().strftime("%Y-%m-%dT%H:%M:%S"))
     __table_args__ = (UniqueConstraint("user_id", "treasure_id"),)
+
+
+# ─── Донат (VK Donut) ───
+
+class DonorCache(Base):
+    __tablename__ = "donor_cache"
+    vk_id = Column(Integer, primary_key=True)
+    is_don = Column(Boolean, default=False)
+    don_since = Column(String, nullable=True)
+    updated_at = Column(String, default="")
+    last_synced_at = Column(String, default="")

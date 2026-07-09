@@ -14,7 +14,7 @@ from models import (
     ErrorLog, ServiceHeartbeat, ApiRequestLog,
     SuspiciousReport, ShopItem, StageShopItem, UserInventory,
     EpicStage, EpicStageAction, EpicActionItem, EpicMoodlet,
-    Treasure, UserTreasure,
+    Treasure, UserTreasure, DonorCache,
 )
 from config import API_ERROR_LOG
 from services.dragon_service import (
@@ -1077,6 +1077,12 @@ def clear_logs(db: Session = Depends(get_db)):
     db.query(ApiRequestLog).delete(synchronize_session=False)
     db.commit()
     return {"ok": True}
+
+
+@router.get("/donors")
+def list_donors(db: Session = Depends(get_db)):
+    donors = db.query(DonorCache).order_by(DonorCache.updated_at.desc()).all()
+    return {"donors": donors, "total": len(donors)}
 
 
 @router.get("/health")
