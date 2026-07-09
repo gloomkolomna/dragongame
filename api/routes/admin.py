@@ -1799,3 +1799,38 @@ def delete_set(set_id: int, db: Session = Depends(get_db)):
     s.is_active = False
     db.commit()
     return {"ok": True}
+
+
+@router.get("/payment-orders")
+def list_payment_orders(
+    page: int = Query(1, ge=1),
+    per_page: int = Query(50, ge=1, le=200),
+    status: Optional[str] = Query(None, regex="^(pending|success|fail)?$"),
+    db: Session = Depends(get_db),
+):
+    q = db.query(PaymentOrder).outerjoin(
+        DragonSet, PaymentOrder.set_id == DragonSet.id,
+    ).add_columns(DragonSet.name.label("set_name"))
+    if status:
+        q = q.filter(PaymentOrder.status == status)
+    total = q.count()
+    items = q.order_by(PaymentOrder.id.desc()).offset((page - 1) * per_page).limit(per_page).all()
+    result = []
+    for order, set_name in items:
+        d = {
+            "id": order.id,
+            "vk_id": order.vk_id,
+            "set_id": order.set_id,
+            "set_name": set_name or "",
+            "amount_rub": order.amount_rub,
+            "quantity": order.quantity,
+            "price_per_pin": order.price_per_pin,
+            "robokassa_inv_id": order.robokassa_inv_id,
+            "status": order.status,
+            "dragon_ids": json.loads(order.dragon_ids or "[]"),
+            "notified": order.notified,
+            "created_at": order.created_at,
+            "completed_at": order.completed_at,
+        }
+        result.append(d)
+    return {"items": result, "total": total, "page": page, "per_page": per_page}

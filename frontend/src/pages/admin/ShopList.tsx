@@ -1,16 +1,29 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import client from '../../api/client';
+import { useTableControls, type Column } from '../../components/admin/useTableControls';
+import { DataTableHead, TableToolbar } from '../../components/admin/DataTable';
 
 interface ShopItem {
   id: number; name: string; description: string; cost_stitches: number;
   image_path: string; sort_order: number; is_active: boolean; is_optional: boolean;
 }
 
+const COLUMNS: Column<ShopItem>[] = [
+  { key: 'image', label: '', width: 44 },
+  { key: 'name', label: 'Название', value: (i) => i.name, filter: 'text' },
+  { key: 'description', label: 'Описание', value: (i) => i.description, filter: 'text' },
+  { key: 'cost', label: 'Цена', value: (i) => String(i.cost_stitches), sortValue: (i) => i.cost_stitches },
+  { key: 'optional', label: 'Обязат.', value: (i) => (i.is_optional ? 'Необязательный' : 'Обязательный'), filter: 'select' },
+  { key: 'active', label: 'Акт.', value: (i) => (i.is_active ? 'Активен' : 'Скрыт'), filter: 'select', width: 90 },
+  { key: 'actions', label: '', width: 120 },
+];
+
 function ShopList() {
   const [items, setItems] = useState<ShopItem[]>([]);
   const [load, setLoad] = useState(true);
   const nav = useNavigate();
+  const t = useTableControls(items, COLUMNS);
 
   const reload = () => client.get('/admin/shop-items').then((r) => setItems(r.data)).finally(() => setLoad(false));
   useEffect(() => { reload(); }, []);
@@ -28,11 +41,12 @@ function ShopList() {
         <button className="lair-btn" style={{ marginLeft: 'auto' }} onClick={() => nav('/admin/shop/new')}>+ Создать</button>
       </div>
       <div className="lair-content">
+        <TableToolbar controls={t} />
         <div className="lair-card" style={{ padding: 0, overflow: 'hidden' }}>
           {load ? <div className="lair-skeleton" /> : (
             <table className="lair-table">
-              <thead><tr><th style={{ width: 44 }}></th><th>Название</th><th>Описание</th><th>Цена</th><th>Обязат.</th><th style={{ width: 50 }}>Акт.</th><th style={{ width: 120 }}></th></tr></thead>
-              <tbody>{items.map((it) => (
+              <DataTableHead controls={t} allRows={items} />
+              <tbody>{t.rows.map((it) => (
                 <tr key={it.id} className="clickable" onClick={() => nav(`/admin/shop/${it.id}/edit`)}>
                   <td>{it.image_path ? <img src={`/dragons/api/static/images/${it.image_path}`} alt="" style={{ width: 30, height: 30, objectFit: 'contain' }} onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} /> : '—'}</td>
                   <td style={{ fontWeight: 600 }}>{it.name}</td>
@@ -48,7 +62,7 @@ function ShopList() {
                   </td>
                 </tr>
               ))}
-              {items.length === 0 && <tr><td colSpan={7} style={{ textAlign: 'center', color: 'var(--text-muted)', padding: 16 }}>Товаров пока нет</td></tr>}
+              {t.rows.length === 0 && <tr><td colSpan={7} style={{ textAlign: 'center', color: 'var(--text-muted)', padding: 16 }}>Ничего не найдено</td></tr>}
               </tbody>
             </table>
           )}

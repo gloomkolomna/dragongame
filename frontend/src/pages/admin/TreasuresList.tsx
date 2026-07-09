@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import client from '../../api/client';
+import { useTableControls, type Column } from '../../components/admin/useTableControls';
+import { DataTableHead, TableToolbar } from '../../components/admin/DataTable';
 
 interface Treasure {
   id: number;
@@ -11,10 +13,19 @@ interface Treasure {
   is_active: boolean;
 }
 
+const COLUMNS: Column<Treasure>[] = [
+  { key: 'image', label: '', width: 60 },
+  { key: 'name', label: 'Название', value: (t) => t.name, filter: 'text' },
+  { key: 'description', label: 'Описание', value: (t) => t.description, filter: 'text' },
+  { key: 'dragon', label: 'Дракон', value: (t) => `#${t.dragon_id}`, sortValue: (t) => t.dragon_id },
+  { key: 'actions', label: '', width: 60 },
+];
+
 function TreasuresList() {
   const nav = useNavigate();
   const [items, setItems] = useState<Treasure[]>([]);
   const [loading, setLoading] = useState(true);
+  const t = useTableControls(items, COLUMNS);
 
   useEffect(() => {
     client.get('/admin/treasures').then((r) => setItems(r.data)).finally(() => setLoading(false));
@@ -28,29 +39,32 @@ function TreasuresList() {
       </div>
       <div className="lair-content">
         {loading ? (
-          <div className="dragon-skeleton-card" style={{ height: 200 }} />
+          <div className="lair-skeleton" />
         ) : items.length === 0 ? (
           <div className="lair-card"><p style={{ color: 'var(--text-secondary)' }}>Сокровищ пока нет. Нажми «➕ Создать» выше или создай сокровище из карточки редкого дракона.</p></div>
         ) : (
-          <table className="lair-table">
-            <thead>
-              <tr><th></th><th>Название</th><th>Описание</th><th>Дракон</th><th></th></tr>
-            </thead>
-            <tbody>
-              {items.map((t) => (
-                <tr key={t.id} className="clickable" onClick={() => nav(`/admin/dragons/${t.dragon_id}/treasure`)}>
-                  <td>{t.image_path && <img src={`/dragons${t.image_path}`} alt="" style={{ width: 48, height: 48, objectFit: 'contain', borderRadius: 6 }} onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />}</td>
-                  <td>{t.name}</td>
-                  <td style={{ color: 'var(--text-muted)', fontSize: 13 }}>{t.description}</td>
-                  <td>#{t.dragon_id}</td>
-                  <td><button className="lair-btn lair-btn-sm lair-btn-outline" onClick={(e) => { e.stopPropagation(); nav(`/admin/dragons/${t.dragon_id}/treasure`); }}>✎</button></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <>
+            <TableToolbar controls={t} />
+            <div className="lair-card" style={{ padding: 0, overflow: 'hidden' }}>
+              <table className="lair-table">
+                <DataTableHead controls={t} allRows={items} />
+                <tbody>
+                  {t.rows.map((tr) => (
+                    <tr key={tr.id} className="clickable" onClick={() => nav(`/admin/dragons/${tr.dragon_id}/treasure`)}>
+                      <td>{tr.image_path && <img src={`/dragons${tr.image_path}`} alt="" style={{ width: 48, height: 48, objectFit: 'contain', borderRadius: 6 }} onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />}</td>
+                      <td>{tr.name}</td>
+                      <td style={{ color: 'var(--text-muted)', fontSize: 13 }}>{tr.description}</td>
+                      <td>#{tr.dragon_id}</td>
+                      <td><button className="lair-btn lair-btn-sm lair-btn-outline" onClick={(e) => { e.stopPropagation(); nav(`/admin/dragons/${tr.dragon_id}/treasure`); }}>✎</button></td>
+                    </tr>
+                  ))}
+                  {t.rows.length === 0 && <tr><td colSpan={5} style={{ textAlign: 'center', color: 'var(--text-muted)', padding: 16 }}>Ничего не найдено</td></tr>}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
       </div>
-      <style>{`.dragon-skeleton-card{height:200px;background:var(--bg-card);border:1px solid var(--border-color);border-radius:var(--radius-md);animation:shimmer 1.5s infinite}@keyframes shimmer{0%{opacity:.4}50%{opacity:.7}100%{opacity:.4}}`}</style>
     </>
   );
 }

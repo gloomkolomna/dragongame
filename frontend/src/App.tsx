@@ -27,6 +27,7 @@ import ShopList from './pages/admin/ShopList';
 import ShopForm from './pages/admin/ShopForm';
 import PricingConfig from './pages/admin/PricingConfig';
 import DragonSets from './pages/admin/DragonSets';
+import FinanceOrders from './pages/admin/FinanceOrders';
 import EpicDragons from './pages/admin/EpicDragons';
 import EpicSpeciesForm from './pages/admin/EpicSpeciesForm';
 import EpicStageForm from './pages/admin/EpicStageForm';
@@ -118,9 +119,11 @@ function App() {
           <Route path="grid" element={<GridEditor />} />
           <Route path="shop" element={<ShopList />} />
           <Route path="shop/new" element={<ShopForm />} />
-          <Route path="shop/pricing" element={<PricingConfig />} />
-          <Route path="shop/sets" element={<DragonSets />} />
           <Route path="shop/:id/edit" element={<ShopForm />} />
+          <Route path="finance" element={<Navigate to="/admin/finance/orders" replace />} />
+          <Route path="finance/pricing" element={<PricingConfig />} />
+          <Route path="finance/sets" element={<DragonSets />} />
+          <Route path="finance/orders" element={<FinanceOrders />} />
           <Route path="epic" element={<EpicDragons />} />
           <Route path="epic/species/new" element={<EpicSpeciesForm />} />
           <Route path="epic/species/:id/edit" element={<EpicSpeciesForm />} />

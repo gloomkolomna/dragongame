@@ -1,5 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import client from '../../api/client';
+import { useTableControls, type Column } from '../../components/admin/useTableControls';
+import { DataTableHead, TableToolbar } from '../../components/admin/DataTable';
 
 interface DragonSet {
   id: number;
@@ -32,6 +34,20 @@ function DragonSets() {
     const d = donor ? s.donor_discount_percent : s.discount_percent;
     return Math.floor(s.quantity * base * (100 - d) / 100);
   };
+
+  const columns = useMemo<Column<DragonSet>[]>(() => [
+    { key: 'id', label: '#', value: (s) => String(s.id), sortValue: (s) => s.id, width: 40 },
+    { key: 'name', label: 'Название', value: (s) => s.name, filter: 'text' },
+    { key: 'quantity', label: 'Кол-во', value: (s) => String(s.quantity), sortValue: (s) => s.quantity },
+    { key: 'discount', label: 'Скидка', value: (s) => `${s.discount_percent}%`, sortValue: (s) => s.discount_percent },
+    { key: 'donor_discount', label: 'Скидка дона', value: (s) => `${s.donor_discount_percent}%`, sortValue: (s) => s.donor_discount_percent },
+    { key: 'price', label: 'Цена', value: (s) => String(priceOf(s, false)), sortValue: (s) => priceOf(s, false) },
+    { key: 'price_donor', label: 'Цена дона', value: (s) => String(priceOf(s, true)), sortValue: (s) => priceOf(s, true) },
+    { key: 'active', label: 'Акт.', value: (s) => (s.is_active ? 'Активен' : 'Скрыт'), filter: 'select', width: 60 },
+    { key: 'actions', label: '', width: 100 },
+  ], [base]);
+
+  const t = useTableControls(sets, columns);
 
   const startNew = () => { setEditId(null); setForm({ ...EMPTY }); setError(''); };
   const startEdit = (s: DragonSet) => {
@@ -120,30 +136,33 @@ function DragonSets() {
 
         <div className="lair-card" style={{ padding: 0, overflow: 'hidden' }}>
           {load ? <div className="lair-skeleton" /> : (
-            <table className="lair-table">
-              <thead><tr><th style={{ width: 40 }}>#</th><th>Название</th><th>Кол-во</th><th>Скидка</th><th>Скидка дона</th><th>Цена</th><th>Цена дона</th><th style={{ width: 60 }}>Акт.</th><th style={{ width: 100 }}></th></tr></thead>
-              <tbody>
-                {sets.map((s) => (
-                  <tr key={s.id} className="clickable" onClick={() => startEdit(s)} style={{ opacity: s.is_active ? 1 : 0.5 }}>
-                    <td>{s.id}</td>
-                    <td style={{ fontWeight: 600 }}>{s.name}</td>
-                    <td>{s.quantity}</td>
-                    <td>{s.discount_percent}%</td>
-                    <td>{s.donor_discount_percent}%</td>
-                    <td style={{ color: 'var(--gold)', fontWeight: 600 }}>{priceOf(s, false)}₽</td>
-                    <td style={{ color: 'var(--gold)', fontWeight: 600 }}>{priceOf(s, true)}₽</td>
-                    <td>{s.is_active ? '✅' : '❌'}</td>
-                    <td>
-                      <div style={{ display: 'flex', gap: 4 }}>
-                        <button className="lair-btn lair-btn-sm lair-btn-outline" onClick={(e) => { e.stopPropagation(); startEdit(s); }}>✎</button>
-                        <button className="lair-btn lair-btn-sm lair-btn-danger" onClick={(e) => { e.stopPropagation(); del(s.id); }}>✕</button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-                {sets.length === 0 && <tr><td colSpan={9} style={{ textAlign: 'center', color: 'var(--text-muted)', padding: 16 }}>Наборов пока нет</td></tr>}
-              </tbody>
-            </table>
+            <>
+              <div style={{ padding: '12px 16px 0' }}><TableToolbar controls={t} /></div>
+              <table className="lair-table">
+                <DataTableHead controls={t} allRows={sets} />
+                <tbody>
+                  {t.rows.map((s) => (
+                    <tr key={s.id} className="clickable" onClick={() => startEdit(s)} style={{ opacity: s.is_active ? 1 : 0.5 }}>
+                      <td>{s.id}</td>
+                      <td style={{ fontWeight: 600 }}>{s.name}</td>
+                      <td>{s.quantity}</td>
+                      <td>{s.discount_percent}%</td>
+                      <td>{s.donor_discount_percent}%</td>
+                      <td style={{ color: 'var(--gold)', fontWeight: 600 }}>{priceOf(s, false)}₽</td>
+                      <td style={{ color: 'var(--gold)', fontWeight: 600 }}>{priceOf(s, true)}₽</td>
+                      <td>{s.is_active ? '✅' : '❌'}</td>
+                      <td>
+                        <div style={{ display: 'flex', gap: 4 }}>
+                          <button className="lair-btn lair-btn-sm lair-btn-outline" onClick={(e) => { e.stopPropagation(); startEdit(s); }}>✎</button>
+                          <button className="lair-btn lair-btn-sm lair-btn-danger" onClick={(e) => { e.stopPropagation(); del(s.id); }}>✕</button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                  {t.rows.length === 0 && <tr><td colSpan={9} style={{ textAlign: 'center', color: 'var(--text-muted)', padding: 16 }}>Наборов пока нет</td></tr>}
+                </tbody>
+              </table>
+            </>
           )}
         </div>
       </div>

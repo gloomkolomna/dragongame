@@ -246,3 +246,35 @@ def test_payment_success_page(client):
 def test_payment_fail_page(client):
     resp = client.get("/api/payment/fail?InvId=1")
     assert resp.status_code == 200
+
+
+# ─── Admin payment-orders list ───
+
+def test_list_payment_orders_empty(client):
+    resp = client.get("/api/admin/payment-orders")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["total"] == 0
+    assert data["items"] == []
+
+
+def test_list_payment_orders_filters(client, db):
+    from models import DragonSet, PaymentOrder
+    s = DragonSet(name="Test Set", quantity=5, discount_percent=5)
+    db.add(s)
+    db.commit()
+    db.add(PaymentOrder(vk_id=1, set_id=s.id, amount_rub=47500, quantity=5, status="pending"))
+    db.add(PaymentOrder(vk_id=2, set_id=s.id, amount_rub=47500, quantity=5, status="success", notified=True))
+    db.add(PaymentOrder(vk_id=3, set_id=s.id, amount_rub=47500, quantity=5, status="fail"))
+    db.commit()
+
+    all_resp = client.get("/api/admin/payment-orders")
+    assert all_resp.json()["total"] == 3
+
+    success_resp = client.get("/api/admin/payment-orders?status=success")
+    assert success_resp.json()["total"] == 1
+    assert success_resp.json()["items"][0]["status"] == "success"
+
+    pending_resp = client.get("/api/admin/payment-orders?status=pending")
+    assert pending_resp.json()["total"] == 1
+    assert pending_resp.json()["items"][0]["notified"] is False

@@ -1,5 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import client from '../../api/client';
+import { useTableControls, type Column } from '../../components/admin/useTableControls';
+import { DataTableHead, TableToolbar } from '../../components/admin/DataTable';
 
 interface SuspiciousItem {
   id: number;
@@ -14,15 +16,27 @@ interface SuspiciousItem {
   created_at: string;
 }
 
+const COLUMNS: Column<SuspiciousItem>[] = [
+  { key: 'user_id', label: 'VK ID', value: (r) => String(r.user_id), sortValue: (r) => r.user_id, filter: 'text' },
+  { key: 'name', label: 'ФИО', value: (r) => r.name, filter: 'text' },
+  { key: 'chat', label: 'Чат' },
+  { key: 'message', label: 'Сообщение', value: (r) => r.message, filter: 'text' },
+  { key: 'declared', label: 'Заявлено', value: (r) => String(r.declared_crosses), sortValue: (r) => r.declared_crosses },
+  { key: 'normal', label: 'Норма', value: (r) => String(r.normal_crosses), sortValue: (r) => r.normal_crosses },
+  { key: 'mode', label: 'Режим', value: (r) => r.mode, filter: 'select' },
+  { key: 'created_at', label: 'Дата', value: (r) => r.created_at, sortValue: (r) => r.created_at },
+  { key: 'actions', label: '' },
+];
+
 function SuspiciousList() {
   const [items, setItems] = useState<SuspiciousItem[]>([]);
-  const [total, setTotal] = useState(0);
   const [load, setLoad] = useState(true);
+  const t = useTableControls(items, COLUMNS);
 
   const fetchItems = useCallback(() => {
     setLoad(true);
     client.get('/admin/suspicious/detailed')
-      .then((r) => { setItems(r.data.items); setTotal(r.data.total); })
+      .then((r) => setItems(r.data.items))
       .finally(() => setLoad(false));
   }, []);
 
@@ -33,7 +47,6 @@ function SuspiciousList() {
     try {
       await client.delete(`/admin/suspicious/${id}`);
       setItems((prev) => prev.filter((x) => x.id !== id));
-      setTotal((t) => Math.max(0, t - 1));
     } catch {
       alert('Ошибка удаления');
     }
@@ -49,25 +62,12 @@ function SuspiciousList() {
           <div className="lair-skeleton" />
         ) : (
           <>
-            <div style={{ marginBottom: 12, color: 'var(--parchment-faded)', fontSize: 14 }}>
-              Всего: {total}
-            </div>
+            <TableToolbar controls={t} />
             <div className="lair-card" style={{ padding: 0, overflow: 'hidden' }}>
               <table className="lair-table">
-                <thead>
-                  <tr>
-                    <th>VK ID</th>
-                    <th>ФИО</th>
-                    <th>Чат</th>
-                    <th>Сообщение</th>
-                    <th>Заявлено</th>
-                    <th>Норма</th>
-                    <th>Дата</th>
-                    <th></th>
-                  </tr>
-                </thead>
+                <DataTableHead controls={t} allRows={items} />
                 <tbody>
-                  {items.map((r) => (
+                  {t.rows.map((r) => (
                     <tr key={r.id}>
                       <td>{r.user_id}</td>
                       <td style={{ fontWeight: 600 }}>{r.name}</td>
@@ -81,6 +81,7 @@ function SuspiciousList() {
                       </td>
                       <td style={{ color: '#d474a0', fontWeight: 700 }}>{r.declared_crosses}</td>
                       <td>{r.normal_crosses}</td>
+                      <td>{r.mode}</td>
                       <td style={{ fontSize: 13, color: 'var(--parchment-faded)' }}>{formatDate(r.created_at)}</td>
                       <td>
                         <button className="lair-btn lair-btn-sm lair-btn-danger" onClick={() => remove(r.id)}>
@@ -89,8 +90,8 @@ function SuspiciousList() {
                       </td>
                     </tr>
                   ))}
-                  {items.length === 0 && (
-                    <tr><td colSpan={8} style={{ textAlign: 'center', padding: 32, color: 'var(--parchment-faded)' }}>Подозрительных отчётов нет</td></tr>
+                  {t.rows.length === 0 && (
+                    <tr><td colSpan={9} style={{ textAlign: 'center', padding: 32, color: 'var(--parchment-faded)' }}>Ничего не найдено</td></tr>
                   )}
                 </tbody>
               </table>

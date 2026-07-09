@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import client from '../../api/client';
 import { mediaUrl } from '../../api/media';
+import { useTableControls, type Column } from '../../components/admin/useTableControls';
+import { DataTableHead, TableToolbar } from '../../components/admin/DataTable';
 
 const GROUP_ID = 239999455;
 
@@ -9,6 +11,14 @@ interface User { vk_id: number; first_name: string; last_name: string; state: st
 interface Detail { vk_id: number; first_name: string; last_name: string; registered_at: string; stitches_balance: number; epic_unlocked: boolean; is_don: boolean; don_since: string | null; don_synced_at: string | null; pins_activated: number; pins: { code: string; dragon_name: string; egg_type: string; status: string; activated_at: string }[]; dragons: { dragon_id: number; name: string | null; egg_type: string; status: string; progress_pct: number; completed_at: string | null }[]; dragons_collected: number; dragons_active: number; dragons_total: number; suspicious_reports: Suspicious[]; treasures_collected: TreasureCollected[]; }
 interface TreasureCollected { id: number; name: string; description: string; image_path: string; dragon_id: number; is_active: boolean; }
 interface Suspicious { id: number; user_id: number; dragon_id: number | null; step_number: number; declared_crosses: number; normal_crosses: number; mode: string; status: string; created_at: string; }
+
+const USER_COLUMNS: Column<User>[] = [
+  { key: 'player', label: 'Игрок', value: (u) => `${[u.first_name, u.last_name].filter(Boolean).join(' ')} id${u.vk_id}`, sortValue: (u) => [u.first_name, u.last_name].filter(Boolean).join(' ').toLowerCase(), filter: 'text' },
+  { key: 'dragons', label: '🐉', value: (u) => String(u.dragons_collected), sortValue: (u) => u.dragons_collected, width: 60 },
+  { key: 'current', label: 'Текущий', value: (u) => (u.state === 'idle' ? '—' : `шаг ${u.current_step}`), sortValue: (u) => u.current_step },
+  { key: 'registered', label: 'Дата рег.', value: (u) => u.registered_at || '', sortValue: (u) => u.registered_at || '' },
+  { key: 'chat', label: 'Чат', width: 80 },
+];
 
 function UsersList() {
   const [users, setUsers] = useState<User[]>([]);
@@ -18,6 +28,7 @@ function UsersList() {
   const [load, setLoad] = useState(true);
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
+  const t = useTableControls(users, USER_COLUMNS);
 
   useEffect(() => {
     client.get('/admin/users').then((r) => {
@@ -234,52 +245,57 @@ function UsersList() {
         ) : load ? (
           <div className="lair-skeleton" />
         ) : (
-          <div className="lair-card" style={{ padding: 0, overflow: 'hidden' }}>
-            <table className="lair-table">
-              <thead><tr><th>Игрок</th><th>🐉</th><th>Текущий</th><th>Дата рег.</th><th style={{ width: 80 }}>Чат</th></tr></thead>
-              <tbody>{users.map((u) => {
-                const name = [u.first_name, u.last_name].filter(Boolean).join(' ') || `id${u.vk_id}`;
-                return (
-                  <tr key={u.vk_id} className="clickable" onClick={() => show(u.vk_id)}>
-                    <td>
-                      <a href={profileUrl(u.vk_id)} target="_blank" rel="noopener noreferrer"
-                         onClick={(e) => e.stopPropagation()} style={{ color: 'var(--gold)' }}>
-                        {name}
-                      </a>
-                      {u.suspicious_pending > 0 && (
-                        <span style={{
-                          marginLeft: 8, padding: '1px 7px', borderRadius: 10,
-                          background: '#d474a0', color: '#fff', fontSize: 12, fontWeight: 700,
-                          whiteSpace: 'nowrap',
-                        }} title="Подозрительные отчёты на проверку">
-                          ⚠ {u.suspicious_pending}
-                        </span>
-                      )}
-                      {u.is_don && (
-                        <span style={{
-                          marginLeft: 8, padding: '1px 7px', borderRadius: 10,
-                          background: '#e8a33d', color: '#1a1206', fontSize: 12, fontWeight: 700,
-                          whiteSpace: 'nowrap',
-                        }} title="Дон VK Donut">
-                          ⭐ ДОН
-                        </span>
-                      )}
-                      <div style={{ fontSize: 12, color: 'var(--parchment-faded)' }}>id{u.vk_id}</div>
-                    </td>
-                    <td>{u.dragons_collected}</td>
-                    <td style={{ fontSize: 14 }}>{u.state === 'idle' ? '—' : `шаг ${u.current_step}`}</td>
-                    <td style={{ fontSize: 13, color: 'var(--parchment-faded)' }}>{u.registered_at?.slice(0, 10)}</td>
-                    <td>
-                      <a href={chatUrl(u.vk_id)} target="_blank" rel="noopener noreferrer"
-                         onClick={(e) => e.stopPropagation()}
-                         className="lair-btn lair-btn-sm lair-btn-outline"
-                         style={{ textDecoration: 'none', fontSize: 12 }}>💬</a>
-                    </td>
-                  </tr>
-                );
-              })}</tbody>
-            </table>
-          </div>
+          <>
+            <TableToolbar controls={t} placeholder="🔍 Поиск по имени или id..." />
+            <div className="lair-card" style={{ padding: 0, overflow: 'hidden' }}>
+              <table className="lair-table">
+                <DataTableHead controls={t} allRows={users} />
+                <tbody>{t.rows.map((u) => {
+                  const name = [u.first_name, u.last_name].filter(Boolean).join(' ') || `id${u.vk_id}`;
+                  return (
+                    <tr key={u.vk_id} className="clickable" onClick={() => show(u.vk_id)}>
+                      <td>
+                        <a href={profileUrl(u.vk_id)} target="_blank" rel="noopener noreferrer"
+                           onClick={(e) => e.stopPropagation()} style={{ color: 'var(--gold)' }}>
+                          {name}
+                        </a>
+                        {u.suspicious_pending > 0 && (
+                          <span style={{
+                            marginLeft: 8, padding: '1px 7px', borderRadius: 10,
+                            background: '#d474a0', color: '#fff', fontSize: 12, fontWeight: 700,
+                            whiteSpace: 'nowrap',
+                          }} title="Подозрительные отчёты на проверку">
+                            ⚠ {u.suspicious_pending}
+                          </span>
+                        )}
+                        {u.is_don && (
+                          <span style={{
+                            marginLeft: 8, padding: '1px 7px', borderRadius: 10,
+                            background: '#e8a33d', color: '#1a1206', fontSize: 12, fontWeight: 700,
+                            whiteSpace: 'nowrap',
+                          }} title="Дон VK Donut">
+                            ⭐ ДОН
+                          </span>
+                        )}
+                        <div style={{ fontSize: 12, color: 'var(--parchment-faded)' }}>id{u.vk_id}</div>
+                      </td>
+                      <td>{u.dragons_collected}</td>
+                      <td style={{ fontSize: 14 }}>{u.state === 'idle' ? '—' : `шаг ${u.current_step}`}</td>
+                      <td style={{ fontSize: 13, color: 'var(--parchment-faded)' }}>{u.registered_at?.slice(0, 10)}</td>
+                      <td>
+                        <a href={chatUrl(u.vk_id)} target="_blank" rel="noopener noreferrer"
+                           onClick={(e) => e.stopPropagation()}
+                           className="lair-btn lair-btn-sm lair-btn-outline"
+                           style={{ textDecoration: 'none', fontSize: 12 }}>💬</a>
+                      </td>
+                    </tr>
+                  );
+                })}
+                {t.rows.length === 0 && <tr><td colSpan={5} style={{ textAlign: 'center', color: 'var(--parchment-faded)', padding: 16 }}>Ничего не найдено</td></tr>}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
       </div>
     </>
