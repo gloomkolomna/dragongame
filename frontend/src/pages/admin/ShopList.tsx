@@ -4,7 +4,7 @@ import client from '../../api/client';
 
 interface ShopItem {
   id: number; name: string; description: string; cost_stitches: number;
-  image_path: string; sort_order: number; is_active: boolean;
+  image_path: string; sort_order: number; is_active: boolean; is_optional: boolean;
 }
 
 function ShopList() {
@@ -31,13 +31,14 @@ function ShopList() {
         <div className="lair-card" style={{ padding: 0, overflow: 'hidden' }}>
           {load ? <div className="lair-skeleton" /> : (
             <table className="lair-table">
-              <thead><tr><th style={{ width: 44 }}></th><th>Название</th><th>Описание</th><th>Цена</th><th style={{ width: 50 }}>Акт.</th><th style={{ width: 120 }}></th></tr></thead>
+              <thead><tr><th style={{ width: 44 }}></th><th>Название</th><th>Описание</th><th>Цена</th><th>Обязат.</th><th style={{ width: 50 }}>Акт.</th><th style={{ width: 120 }}></th></tr></thead>
               <tbody>{items.map((it) => (
                 <tr key={it.id} className="clickable" onClick={() => nav(`/admin/shop/${it.id}/edit`)}>
                   <td>{it.image_path ? <img src={`/dragons/api/static/images/${it.image_path}`} alt="" style={{ width: 30, height: 30, objectFit: 'contain' }} onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} /> : '—'}</td>
                   <td style={{ fontWeight: 600 }}>{it.name}</td>
                   <td style={{ color: 'var(--parchment-dim)', fontSize: 13 }}>{it.description}</td>
                   <td style={{ color: 'var(--gold)', fontWeight: 600 }}>{it.cost_stitches} ✚</td>
+                  <td style={{ fontSize: 13 }}>{it.is_optional ? '⏭ необяз.' : '✅ обяз.'}</td>
                   <td>{it.is_active ? '✅' : '❌'}</td>
                   <td>
                     <div style={{ display: 'flex', gap: 4 }}>
@@ -47,7 +48,7 @@ function ShopList() {
                   </td>
                 </tr>
               ))}
-              {items.length === 0 && <tr><td colSpan={6} style={{ textAlign: 'center', color: 'var(--text-muted)', padding: 16 }}>Товаров пока нет</td></tr>}
+              {items.length === 0 && <tr><td colSpan={7} style={{ textAlign: 'center', color: 'var(--text-muted)', padding: 16 }}>Товаров пока нет</td></tr>}
               </tbody>
             </table>
           )}
