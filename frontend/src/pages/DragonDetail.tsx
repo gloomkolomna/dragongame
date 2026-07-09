@@ -134,15 +134,33 @@ function DragonDetail() {
       )}
       {legend && legend.has_legend && (
         <div className="lair-card" style={{ marginTop: 16 }}>
-          <h3 style={{ color: clr, marginTop: 0 }}>📖 Легенда</h3>
+          <h3 style={{ color: clr, marginTop: 0 }}>📖 Легенда{legend.name ? `: ${legend.name}` : ''}</h3>
           {legend.cover && (
-            <img src={mediaUrl(legend.cover)} alt="" onClick={() => setZoom(mediaUrl(legend.cover))}
-                 style={{ maxWidth: '100%', maxHeight: 200, borderRadius: 8, cursor: 'pointer', marginBottom: 10 }}
-                 onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+            <div onClick={() => nav(`/library?dragon=${id}`)}
+                 style={{ cursor: 'pointer', display: 'flex', gap: 12, marginBottom: 10 }}>
+              <img src={mediaUrl(legend.cover)} alt=""
+                   style={{ width: 100, height: 100, objectFit: 'cover', borderRadius: 8, flexShrink: 0 }}
+                   onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+              {legend.all_completed && legend.full_text ? (
+                <p style={{ color: 'var(--text-secondary)', fontSize: 14, lineHeight: 1.5, margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 5, WebkitBoxOrient: 'vertical' as any }}>
+                  {legend.full_text}
+                </p>
+              ) : (
+                <p style={{ color: 'var(--text-secondary)', fontSize: 14, margin: 0, alignSelf: 'center' }}>
+                  {legend.fragments.length > 0
+                    ? `Открыто ${legend.fragments.filter((f) => f.opened).length} из ${legend.fragments.length} отрывков`
+                    : 'Легенда готова к прочтению'}
+                </p>
+              )}
+            </div>
           )}
-          <div style={{ fontSize: 14, color: 'var(--text-secondary)', marginBottom: 10 }}>
-            Открыто {legend.fragments.filter((f) => f.opened).length} из {legend.fragments.length} отрывков
-          </div>
+          {!legend.cover && (
+            <div style={{ fontSize: 14, color: 'var(--text-secondary)', marginBottom: 10 }}>
+              {legend.fragments.length > 0
+                ? `Открыто ${legend.fragments.filter((f) => f.opened).length} из ${legend.fragments.length} отрывков`
+                : 'Легенда готова к прочтению'}
+            </div>
+          )}
           <button className="lair-btn" style={{ width: '100%' }} onClick={() => nav(`/library?dragon=${id}`)}>
             📖 Открыть в Библиотеке
           </button>
