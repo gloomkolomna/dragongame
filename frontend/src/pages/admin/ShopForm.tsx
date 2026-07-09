@@ -22,6 +22,7 @@ function ShopForm() {
   const [characterEffect, setCharacterEffect] = useState('');
   const [isActive, setIsActive] = useState(true);
   const [isLegendBook, setIsLegendBook] = useState(false);
+  const [isOptional, setIsOptional] = useState(false);
 
   const [links, setLinks] = useState<StageLink[]>([]);
   const [stages, setStages] = useState<Stage[]>([]);
@@ -31,7 +32,7 @@ function ShopForm() {
     if (!isEdit) return;
     client.get('/admin/shop-items').then((r) => {
       const it = r.data.find((x: any) => x.id === Number(id));
-      if (it) { setName(it.name); setDescription(it.description); setCost(it.cost_stitches); setImagePath(it.image_path || ''); setCharacterEffect(it.character_effect || ''); setIsActive(it.is_active); setIsLegendBook(!!it.is_legend_book); }
+      if (it) { setName(it.name); setDescription(it.description); setCost(it.cost_stitches); setImagePath(it.image_path || ''); setCharacterEffect(it.character_effect || ''); setIsActive(it.is_active); setIsLegendBook(!!it.is_legend_book); setIsOptional(!!it.is_optional); }
     }).finally(() => setLoad(false));
     client.get('/admin/stage-shop-items').then((r) => setLinks(r.data.filter((l: StageLink) => l.item_id === Number(id))));
   }, [id]);
@@ -50,7 +51,7 @@ function ShopForm() {
   const save = async () => {
     if (!name.trim()) { setError('Название обязательно'); return; }
     setSaving(true); setError('');
-    const payload = { name, description, cost_stitches: cost, image_path: imagePath, character_effect: characterEffect, is_active: isActive, is_legend_book: isLegendBook };
+    const payload = { name, description, cost_stitches: cost, image_path: imagePath, character_effect: characterEffect, is_active: isActive, is_legend_book: isLegendBook, is_optional: isOptional };
     try {
       if (isEdit) await client.put(`/admin/shop-items/${id}`, payload);
       else await client.post('/admin/shop-items', payload);
@@ -87,6 +88,7 @@ function ShopForm() {
             {imagePath && <img src={imgUrl(imagePath)} alt="" style={{ maxWidth: 120, maxHeight: 120, marginTop: 8, borderRadius: 8 }} onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />}</div>
           <div className="lair-form-group"><label className="lair-checkbox"><input type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} /> Активен</label></div>
           <div className="lair-form-group"><label className="lair-checkbox"><input type="checkbox" checked={isLegendBook} onChange={(e) => setIsLegendBook(e.target.checked)} /> 📖 Книга для обучения эпического (выдаётся за завершённую легенду)</label></div>
+          <div className="lair-form-group"><label className="lair-checkbox"><input type="checkbox" checked={isOptional} onChange={(e) => setIsOptional(e.target.checked)} /> ⏭ Необязательный товар (игрок может пропустить в действиях ухода)</label></div>
 
           {isEdit && (
             <div className="lair-form-group" style={{ borderTop: '1px solid var(--bronze)', paddingTop: 16 }}>

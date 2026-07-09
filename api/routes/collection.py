@@ -28,6 +28,7 @@ def get_shop(vk_id: int, db: Session = Depends(get_db)):
                 "cost_stitches": it.cost_stitches,
                 "image_path": f"/api/static/images/{it.image_path}" if it.image_path else "",
                 "character_effect": it.character_effect,
+                "is_optional": it.is_optional,
                 "owned": it.id in owned,
             }
             for it in items

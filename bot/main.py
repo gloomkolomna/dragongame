@@ -304,6 +304,11 @@ def main():
                 handle_care_use_item(user, db, send_message, upload_image)
                 continue
 
+            if is_epic_care(user.state) and cmd == "skip_item":
+                from bot.handlers.epic_care import handle_care_skip_item
+                handle_care_skip_item(user, db, send_message, upload_image)
+                continue
+
             if is_epic_care(user.state) and cmd in ("norm", "x2"):
                 from bot.handlers.epic_care import handle_care_mode
                 handle_care_mode(user, cmd, db, send_message)

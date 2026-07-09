@@ -174,6 +174,7 @@ class ShopItem(Base):
     sort_order = Column(Integer, default=0)
     is_active = Column(Boolean, default=True)
     is_legend_book = Column(Boolean, default=False)
+    is_optional = Column(Boolean, default=False)
 
 
 class StageShopItem(Base):

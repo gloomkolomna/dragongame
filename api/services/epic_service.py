@@ -213,7 +213,30 @@ def has_action_items(db, action_id) -> bool:
     return db.query(EpicActionItem).filter(EpicActionItem.action_id == action_id).first() is not None
 
 
+def has_non_optional_items(db, action_id) -> bool:
+    ids = [ai.item_id for ai in db.query(EpicActionItem).filter(EpicActionItem.action_id == action_id).all()]
+    if not ids:
+        return False
+    return db.query(ShopItem).filter(ShopItem.id.in_(ids), ShopItem.is_optional == False).first() is not None
+
+
 def consume_action_items(db, vk_id, action_id):
+    items = action_items(db, action_id)
+    for item in items:
+        inv = db.query(UserInventory).filter(
+            UserInventory.user_id == vk_id,
+            UserInventory.item_id == item.id,
+        ).first()
+        if inv:
+            if inv.quantity > 1:
+                inv.quantity -= 1
+            else:
+                db.delete(inv)
+    db.commit()
+
+
+def consume_owned_action_items(db, vk_id, action_id):
+    """Consume only the items the user actually owns (respects optional flag)."""
     items = action_items(db, action_id)
     for item in items:
         inv = db.query(UserInventory).filter(
@@ -232,7 +255,20 @@ def missing_action_items(db, vk_id, action_id):
     owned = {
         inv.item_id for inv in db.query(UserInventory).filter(UserInventory.user_id == vk_id).all()
     }
-    return [it for it in action_items(db, action_id) if it.id not in owned]
+    return [
+        it for it in action_items(db, action_id)
+        if it.id not in owned and not it.is_optional
+    ]
+
+
+def missing_optional_action_items(db, vk_id, action_id):
+    owned = {
+        inv.item_id for inv in db.query(UserInventory).filter(UserInventory.user_id == vk_id).all()
+    }
+    return [
+        it for it in action_items(db, action_id)
+        if it.id not in owned and it.is_optional
+    ]
 
 
 def set_care_timeout(db, care, action):

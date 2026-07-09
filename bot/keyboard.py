@@ -152,6 +152,16 @@ def epic_care_item_keyboard():
     ])
 
 
+def epic_care_optional_item_keyboard():
+    return _keyboard([
+        [{"action": {"type": "text", "label": "🎒 Использовать", "payload": json.dumps({"cmd": "use_item"}, ensure_ascii=False)}, "color": "positive"}],
+        [{"action": {"type": "text", "label": "⏭ Пропустить", "payload": json.dumps({"cmd": "skip_item"}, ensure_ascii=False)}, "color": "secondary"}],
+        row(("🛒 Магазин", "shop")),
+        garden_row(),
+        bestiary_link_row(),
+    ])
+
+
 def await_pin_keyboard():
     return _keyboard([
         row(("🔄🥚 Сменить яйцо дракона", "garden"), ("❓ Помощь", "help")),
