@@ -59,20 +59,23 @@ def _attach(upload_image, image_path, vk_id):
     return upload_image(filepath, peer_id=vk_id, log_error=_log_err)
 
 
+def _legend_cover_attach(upload_image, dragon, vk_id):
+    path = getattr(dragon, "legend_image_path", "") or ""
+    return _attach(upload_image, path, vk_id)
+
+
 def _show_fragment(user, dragon, frag, total, db, send_message, upload_image):
-    from bot.fsm import legend_state
     user.state = legend_state(frag.step_number)
     _set_legend_dragon_id(user, dragon.id)
     db.commit()
     msg = (
         f"📖 Легенда дракона «{dragon.name}» — отрывок {frag.step_number} из {total}\n"
     )
-    if frag.task_description:
-        msg += f"\n{frag.task_description}\n"
-    if frag.magic_action:
-        msg += f"\n📋 Задание: {frag.magic_action}\n"
+    task = frag.magic_action or frag.task_description or ""
+    if task:
+        msg += f"\n📋 Задание: {task}\n"
     msg += f"\n🎯 Норма крестиков: {frag.crosses_norm}\nВыбери режим:"
-    attachment = _attach(upload_image, frag.image_path, user.vk_id)
+    attachment = _legend_cover_attach(upload_image, dragon, user.vk_id)
     send_message(msg, attachment=attachment, keyboard=legend_buttons_keyboard())
 
 
@@ -112,10 +115,13 @@ def handle_legend_mode(user, mode, db, send_message):
     required = norm * 2 if mode == "x2" else norm
     user.state = legend_state(frag_num, mode)
     db.commit()
+    dragon = db.query(Dragon).filter(Dragon.id == dragon_id).first()
     label = "⚠ Режим «Штраф (x2)»" if mode == "x2" else "✅ Режим «Норма»"
+    attachment = _legend_cover_attach(None, dragon, user.vk_id) if dragon else ""
     send_message(
         f"{label} — нужно вышить не менее {required} крестиков.\n"
-        f"Отправь одним сообщением фото работы и текст: «вышито {required}»."
+        f"Отправь одним сообщением фото работы и текст: «вышито {required}».",
+        attachment=attachment,
     )
 
 
@@ -190,6 +196,12 @@ def handle_legend_message(user, text, attachments, db, send_message, upload_imag
     total = get_legend_total(db, dragon_id)
     next_frag = get_next_legend_fragment(db, user.vk_id, dragon_id)
 
+    # Show the fragment text after successful completion
+    if step_def and step_def.task_description:
+        frag_text = f"📖 Отрывок {frag_num}:\n\n{step_def.task_description}"
+        attachment = _legend_cover_attach(upload_image, dragon, user.vk_id) if dragon else ""
+        send_message(frag_text, attachment=attachment)
+
     if next_frag is None:
         book = give_legend_book(db, user.vk_id)
         user.state = IDLE
@@ -201,6 +213,6 @@ def handle_legend_message(user, text, attachments, db, send_message, upload_imag
         send_message(msg, keyboard=idle_keyboard(has_active=bool(user.current_dragon_id)))
         return True
 
-    send_message(f"✅ Отрывок {frag_num} рассказан!")
+    send_message(f"✅ Отрывок {frag_num} рассказан! Приступай к следующему.")
     _show_fragment(user, dragon, next_frag, total, db, send_message, upload_image)
     return True

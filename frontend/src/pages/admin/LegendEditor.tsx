@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import client from '../../api/client';
 
 interface Fragment {
-  id: number; step_number: number; task_description: string; magic_action: string; image_path: string;
+  id: number; step_number: number; task_description: string; magic_action: string;
   crosses_norm: number; timeout_hours: number; timeout_minutes: number;
 }
 
@@ -44,13 +44,8 @@ function LegendEditor() {
     const file = e.target.files?.[0]; if (!file) return;
     setCover(await uploadImage(file));
   };
-  const onFragImage = async (i: number, e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]; if (!file) return;
-    const path = await uploadImage(file);
-    setFragments((prev) => prev.map((f, idx) => idx === i ? { ...f, image_path: path } : f));
-  };
 
-  const addFrag = () => setFragments((p) => [...p, { id: 0, step_number: p.length + 1, task_description: '', magic_action: '', image_path: '', crosses_norm: 1000, timeout_hours: 0, timeout_minutes: 0 }]);
+  const addFrag = () => setFragments((p) => [...p, { id: 0, step_number: p.length + 1, task_description: '', magic_action: '', crosses_norm: 1000, timeout_hours: 0, timeout_minutes: 0 }]);
   const removeFrag = (i: number) => setFragments((p) => p.filter((_, idx) => idx !== i));
   const upd = (i: number, f: keyof Fragment, v: any) => setFragments((p) => p.map((frag, idx) => idx === i ? { ...frag, [f]: v } : frag));
 
@@ -107,13 +102,6 @@ function LegendEditor() {
               <textarea className="lair-textarea" value={f.task_description} onChange={(e) => upd(i, 'task_description', e.target.value)} placeholder="Текст отрывка легенды" style={{ marginBottom: 6 }} />
               <textarea className="lair-textarea" value={f.magic_action} onChange={(e) => upd(i, 'magic_action', e.target.value)} placeholder="Задание (что нужно вышить)" style={{ marginBottom: 6 }} />
               <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
-                <label className="lair-file" style={{ margin: 0 }}><input type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => onFragImage(i, e)} />{f.image_path ? 'Заменить фото...' : 'Фото...'}</label>
-                {f.image_path && (
-                  <img src={`/dragons/api/static/images/${f.image_path}?t=${Date.now()}`} alt=""
-                       onClick={() => setZoom(`/dragons/api/static/images/${f.image_path}`)}
-                       style={{ width: 48, height: 48, objectFit: 'cover', borderRadius: 6, border: '1px solid var(--bronze)', cursor: 'pointer' }}
-                       onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-                )}
                 <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>Норма:</span>
                 <input className="lair-input" type="text" inputMode="numeric" value={f.crosses_norm} onChange={(e) => upd(i, 'crosses_norm', Math.max(1, parseInt(e.target.value, 10) || 1))} style={{ width: 80 }} />
                 <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>Таймаут:</span>

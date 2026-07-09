@@ -79,16 +79,20 @@ def get_legend_view(vk_id: int, dragon_id: int, db: Session = Depends(get_db)):
         "name": dragon.legend_title or dragon.name,
         "all_completed": all_completed,
         "full_text": dragon.legend_full_text if all_completed else "",
-        "fragments": [
-            {
-                "number": f.step_number,
-                "opened": f.step_number in done,
-                "task": f.task_description if f.step_number in done else "",
-                "assignment": f.magic_action if f.step_number in done else "",
-                "image": f"/api/static/images/{f.image_path}" if (f.step_number in done and f.image_path) else "",
-            }
-            for f in frags
-        ],
+        "fragments": (
+            []
+            if all_completed
+            else [
+                {
+                    "number": f.step_number,
+                    "opened": f.step_number in done,
+                    "task": f.task_description if f.step_number in done else "",
+                    "assignment": f.magic_action if f.step_number in done else "",
+                    "image": f"/api/static/images/{f.image_path}" if (f.step_number in done and f.image_path) else "",
+                }
+                for f in frags
+            ]
+        ),
     }
 
 
