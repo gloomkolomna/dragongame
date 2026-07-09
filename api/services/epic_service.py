@@ -209,6 +209,25 @@ def action_items(db, action_id):
     return db.query(ShopItem).filter(ShopItem.id.in_(ids)).all()
 
 
+def has_action_items(db, action_id) -> bool:
+    return db.query(EpicActionItem).filter(EpicActionItem.action_id == action_id).first() is not None
+
+
+def consume_action_items(db, vk_id, action_id):
+    items = action_items(db, action_id)
+    for item in items:
+        inv = db.query(UserInventory).filter(
+            UserInventory.user_id == vk_id,
+            UserInventory.item_id == item.id,
+        ).first()
+        if inv:
+            if inv.quantity > 1:
+                inv.quantity -= 1
+            else:
+                db.delete(inv)
+    db.commit()
+
+
 def missing_action_items(db, vk_id, action_id):
     owned = {
         inv.item_id for inv in db.query(UserInventory).filter(UserInventory.user_id == vk_id).all()
@@ -216,8 +235,8 @@ def missing_action_items(db, vk_id, action_id):
     return [it for it in action_items(db, action_id) if it.id not in owned]
 
 
-def set_care_timeout(db, care, stage):
-    minutes = (stage.care_timeout_hours or 0) * 60 + (stage.care_timeout_minutes or 0)
+def set_care_timeout(db, care, action):
+    minutes = (action.timeout_hours or 0) * 60 + (action.timeout_minutes or 0)
     if minutes <= 0:
         care.next_action_at = None
     else:
@@ -243,6 +262,7 @@ def advance_care(db, care):
     """Advance past the just-completed action. Returns event dict."""
     stage = get_stage(db, care.stage_id)
     actions = get_stage_actions(db, care.stage_id)
+    completed_action = get_current_action(db, care)
     n = len(actions)
     care.current_action_order = (care.current_action_order or 0) + 1
     event = {"event": "next_action"}
@@ -267,7 +287,12 @@ def advance_care(db, care):
         else:
             event = {"event": "cycle_done", "stage": stage}
 
-    set_care_timeout(db, care, get_stage(db, care.stage_id) or stage)
+    timeout_action = completed_action or get_current_action(db, care)
+    if timeout_action:
+        set_care_timeout(db, care, timeout_action)
+    else:
+        care.next_action_at = None
+        care.care_notified = False
     db.commit()
     return event
 

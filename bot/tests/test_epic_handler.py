@@ -1,6 +1,6 @@
 from models import User, Dragon, DragonStep, UserDragon, UserProgress, ShopItem, UserInventory
 from models import EpicStage, EpicStageAction, EpicActionItem, EpicCareState, EpicMoodlet
-from bot.handlers.epic import handle_epic_name
+from bot.handlers.epic import handle_epic_name, send_epic_spawn_notice
 from bot.handlers.epic_care import handle_epic_restart, show_care_action, handle_care_mode, handle_care_message
 from services import epic_service
 
@@ -29,7 +29,7 @@ def test_epic_name_sets_and_triggers_care(db):
     u.epic_unlocked = True
     u.epic_dragon_id = d.id
     db.commit()
-    st = EpicStage(stage_number=1, name="S1", cycles_count=1, care_timeout_hours=0)
+    st = EpicStage(stage_number=1, name="S1", cycles_count=1)
     db.add(st)
     db.flush()
     a = EpicStageAction(stage_id=st.id, action_label="кормить", order_in_cycle=0, crosses_norm=1000)
@@ -73,6 +73,16 @@ def test_epic_restart_same_clears_slot(db):
     assert ud2.completed_at == ""
 
 
+def test_epic_spawn_notice_has_garden_button(db):
+    u, d = _epic(db, vk=15)
+    d.egg_path = ""
+    sent = {}
+    send = lambda m, **k: sent.update(k)
+    send_epic_spawn_notice(d, u, db, send)
+    assert "🔄🥚 Сменить яйцо дракона" in sent["keyboard"]
+    assert "garden" in sent["keyboard"]
+
+
 def test_epic_excluded_from_garden(db):
     from bot.handlers.commands import handle_garden
     # regular dragon + epic dragon both as UserDragon of same user
@@ -102,7 +112,7 @@ def test_epic_care_full_cycle_via_handlers(db):
     u.epic_unlocked = True
     u.epic_dragon_id = d.id
     db.commit()
-    st = EpicStage(stage_number=1, name="S1", cycles_count=1, care_timeout_hours=0)
+    st = EpicStage(stage_number=1, name="S1", cycles_count=1)
     db.add(st)
     db.flush()
     db.add(EpicStageAction(stage_id=st.id, action_label="кормить", order_in_cycle=0, crosses_norm=500))
@@ -133,12 +143,12 @@ def test_epic_care_stage_up_via_handlers(db):
     u.epic_unlocked = True
     u.epic_dragon_id = d.id
     db.commit()
-    st1 = EpicStage(stage_number=1, name="Малыш", cycles_count=1, care_timeout_hours=0)
-    st2 = EpicStage(stage_number=2, name="Подросток", cycles_count=1, care_timeout_hours=0)
+    st1 = EpicStage(stage_number=1, name="Малыш", cycles_count=1)
+    st2 = EpicStage(stage_number=2, name="Подросток", cycles_count=1)
     db.add_all([st1, st2])
     db.flush()
-    db.add(EpicStageAction(stage_id=st1.id, action_label="кормить", order_in_cycle=0, crosses_norm=100))
-    db.add(EpicStageAction(stage_id=st2.id, action_label="играть", order_in_cycle=0, crosses_norm=100))
+    db.add(EpicStageAction(stage_id=st1.id, action_label="кормить", order_in_cycle=0, crosses_norm=100, timeout_hours=0))
+    db.add(EpicStageAction(stage_id=st2.id, action_label="играть", order_in_cycle=0, crosses_norm=100, timeout_hours=0))
     db.commit()
     epic_service.set_epic_name(db, 31, "Уголёк")
     epic_service.start_care(db, 31)

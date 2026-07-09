@@ -17,14 +17,14 @@ def _epic_dragon(db, name="Epic", steps=2):
     return d
 
 
-def _stage(db, number=1, cycles=1, actions=1, timeout_h=0):
-    st = EpicStage(stage_number=number, name=f"S{number}", cycles_count=cycles,
-                   care_timeout_hours=timeout_h, care_timeout_minutes=0)
+def _stage(db, number=1, cycles=1, actions=1, action_timeout_h=0):
+    st = EpicStage(stage_number=number, name=f"S{number}", cycles_count=cycles)
     db.add(st)
     db.flush()
     acts = []
     for i in range(actions):
-        a = EpicStageAction(stage_id=st.id, action_label=f"act{i}", order_in_cycle=i, crosses_norm=1000)
+        a = EpicStageAction(stage_id=st.id, action_label=f"act{i}", order_in_cycle=i, crosses_norm=1000,
+                            timeout_hours=action_timeout_h, timeout_minutes=0)
         db.add(a)
         acts.append(a)
     db.commit()
@@ -144,7 +144,7 @@ def test_care_timeout_gating(db):
     db.add(User(vk_id=8))
     _epic_dragon(db)
     epic_service.spawn_random_epic(db, 8)
-    st, _ = _stage(db, number=1, cycles=3, actions=1, timeout_h=24)
+    st, _ = _stage(db, number=1, cycles=3, actions=1, action_timeout_h=24)
     care = epic_service.start_care(db, 8)
     epic_service.advance_care(db, care)
     assert epic_service.get_care_remaining(db, care) is not None

@@ -6,7 +6,7 @@ from bot.fsm import IDLE, AWAIT_EPIC_RESTART, epic_care_state, state_mode
 from bot.services.grow_service import (
     credit_stitches, is_suspicious, create_suspicious_report, notify_admin,
 )
-from bot.keyboard import epic_care_keyboard, idle_keyboard
+from bot.keyboard import epic_care_keyboard, epic_care_item_keyboard, idle_keyboard
 
 _IMAGES = os.path.join(os.path.dirname(__file__), "..", "..", "images", "dragons")
 
@@ -41,6 +41,7 @@ def show_care_action(user, db, send_message, upload_image=None):
     from services.epic_service import (
         get_care, get_epic_dragon, get_epic_name, get_stage,
         get_current_action, get_care_remaining, missing_action_items,
+        has_action_items, action_items,
     )
     care = get_care(db, user.vk_id)
     dragon = get_epic_dragon(db, user.vk_id)
@@ -62,33 +63,99 @@ def show_care_action(user, db, send_message, upload_image=None):
         send_message(f"🐲 «{name}»: на стадии «{stage.name if stage else '?'}» нет действий ухода.")
         return
 
-    missing = missing_action_items(db, user.vk_id, action.id)
-    if missing:
-        names = ", ".join(f"«{m.name}»" for m in missing)
-        from bot.keyboard import _keyboard, row, bestiary_link_row
-        import json
-        kb = _keyboard([row(("🛒 Магазин", "shop")), bestiary_link_row()])
-        send_message(
-            f"🐲 «{name}» — стадия «{stage.name if stage else '?'}»\n"
-            f"Для действия «{action.action_label}» нужно купить в магазине: {names}.",
-            keyboard=kb,
-        )
-        return
+    has_items = has_action_items(db, action.id)
+    missing = missing_action_items(db, user.vk_id, action.id) if has_items else []
 
-    user.state = epic_care_state(care.stage_id)
-    db.commit()
     cycle_no = (care.cycles_completed or 0) + 1
     total_cycles = stage.cycles_count if stage else 1
-    msg = (
+    base_msg = (
         f"🐲 «{name}» — стадия «{stage.name if stage else '?'}» (цикл {cycle_no}/{total_cycles})\n"
         f"\n▶ {action.action_label}\n"
     )
     if action.hint:
-        msg += f"💡 {action.hint}\n"
-    msg += f"\n🎯 Норма крестиков: {action.crosses_norm}\nВыбери режим:"
-    action_img = getattr(action, "image_path", "") or ""
-    attachment = _attach(upload_image, action_img or (stage.image_start if stage else ""), user.vk_id)
-    send_message(msg, attachment=attachment, keyboard=epic_care_keyboard())
+        base_msg += f"💡 {action.hint}\n"
+
+    if has_items:
+        if missing:
+            names = ", ".join(f"«{m.name}»" for m in missing)
+            from bot.keyboard import _keyboard, row, bestiary_link_row
+            kb = _keyboard([row(("🛒 Магазин", "shop")), bestiary_link_row()])
+            send_message(
+                f"🐲 «{name}» — стадия «{stage.name if stage else '?'}»\n"
+                f"Для действия «{action.action_label}» нужно купить в магазине: {names}.",
+                keyboard=kb,
+            )
+            return
+
+        user.state = epic_care_state(care.stage_id)
+        db.commit()
+        item_names = ", ".join(it.name for it in action_items(db, action.id))
+        msg = base_msg + f"\n📦 Нужные товары: {item_names}\nНажми «🎒 Использовать», чтобы применить."
+        action_img = getattr(action, "image_path", "") or ""
+        attachment = _attach(upload_image, action_img or (stage.image_start if stage else ""), user.vk_id)
+        send_message(msg, attachment=attachment, keyboard=epic_care_item_keyboard())
+    else:
+        user.state = epic_care_state(care.stage_id)
+        db.commit()
+        msg = base_msg
+        if action.task:
+            msg += f"📝 {action.task}\n"
+        msg += f"\n🎯 Норма крестиков: {action.crosses_norm}\nВыбери режим:"
+        action_img = getattr(action, "image_path", "") or ""
+        attachment = _attach(upload_image, action_img or (stage.image_start if stage else ""), user.vk_id)
+        send_message(msg, attachment=attachment, keyboard=epic_care_keyboard())
+
+
+def handle_care_use_item(user, db, send_message, upload_image=None):
+    from services.epic_service import (
+        get_care, get_current_action, get_epic_name,
+        get_epic_dragon, missing_action_items, consume_action_items,
+        has_action_items, advance_care,
+    )
+    care = get_care(db, user.vk_id)
+    action = get_current_action(db, care)
+    if not care or not action:
+        user.state = IDLE
+        db.commit()
+        send_message("Уход не активен.")
+        return
+
+    if not has_action_items(db, action.id):
+        send_message("Для этого действия не нужны товары. Используй «🎯 Норма» или «⚡ Штраф (x2)».")
+        return
+
+    missing = missing_action_items(db, user.vk_id, action.id)
+    if missing:
+        names = ", ".join(f"«{m.name}»" for m in missing)
+        from bot.keyboard import _keyboard, row, bestiary_link_row
+        kb = _keyboard([row(("🛒 Магазин", "shop")), bestiary_link_row()])
+        send_message(
+            f"❌ У тебя нет {names}. Купи их в магазине!",
+            keyboard=kb,
+        )
+        return
+
+    from services.epic_service import get_epic_dragon
+    epic_dragon = get_epic_dragon(db, user.vk_id)
+    name = get_epic_name(db, user.vk_id) or (epic_dragon.name if epic_dragon else "малыш")
+
+    consume_action_items(db, user.vk_id, action.id)
+
+    _award_action_moodlet(db, user.vk_id, care, action)
+    send_message(f"✅ «{action.action_label}» — {name} доволен! Товары использованы.")
+
+    event = advance_care(db, care)
+    kind = event.get("event")
+
+    if kind == "finale":
+        _finale(user, db, send_message, upload_image, event)
+        return
+
+    if kind == "stage_up":
+        nxt = event["stage"]
+        send_message(f"🌟 «{name}» перешёл на новую стадию: «{nxt.name}»!")
+
+    show_care_action(user, db, send_message, upload_image)
 
 
 def handle_care_mode(user, mode, db, send_message):
@@ -170,7 +237,6 @@ def handle_care_message(user, text, attachments, db, send_message, upload_image=
             f"https://vk.com/gim239999455/convo/{user.vk_id}"
         )
 
-    # Award moodlet for this action (Phase 6), idempotent
     _award_action_moodlet(db, user.vk_id, care, action)
 
     name = get_epic_name(db, user.vk_id) or (epic_dragon.name if epic_dragon else "малыш")

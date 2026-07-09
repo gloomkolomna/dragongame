@@ -207,8 +207,6 @@ class EpicStage(Base):
     image_start = Column(String, default="")
     image_end = Column(String, default="")
     cycles_count = Column(Integer, default=3)
-    care_timeout_hours = Column(Integer, default=24)
-    care_timeout_minutes = Column(Integer, default=0)
 
 
 class EpicStageAction(Base):
@@ -217,9 +215,12 @@ class EpicStageAction(Base):
     stage_id = Column(Integer, ForeignKey("epic_stages.id", ondelete="CASCADE"), nullable=False)
     action_label = Column(String, default="")
     order_in_cycle = Column(Integer, default=0)
+    task = Column(Text, default="")
     hint = Column(Text, default="")
     crosses_norm = Column(Integer, default=1000)
     image_path = Column(String, default="")
+    timeout_hours = Column(Integer, default=24)
+    timeout_minutes = Column(Integer, default=0)
 
 
 class EpicActionItem(Base):

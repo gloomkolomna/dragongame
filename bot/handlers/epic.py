@@ -57,6 +57,7 @@ def send_epic_spawn_notice(epic, user, db, send_message, upload_image=None):
         "one_time": False,
         "buttons": [
             [{"action": {"type": "text", "label": "🐲 Растить эпического", "payload": j.dumps({"cmd": "epic"}, ensure_ascii=False)}, "color": "primary"}],
+            [{"action": {"type": "text", "label": "🔄🥚 Сменить яйцо дракона", "payload": j.dumps({"cmd": "garden"}, ensure_ascii=False)}, "color": "secondary"}],
             [{"action": {"type": "open_link", "label": "📖 Мой Бестиарий", "link": "https://vk.com/app54663330"}}],
         ],
     }, ensure_ascii=False)

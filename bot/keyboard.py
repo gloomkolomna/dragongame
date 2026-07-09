@@ -143,6 +143,15 @@ def epic_care_keyboard():
     ])
 
 
+def epic_care_item_keyboard():
+    return _keyboard([
+        [{"action": {"type": "text", "label": "🎒 Использовать", "payload": json.dumps({"cmd": "use_item"}, ensure_ascii=False)}, "color": "positive"}],
+        row(("🛒 Магазин", "shop")),
+        garden_row(),
+        bestiary_link_row(),
+    ])
+
+
 def await_pin_keyboard():
     return _keyboard([
         row(("🔄🥚 Сменить яйцо дракона", "garden"), ("❓ Помощь", "help")),

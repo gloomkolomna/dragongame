@@ -206,8 +206,11 @@ def get_epic_view(vk_id: int, db: Session = Depends(get_db)):
     if action:
         base["action"] = {
             "label": action.action_label,
+            "task": action.task,
             "hint": action.hint,
             "crosses_norm": action.crosses_norm,
+            "timeout_hours": action.timeout_hours,
+            "timeout_minutes": action.timeout_minutes,
             "items": [
                 {"id": it.id, "name": it.name, "owned": it.id not in owned_missing}
                 for it in epic_service.action_items(db, action.id)

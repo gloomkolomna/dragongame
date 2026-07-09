@@ -1366,8 +1366,6 @@ async def create_epic_stage(request: Request, db: Session = Depends(get_db)):
         image_start=b.get("image_start", ""),
         image_end=b.get("image_end", ""),
         cycles_count=max(1, int(b.get("cycles_count", 3) or 3)),
-        care_timeout_hours=max(0, int(b.get("care_timeout_hours", 24) or 0)),
-        care_timeout_minutes=max(0, min(59, int(b.get("care_timeout_minutes", 0) or 0))),
     )
     db.add(stage)
     db.commit()
@@ -1387,8 +1385,6 @@ async def update_epic_stage(stage_id: int, request: Request, db: Session = Depen
     if "image_start" in b: stage.image_start = b["image_start"]
     if "image_end" in b: stage.image_end = b["image_end"]
     if "cycles_count" in b: stage.cycles_count = max(1, int(b["cycles_count"] or 3))
-    if "care_timeout_hours" in b: stage.care_timeout_hours = max(0, int(b["care_timeout_hours"] or 0))
-    if "care_timeout_minutes" in b: stage.care_timeout_minutes = max(0, min(59, int(b["care_timeout_minutes"] or 0)))
     db.commit()
     db.refresh(stage)
     return stage
@@ -1450,9 +1446,12 @@ def _action_dict(db, action: EpicStageAction) -> dict:
         "stage_id": action.stage_id,
         "action_label": action.action_label,
         "order_in_cycle": action.order_in_cycle,
+        "task": action.task,
         "hint": action.hint,
         "crosses_norm": action.crosses_norm,
         "image_path": action.image_path or "",
+        "timeout_hours": action.timeout_hours,
+        "timeout_minutes": action.timeout_minutes,
         "item_ids": _action_items(db, action.id),
     }
 
@@ -1478,9 +1477,12 @@ async def create_epic_action(stage_id: int, request: Request, db: Session = Depe
         stage_id=stage_id,
         action_label=label,
         order_in_cycle=int(b.get("order_in_cycle", 0) or 0),
+        task=b.get("task", ""),
         hint=b.get("hint", ""),
         crosses_norm=max(1, int(b.get("crosses_norm", 1000) or 1000)),
         image_path=b.get("image_path", ""),
+        timeout_hours=max(0, int(b.get("timeout_hours", 24) or 24)),
+        timeout_minutes=max(0, min(59, int(b.get("timeout_minutes", 0) or 0))),
     )
     db.add(action)
     db.commit()
@@ -1499,9 +1501,12 @@ async def update_epic_action(action_id: int, request: Request, db: Session = Dep
     b = await _json_body(request)
     if "action_label" in b: action.action_label = b["action_label"]
     if "order_in_cycle" in b: action.order_in_cycle = int(b["order_in_cycle"] or 0)
+    if "task" in b: action.task = b["task"]
     if "hint" in b: action.hint = b["hint"]
     if "crosses_norm" in b: action.crosses_norm = max(1, int(b["crosses_norm"] or 1000))
     if "image_path" in b: action.image_path = b["image_path"]
+    if "timeout_hours" in b: action.timeout_hours = max(0, int(b["timeout_hours"] or 24))
+    if "timeout_minutes" in b: action.timeout_minutes = max(0, min(59, int(b["timeout_minutes"] or 0)))
     db.commit()
     db.refresh(action)
     if "item_ids" in b:

@@ -466,12 +466,8 @@ def test_epic_stage_crud(client):
     resp = client.post("/api/admin/epic/stages", json={"stage_number": 1, "name": "Вылупленное чудо", "cycles_count": 3, "image_start": "dragons/s1.png", "image_end": "dragons/s1_end.png"})
     assert resp.status_code == 200
     stage_id = resp.json()["id"]
-    assert resp.json()["care_timeout_hours"] == 24
     assert resp.json()["image_start"] == "dragons/s1.png"
     assert resp.json()["image_end"] == "dragons/s1_end.png"
-
-    upd = client.put(f"/api/admin/epic/stages/{stage_id}", json={"care_timeout_hours": 12})
-    assert upd.json()["care_timeout_hours"] == 12
 
     assert len(client.get("/api/admin/epic/stages").json()) == 1
     assert client.delete(f"/api/admin/epic/stages/{stage_id}").status_code == 200

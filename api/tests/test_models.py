@@ -154,12 +154,11 @@ def test_suspicious_report(db):
 
 
 def test_epic_stage_crud(db):
-    stage = EpicStage(stage_number=1, name="Вылупленное чудо", cycles_count=3, care_timeout_hours=24)
+    stage = EpicStage(stage_number=1, name="Вылупленное чудо", cycles_count=3)
     db.add(stage)
     db.commit()
     assert stage.id is not None
     assert stage.cycles_count == 3
-    assert stage.care_timeout_hours == 24
 
 
 def test_epic_stage_action(db):

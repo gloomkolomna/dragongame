@@ -34,7 +34,7 @@ def test_epic_view_care(client, db):
     db.add(User(vk_id=3))
     _epic_dragon(db, steps=1)
     epic_service.spawn_random_epic(db, 3)
-    st = EpicStage(stage_number=1, name="Малыш", cycles_count=2, care_timeout_hours=0)
+    st = EpicStage(stage_number=1, name="Малыш", cycles_count=2)
     db.add(st)
     db.flush()
     it = ShopItem(name="Молоко", is_active=True)
