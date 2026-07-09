@@ -502,6 +502,9 @@ def list_users(db: Session = Depends(get_db)):
         .all()
     )
     susp_map = {uid: cnt for uid, cnt in susp_rows}
+    don_ids = {
+        row[0] for row in db.query(DonorCache.vk_id).filter(DonorCache.is_don == True).all()
+    }
     result = []
     for u in users:
         collected = db.query(UserDragon).filter(UserDragon.user_id == u.vk_id).count()
@@ -518,6 +521,7 @@ def list_users(db: Session = Depends(get_db)):
             "current_dragon_id": u.current_dragon_id,
             "current_step": u.current_step,
             "suspicious_pending": susp_map.get(u.vk_id, 0),
+            "is_don": u.vk_id in don_ids,
         })
     return result
 
@@ -564,6 +568,8 @@ def get_user_detail(vk_id: int, db: Session = Depends(get_db)):
     active_count = db.query(UserDragon).filter(UserDragon.user_id == vk_id, UserDragon.completed_at == "").count()
     vk_nm = _resolve_vk_names([vk_id]).get(vk_id, {})
 
+    donor = db.query(DonorCache).filter(DonorCache.vk_id == vk_id).first()
+
     suspicious = (
         db.query(SuspiciousReport)
         .filter(SuspiciousReport.user_id == vk_id)
@@ -587,6 +593,9 @@ def get_user_detail(vk_id: int, db: Session = Depends(get_db)):
         "stitches_balance": user.stitches_balance,
         "epic_unlocked": user.epic_unlocked,
         "epic_dragon_id": user.epic_dragon_id,
+        "is_don": bool(donor.is_don) if donor else False,
+        "don_since": donor.don_since if donor else None,
+        "don_synced_at": donor.last_synced_at if donor else None,
         "pins_activated": len(pins),
         "pins": pins,
         "dragons": dragons_list,
