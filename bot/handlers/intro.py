@@ -1,8 +1,16 @@
 import os
 from bot.fsm import AWAIT_PIN, intro_chapter_state, intro_chapter_from_state, is_intro_chapter
-from bot.keyboard import intro_keyboard, await_pin_keyboard
+from bot.keyboard import intro_keyboard, intro_last_keyboard
 
 _INTRO_IMAGES = os.path.join(os.path.dirname(__file__), "..", "..", "images", "intro")
+
+
+def _is_last_chapter(db, chapter_num):
+    from models import IntroChapter
+    return db.query(IntroChapter).filter(
+        IntroChapter.chapter_number > chapter_num,
+        IntroChapter.is_active == True,
+    ).first() is None
 
 
 def _intro_chapter_image(chapter):
@@ -21,10 +29,7 @@ def start_intro(user, db, send_message, upload_image=None):
     if not chapter:
         user.state = AWAIT_PIN
         db.commit()
-        send_message(
-            "Введи PIN-код с яйца, чтобы начать выращивание.",
-            keyboard=await_pin_keyboard(),
-        )
+        send_message("Введи PIN-код с яйца, чтобы начать выращивание.", keyboard="")
         return
 
     user.state = intro_chapter_state(1)
@@ -44,7 +49,7 @@ def start_intro(user, db, send_message, upload_image=None):
     send_message(
         chapter.text,
         attachment=attachment,
-        keyboard=intro_keyboard(),
+        keyboard=intro_last_keyboard() if _is_last_chapter(db, 1) else intro_keyboard(),
     )
 
 
@@ -64,7 +69,7 @@ def handle_intro_next(user, db, send_message, upload_image=None):
         send_message(
             "✨ История рассказана! Теперь ты готов вырастить своего первого дракона.\n"
             "Введи PIN-код с яйца, чтобы начать.",
-            keyboard=await_pin_keyboard(),
+            keyboard="",
         )
         return
 
@@ -85,7 +90,7 @@ def handle_intro_next(user, db, send_message, upload_image=None):
     send_message(
         chapter.text,
         attachment=attachment,
-        keyboard=intro_keyboard(),
+        keyboard=intro_last_keyboard() if _is_last_chapter(db, next_chapter_num) else intro_keyboard(),
     )
 
 
@@ -100,10 +105,7 @@ def handle_intro_chat(user, db, send_message, upload_image=None):
     if not chapter:
         user.state = AWAIT_PIN
         db.commit()
-        send_message(
-            "Введи PIN-код с яйца, чтобы начать выращивание.",
-            keyboard=await_pin_keyboard(),
-        )
+        send_message("Введи PIN-код с яйца, чтобы начать выращивание.", keyboard="")
         return
 
     attachment = ""
@@ -120,5 +122,5 @@ def handle_intro_chat(user, db, send_message, upload_image=None):
     send_message(
         chapter.text,
         attachment=attachment,
-        keyboard=intro_keyboard(),
+        keyboard=intro_last_keyboard() if _is_last_chapter(db, current) else intro_keyboard(),
     )
