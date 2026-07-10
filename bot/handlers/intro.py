@@ -1,6 +1,6 @@
 import os
 from bot.fsm import AWAIT_PIN, intro_chapter_state, intro_chapter_from_state, is_intro_chapter
-from bot.keyboard import intro_keyboard, intro_last_keyboard
+from bot.keyboard import intro_keyboard, intro_last_keyboard, empty_keyboard
 
 _INTRO_IMAGES = os.path.join(os.path.dirname(__file__), "..", "..", "images", "intro")
 
@@ -29,7 +29,7 @@ def start_intro(user, db, send_message, upload_image=None):
     if not chapter:
         user.state = AWAIT_PIN
         db.commit()
-        send_message("Введи PIN-код с яйца, чтобы начать выращивание.", keyboard="")
+        send_message("Введи PIN-код с яйца, чтобы начать выращивание.", keyboard=empty_keyboard())
         return
 
     user.state = intro_chapter_state(1)
@@ -69,7 +69,7 @@ def handle_intro_next(user, db, send_message, upload_image=None):
         send_message(
             "✨ История рассказана! Теперь ты готов вырастить своего первого дракона.\n"
             "Введи PIN-код с яйца, чтобы начать.",
-            keyboard="",
+            keyboard=empty_keyboard(),
         )
         return
 
@@ -105,7 +105,7 @@ def handle_intro_chat(user, db, send_message, upload_image=None):
     if not chapter:
         user.state = AWAIT_PIN
         db.commit()
-        send_message("Введи PIN-код с яйца, чтобы начать выращивание.", keyboard="")
+        send_message("Введи PIN-код с яйца, чтобы начать выращивание.", keyboard=empty_keyboard())
         return
 
     attachment = ""

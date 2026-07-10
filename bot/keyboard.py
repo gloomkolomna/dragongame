@@ -259,3 +259,7 @@ def intro_last_keyboard():
     return _keyboard([
         [{"action": {"type": "text", "label": "📖 Завершить чтение истории", "payload": json.dumps({"cmd": "intro_next"}, ensure_ascii=False)}, "color": "primary"}],
     ])
+
+
+def empty_keyboard():
+    return json.dumps({"one_time": False, "buttons": []}, ensure_ascii=False)
