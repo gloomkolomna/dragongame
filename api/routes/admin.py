@@ -392,6 +392,7 @@ def update_cell(cell_id: int, dragon_id: Optional[int] = Query(None), db: Sessio
         existing = db.query(CollectionGrid).filter(CollectionGrid.dragon_id == dragon_id).first()
         if existing and existing.id != cell_id:
             existing.dragon_id = None
+            db.flush()
     cell.dragon_id = dragon_id
     db.commit()
     return cell
