@@ -806,7 +806,7 @@ async def toggle_user_step(vk_id: int, step_number: int, request: Request, db: S
         attachment = ""
         if dragon.dragon_path:
             img_path = os.path.join(os.path.dirname(__file__), "..", "..", "images", "dragons", os.path.basename(dragon.dragon_path))
-            attachment = _upload_vk_image(os.path.abspath(img_path))
+            attachment = _upload_vk_image(os.path.abspath(img_path), peer_id=vk_id)
 
         idle_kb = json.dumps({
             "one_time": False,
@@ -826,7 +826,7 @@ async def toggle_user_step(vk_id: int, step_number: int, request: Request, db: S
             t_attach = ""
             if treasure.image_path:
                 t_path = os.path.join(os.path.dirname(__file__), "..", "..", "images", "dragons", os.path.basename(treasure.image_path))
-                t_attach = _upload_vk_image(os.path.abspath(t_path))
+                t_attach = _upload_vk_image(os.path.abspath(t_path), peer_id=vk_id)
             _notify_user(vk_id, t_msg, t_attach)
         for ft in (family_treasures or []):
             ft_msg = f"💎 В твоей пещере появилось новое сокровище!\nПосмотри его в мини-приложении Мой Бестиарий.\n\nСокровище семьи: {ft.name}"
@@ -835,7 +835,7 @@ async def toggle_user_step(vk_id: int, step_number: int, request: Request, db: S
             ft_attach = ""
             if ft.image_path:
                 ft_path = os.path.join(os.path.dirname(__file__), "..", "..", "images", "dragons", os.path.basename(ft.image_path))
-                ft_attach = _upload_vk_image(os.path.abspath(ft_path))
+                ft_attach = _upload_vk_image(os.path.abspath(ft_path), peer_id=vk_id)
             _notify_user(vk_id, ft_msg, ft_attach)
         if epic:
             from services.epic_service import get_epic_name
@@ -843,7 +843,7 @@ async def toggle_user_step(vk_id: int, step_number: int, request: Request, db: S
             e_attach = ""
             if epic.egg_path:
                 e_path = os.path.join(os.path.dirname(__file__), "..", "..", "images", "dragons", os.path.basename(epic.egg_path))
-                e_attach = _upload_vk_image(os.path.abspath(e_path))
+                e_attach = _upload_vk_image(os.path.abspath(e_path), peer_id=vk_id)
             _notify_user(vk_id,
                 f"🐲🥚 В твоей пещере появилось эпическое яйцо!\n\n"
                 f"«{epic_name}» ждёт своего часа.\n"
@@ -891,23 +891,28 @@ def _notify_user(vk_id: int, message: str, attachment: str = "", keyboard: str =
         pass
 
 
-def _upload_vk_image(filepath: str) -> str:
+def _upload_vk_image(filepath: str, peer_id: int = 0) -> str:
     """Upload local image to VK and return attachment string."""
     import config
     if not config.VK_GROUP_TOKEN or not filepath or not os.path.isfile(filepath):
         return ""
-    try:
-        import importlib
-        import vk_api
-        import requests
-        vk = vk_api.VkApi(token=config.VK_GROUP_TOKEN, api_version="5.199").get_api()
-        upload_url = vk.photos.getMessagesUploadServer(peer_id=0)["upload_url"]
-        with open(filepath, "rb") as f:
-            resp = requests.post(upload_url, files={"photo": ("image.jpg", f, "image/jpeg")}).json()
-        saved = vk.photos.saveMessagesPhoto(photo=resp["photo"], server=resp["server"], hash=resp["hash"])[0]
-        return f"photo{saved['owner_id']}_{saved['id']}"
-    except Exception:
-        return ""
+    import vk_api
+    import requests
+    vk = vk_api.VkApi(token=config.VK_GROUP_TOKEN, api_version="5.199").get_api()
+    for attempt in range(3):
+        try:
+            upload_url = vk.photos.getMessagesUploadServer(peer_id=peer_id)["upload_url"]
+            with open(filepath, "rb") as f:
+                resp = requests.post(upload_url, files={"photo": ("image.jpg", f, "image/jpeg")}, timeout=30)
+            resp.raise_for_status()
+            data = resp.json()
+            saved = vk.photos.saveMessagesPhoto(photo=data["photo"], server=data["server"], hash=data["hash"])[0]
+            return f"photo{saved['owner_id']}_{saved['id']}"
+        except Exception:
+            if attempt < 2:
+                import time
+                time.sleep(1)
+    return ""
 
 
 def _format_step_text(step_def, step_num: int, total: int) -> str:

@@ -38,7 +38,7 @@ function Treasures() {
   const { vkUserId, loading: bl } = useVkBridge();
   const [data, setData] = useState<TreasuresView | null>(null);
   const [load, setLoad] = useState(true);
-  const [zoom, setZoom] = useState<string | null>(null);
+  const [detail, setDetail] = useState<CollectedTreasure | null>(null);
   const [tab, setTab] = useState<Tab>('dragon');
 
   useEffect(() => {
@@ -102,7 +102,7 @@ function Treasures() {
         {section.collected.map((t) => (
           <div key={`c${t.id}`} className="lair-card" style={{ textAlign: 'center', padding: 12 }}>
             {t.image && (
-              <img src={mediaUrl(t.image)} alt="" onClick={() => setZoom(mediaUrl(t.image))}
+              <img src={mediaUrl(t.image)} alt="" onClick={() => setDetail(t)}
                    style={{ width: '100%', maxHeight: 140, objectFit: 'contain', borderRadius: 8, cursor: 'pointer' }}
                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
             )}
@@ -126,13 +126,30 @@ function Treasures() {
         ))}
       </div>
 
-      {zoom && (
-        <div onClick={() => setZoom(null)}
-             style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
-          <img src={zoom} alt="" onClick={(e) => e.stopPropagation()}
-               style={{ maxWidth: '90vw', maxHeight: '90vh', objectFit: 'contain', borderRadius: 8 }} />
-          <button onClick={() => setZoom(null)}
-                  style={{ position: 'absolute', top: 16, right: 16, background: 'none', border: 'none', color: '#fff', fontSize: 32, cursor: 'pointer', lineHeight: 1 }}>✕</button>
+      {detail && (
+        <div onClick={() => setDetail(null)}
+             style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, cursor: 'pointer' }}>
+          <div className="lair-card" onClick={(e) => e.stopPropagation()}
+               style={{ maxWidth: 400, width: '100%', padding: 0, overflow: 'hidden', cursor: 'default' }}>
+            <div style={{ position: 'relative' }}>
+              {detail.image && (
+                <img src={mediaUrl(detail.image)} alt=""
+                     style={{ width: '100%', maxHeight: 320, objectFit: 'contain', display: 'block', borderTopLeftRadius: 24, borderTopRightRadius: 24, background: 'rgba(0,0,0,0.3)' }} />
+              )}
+              <button onClick={() => setDetail(null)}
+                      style={{ position: 'absolute', top: 8, right: 8, width: 36, height: 36, borderRadius: '50%', border: '2px solid var(--bronze)', background: 'rgba(21,15,26,0.85)', color: 'var(--gold)', fontSize: 18, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1 }}>
+                ✕
+              </button>
+            </div>
+            <div style={{ padding: '20px 20px 24px' }}>
+              <div style={{ color: 'var(--gold)', fontFamily: 'var(--font-title)', fontSize: 20, fontWeight: 700, letterSpacing: 0.5 }}>{detail.name}</div>
+              {detail.dragon_name && <div style={{ color: 'var(--parchment-faded)', fontSize: 14, marginTop: 4 }}>🐉 {detail.dragon_name}</div>}
+              {detail.family_name && <div style={{ color: 'var(--parchment-faded)', fontSize: 14, marginTop: 4 }}>📂 {detail.family_name}</div>}
+              {detail.description && (
+                <div style={{ color: 'var(--parchment-dim)', fontSize: 15, marginTop: 14, lineHeight: 1.6, borderTop: '1px solid var(--bronze)', paddingTop: 14 }}>{detail.description}</div>
+              )}
+            </div>
+          </div>
         </div>
       )}
     </div>
