@@ -99,26 +99,56 @@ def get_legend_view(vk_id: int, dragon_id: int, db: Session = Depends(get_db)):
 
 @router.get("/collection/{vk_id}/treasures")
 def get_treasures(vk_id: int, db: Session = Depends(get_db)):
-    from models import Treasure, UserTreasure
+    from models import Treasure, UserTreasure, Dragon
     treasures = db.query(Treasure).filter(Treasure.is_active == True).order_by(Treasure.id).all()
     owned_ids = {
         ut.treasure_id
         for ut in db.query(UserTreasure).filter(UserTreasure.user_id == vk_id).all()
     }
-    collected = []
-    uncollected = []
+    dragon_map = {}
+    family_map = {}
+    dragon_ids = {t.dragon_id for t in treasures if t.dragon_id}
+    family_ids = {t.family_id for t in treasures if t.family_id}
+    if dragon_ids:
+        dragon_map = {d.id: d.name for d in db.query(Dragon).filter(Dragon.id.in_(dragon_ids)).all()}
+    if family_ids:
+        family_map = {f.id: f.name for f in db.query(Family).filter(Family.id.in_(family_ids)).all()}
+
+    dragon_collected = []
+    dragon_uncollected = []
+    family_collected = []
+    family_uncollected = []
+
     for t in treasures:
         image = f"/api/static/images/{t.image_path}" if t.image_path else ""
-        if t.id in owned_ids:
-            collected.append({
-                "id": t.id,
-                "name": t.name,
-                "description": t.description,
-                "image": image,
-            })
-        else:
-            uncollected.append({"id": t.id, "silhouette": image})
-    return {"collected": collected, "total": len(treasures), "uncollected": uncollected}
+        base = {
+            "id": t.id,
+            "name": t.name,
+            "description": t.description,
+            "image": image,
+        }
+        if t.dragon_id:
+            base["dragon_id"] = t.dragon_id
+            base["dragon_name"] = dragon_map.get(t.dragon_id, "")
+            base["source"] = "dragon"
+            if t.id in owned_ids:
+                dragon_collected.append(base)
+            else:
+                dragon_uncollected.append({"id": t.id, "silhouette": image, "source": "dragon"})
+        elif t.family_id:
+            base["family_id"] = t.family_id
+            base["family_name"] = family_map.get(t.family_id, "")
+            base["source"] = "family"
+            if t.id in owned_ids:
+                family_collected.append(base)
+            else:
+                family_uncollected.append({"id": t.id, "silhouette": image, "source": "family"})
+
+    return {
+        "dragon": {"collected": dragon_collected, "uncollected": dragon_uncollected},
+        "family": {"collected": family_collected, "uncollected": family_uncollected},
+        "total": len(treasures),
+    }
 
 
 @router.get("/collection/{vk_id}/legends")

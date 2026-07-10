@@ -72,10 +72,11 @@ def test_collection_treasures_endpoint(client, db):
     assert resp.status_code == 200
     body = resp.json()
     assert body["total"] == 2
-    assert len(body["collected"]) == 1
-    assert body["collected"][0]["name"] == "Owned"
-    assert len(body["uncollected"]) == 1
-    assert "silhouette" in body["uncollected"][0]
+    assert len(body["dragon"]["collected"]) == 1
+    assert body["dragon"]["collected"][0]["name"] == "Owned"
+    assert body["dragon"]["collected"][0]["source"] == "dragon"
+    assert len(body["dragon"]["uncollected"]) == 1
+    assert "silhouette" in body["dragon"]["uncollected"][0]
 
 
 def test_collection_legends_endpoint(client, db):

@@ -320,7 +320,7 @@ def _handle_crosses_check(user, text, attachments, db, send_message, upload_imag
         send_message(msg, attachment=attachment, keyboard=keyboard)
 
         if treasure:
-            t_msg = f"💎 Вы получили сокровище: {treasure.name}!"
+            t_msg = f"💎 В твоей пещере появилось новое сокровище!\nПосмотри его в мини-приложении Мой Бестиарий.\n\nПолучено: {treasure.name}"
             if treasure.description:
                 t_msg += f"\n{treasure.description}"
             t_attach = ""
@@ -336,7 +336,7 @@ def _handle_crosses_check(user, text, attachments, db, send_message, upload_imag
             send_message(t_msg, attachment=t_attach)
 
         for ft in (family_treasures or []):
-            ft_msg = f"🏆 Вы собрали всех драконов семейства! Сокровище семьи: {ft.name}!"
+            ft_msg = f"💎 В твоей пещере появилось новое сокровище!\nПосмотри его в мини-приложении Мой Бестиарий.\n\nСокровище семьи: {ft.name}"
             if ft.description:
                 ft_msg += f"\n{ft.description}"
             ft_attach = ""

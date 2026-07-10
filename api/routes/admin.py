@@ -783,11 +783,20 @@ async def toggle_user_step(vk_id: int, step_number: int, request: Request, db: S
         user.current_dragon_id = None
         user.current_step = 0
 
+        from bot.services.grow_service import award_treasure, award_family_treasures
+        db.commit()
+        treasure = award_treasure(db, vk_id, dragon_id)
+        family_treasures = award_family_treasures(db, vk_id)
+
         msg = (
             f"🎉 Поздравляю! Ты вырастил дракона!\n\n"
             f"⭐ {dragon.name} ⭐\n"
             f"Редкость: {({1: 'обычный', 2: 'редкий', 3: 'легендарный'}).get(dragon.rarity, 'легендарный')} {'⭐' * min(dragon.rarity, 3)}\n"
         )
+        if dragon.family_id:
+            family_row = db.query(Family).filter(Family.id == dragon.family_id).first()
+            if family_row:
+                msg += f"Коллекция: {family_row.name}\n"
         if dragon.description:
             msg += f"\n{dragon.description}\n"
         msg += "\nЗагляни в мини-приложение, чтобы увидеть его в своей коллекции!"
@@ -797,7 +806,35 @@ async def toggle_user_step(vk_id: int, step_number: int, request: Request, db: S
             img_path = os.path.join(os.path.dirname(__file__), "..", "..", "images", "dragons", os.path.basename(dragon.dragon_path))
             attachment = _upload_vk_image(os.path.abspath(img_path))
 
-        _notify_user(vk_id, msg, attachment)
+        idle_kb = json.dumps({
+            "one_time": False,
+            "buttons": [
+                [{"action": {"type": "text", "label": "🥚 Добавить яйцо дракона", "payload": json.dumps({"cmd": "pin"}, ensure_ascii=False)}, "color": "primary"}],
+                [{"action": {"type": "text", "label": "🔄🥚 Сменить яйцо дракона", "payload": json.dumps({"cmd": "garden"}, ensure_ascii=False)}, "color": "secondary"},
+                 {"action": {"type": "text", "label": "❓ Помощь", "payload": json.dumps({"cmd": "help"}, ensure_ascii=False)}, "color": "secondary"}],
+                [{"action": {"type": "open_link", "label": "📖 Мой Бестиарий", "link": "https://vk.com/app54663330"}}],
+            ],
+        }, ensure_ascii=False)
+
+        _notify_user(vk_id, msg, attachment, keyboard=idle_kb)
+        if treasure:
+            t_msg = f"💎 В твоей пещере появилось новое сокровище!\nПосмотри его в мини-приложении Мой Бестиарий.\n\nПолучено: {treasure.name}"
+            if treasure.description:
+                t_msg += f"\n{treasure.description}"
+            t_attach = ""
+            if treasure.image_path:
+                t_path = os.path.join(os.path.dirname(__file__), "..", "..", "images", "dragons", os.path.basename(treasure.image_path))
+                t_attach = _upload_vk_image(os.path.abspath(t_path))
+            _notify_user(vk_id, t_msg, t_attach)
+        for ft in (family_treasures or []):
+            ft_msg = f"💎 В твоей пещере появилось новое сокровище!\nПосмотри его в мини-приложении Мой Бестиарий.\n\nСокровище семьи: {ft.name}"
+            if ft.description:
+                ft_msg += f"\n{ft.description}"
+            ft_attach = ""
+            if ft.image_path:
+                ft_path = os.path.join(os.path.dirname(__file__), "..", "..", "images", "dragons", os.path.basename(ft.image_path))
+                ft_attach = _upload_vk_image(os.path.abspath(ft_path))
+            _notify_user(vk_id, ft_msg, ft_attach)
     else:
         user.current_step = completed_count + 1
         user.state = f"grow_step_{user.current_step}"
@@ -817,7 +854,7 @@ async def toggle_user_step(vk_id: int, step_number: int, request: Request, db: S
     return {"ok": True, "completed": progress.completed, "current_step": user.current_step}
 
 
-def _notify_user(vk_id: int, message: str, attachment: str = ""):
+def _notify_user(vk_id: int, message: str, attachment: str = "", keyboard: str = None):
     """Send a notification message to user via VK bot."""
     try:
         import config
@@ -833,6 +870,8 @@ def _notify_user(vk_id: int, message: str, attachment: str = ""):
         }
         if attachment:
             kwargs["attachment"] = attachment
+        if keyboard:
+            kwargs["keyboard"] = keyboard
         vk.messages.send(**kwargs)
     except Exception:
         pass
@@ -922,6 +961,9 @@ async def skip_step(vk_id: int, request: Request, db: Session = Depends(get_db))
             user.current_dragon_id = None
             user.current_step = 0
         db.commit()
+        from bot.services.grow_service import award_treasure, award_family_treasures
+        award_treasure(db, vk_id, dragon_id)
+        award_family_treasures(db, vk_id)
         return {"ok": True, "new_step": 0}
 
     new_step = next_step + 1

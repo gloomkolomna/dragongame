@@ -326,7 +326,7 @@ def test_grow_message_rare_final_sends_treasure_with_photo(db, monkeypatch):
 
     handle_grow_message(u, "вышито 1500", _photos(), db, send, upload_image)
 
-    treasure_msgs = [(m, kw) for m, kw in sent if "Вы получили сокровище" in m]
+    treasure_msgs = [(m, kw) for m, kw in sent if "пещере появилось новое сокровище" in m]
     assert len(treasure_msgs) == 1
     msg, kw = treasure_msgs[0]
     assert "Кристалл" in msg
@@ -344,7 +344,7 @@ def test_grow_message_rare_final_no_treasure_only_savings(db):
 
     handle_grow_message(u, "вышито 1500", _photos(), db, send)
 
-    assert not any("Вы получили сокровище" in m for m in sent)
+    assert not any("пещере появилось новое сокровище" in m for m in sent)
     db.refresh(u)
     assert u.stitches_balance == 1500
 
