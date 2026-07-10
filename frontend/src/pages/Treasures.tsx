@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useVkBridge } from '../context/VkBridgeContext';
 import client from '../api/client';
 import { mediaUrl } from '../api/media';
@@ -40,11 +41,24 @@ function Treasures() {
   const [load, setLoad] = useState(true);
   const [detail, setDetail] = useState<CollectedTreasure | null>(null);
   const [tab, setTab] = useState<Tab>('dragon');
+  const nav = useNavigate();
+  const [params] = useSearchParams();
 
   useEffect(() => {
     if (bl || !vkUserId) { setLoad(false); return; }
     client.get(`/collection/${vkUserId}/treasures`)
-      .then((r) => setData(r.data))
+      .then((r) => {
+        setData(r.data);
+        const tid = params.get('treasure');
+        if (tid) {
+          const all = [...r.data.dragon.collected, ...r.data.family.collected];
+          const found = all.find((t: CollectedTreasure) => t.id === Number(tid));
+          if (found) {
+            setTab(found.source === 'family' ? 'family' : 'dragon');
+            setDetail(found);
+          }
+        }
+      })
       .catch(() => setData(null))
       .finally(() => setLoad(false));
   }, [vkUserId, bl]);
@@ -100,25 +114,32 @@ function Treasures() {
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 12 }}>
         {section.collected.map((t) => (
-          <div key={`c${t.id}`} className="lair-card" style={{ textAlign: 'center', padding: 12 }}>
+          <div key={`c${t.id}`} className="lair-grid-cell" onClick={() => setDetail(t)}
+               style={{ position: 'relative', overflow: 'hidden', cursor: 'pointer', padding: 0, minHeight: 160, border: '2px solid var(--bronze)', background: 'var(--bg-card)' }}>
             {t.image && (
-              <img src={mediaUrl(t.image)} alt="" onClick={() => setDetail(t)}
-                   style={{ width: '100%', maxHeight: 140, objectFit: 'contain', borderRadius: 8, cursor: 'pointer' }}
+              <img src={mediaUrl(t.image)} alt=""
+                   style={{ width: '100%', height: '100%', objectFit: 'cover', position: 'absolute', inset: 0 }}
                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
             )}
-            <div style={{ color: 'var(--gold)', fontWeight: 600, marginTop: 8 }}>{t.name}</div>
-            {t.description && <div style={{ fontSize: 13, color: 'var(--parchment-dim)', marginTop: 4 }}>{t.description}</div>}
-            {t.dragon_name && <div style={{ fontSize: 12, color: 'var(--parchment-faded)', marginTop: 2 }}>{t.dragon_name}</div>}
-            {t.family_name && <div style={{ fontSize: 12, color: 'var(--parchment-faded)', marginTop: 2 }}>{t.family_name}</div>}
+            <div style={{
+              position: 'absolute', bottom: 0, left: 0, right: 0,
+              padding: '5px 8px', background: 'rgba(21,15,26,0.78)',
+              fontSize: 14, color: 'var(--gold)', textAlign: 'center',
+              whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontWeight: 600,
+            }}>
+              {t.name}
+            </div>
           </div>
         ))}
         {section.uncollected.map((t) => (
-          <div key={`u${t.id}`} className="lair-card" style={{ textAlign: 'center', padding: 12, opacity: 0.65 }}>
-            <div style={{ position: 'relative' }}>
+          <div key={`u${t.id}`} className="lair-grid-cell"
+               style={{ position: 'relative', overflow: 'hidden', padding: 0, minHeight: 160, border: '2px solid var(--bronze)', background: 'var(--bg-card)', opacity: 0.65 }}>
+            <div style={{ position: 'relative', width: '100%', height: '100%', minHeight: 160 }}>
               {t.silhouette ? (
-                <img src={mediaUrl(t.silhouette)} alt="" style={{ width: '100%', maxHeight: 140, objectFit: 'contain', borderRadius: 8, filter: 'brightness(0) opacity(0.55)' }} />
+                <img src={mediaUrl(t.silhouette)} alt=""
+                     style={{ width: '100%', height: '100%', objectFit: 'cover', position: 'absolute', inset: 0, filter: 'brightness(0) opacity(0.55)' }} />
               ) : (
-                <div style={{ height: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 40 }}>💎</div>
+                <div style={{ height: 160, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 40 }}>💎</div>
               )}
               <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 40, color: 'var(--parchment-dim)' }}>?</div>
             </div>
@@ -143,8 +164,15 @@ function Treasures() {
             </div>
             <div style={{ padding: '20px 20px 24px' }}>
               <div style={{ color: 'var(--gold)', fontFamily: 'var(--font-title)', fontSize: 20, fontWeight: 700, letterSpacing: 0.5 }}>{detail.name}</div>
-              {detail.dragon_name && <div style={{ color: 'var(--parchment-faded)', fontSize: 14, marginTop: 4 }}>🐉 {detail.dragon_name}</div>}
-              {detail.family_name && <div style={{ color: 'var(--parchment-faded)', fontSize: 14, marginTop: 4 }}>📂 {detail.family_name}</div>}
+              {detail.dragon_name && detail.dragon_id && (
+                <div onClick={() => { setDetail(null); nav(`/dragon/${detail.dragon_id}`); }}
+                     style={{ color: 'var(--fire)', fontSize: 14, marginTop: 4, cursor: 'pointer', textDecoration: 'underline' }}>
+                  🐉 {detail.dragon_name}
+                </div>
+              )}
+              {detail.family_name && (
+                <div style={{ color: 'var(--parchment-faded)', fontSize: 14, marginTop: 4 }}>📂 {detail.family_name}</div>
+              )}
               {detail.description && (
                 <div style={{ color: 'var(--parchment-dim)', fontSize: 15, marginTop: 14, lineHeight: 1.6, borderTop: '1px solid var(--bronze)', paddingTop: 14 }}>{detail.description}</div>
               )}

@@ -5,7 +5,8 @@ import client from '../api/client';
 import { mediaUrl } from '../api/media';
 
 interface Step { number: number; task: string; completed: boolean; }
-interface Dragon { is_revealed: boolean; name?: string; rarity?: number; egg_type: string; steps_count: number; description?: string; dragon_url?: string; egg_url?: string; next_step_available_at?: string; family_color?: string; user_progress: { status: string; completed_steps: number; steps: Step[] }; }
+interface TreasureInfo { id: number; name: string; description: string; image: string; }
+interface Dragon { is_revealed: boolean; name?: string; rarity?: number; egg_type: string; steps_count: number; description?: string; dragon_url?: string; egg_url?: string; next_step_available_at?: string; family_color?: string; treasure?: TreasureInfo | null; user_progress: { status: string; completed_steps: number; steps: Step[] }; }
 interface LegendFrag { number: number; opened: boolean; task: string; assignment: string; image: string; }
 interface Legend { has_legend: boolean; dragon_id: number; cover: string; name: string; all_completed: boolean; full_text: string; fragments: LegendFrag[]; }
 
@@ -60,6 +61,13 @@ function DragonDetail() {
         </h2>
         {d.is_revealed && <div style={{ color: 'var(--text-secondary)', fontSize: 21, fontWeight: 600, marginBottom: 12 }}>Редкость: <span style={{ color: 'var(--gold)' }}>{RARITY[d.rarity ?? 1] ?? 'Легендарный'}</span></div>}
         {d.is_revealed && d.description && <p style={{ color: 'var(--text-secondary)', fontSize: 21, fontWeight: 600 }}>{d.description}</p>}
+        {d.treasure && (
+          <div onClick={() => nav(`/cave?treasure=${d.treasure!.id}`)}
+               style={{ display: 'inline-flex', alignItems: 'center', gap: 8, cursor: 'pointer', marginTop: 10, padding: '8px 16px', borderRadius: 10, border: '1px solid var(--bronze)', background: 'rgba(21,15,26,0.5)' }}>
+            {d.treasure.image && <img src={mediaUrl(d.treasure.image)} alt="" style={{ width: 28, height: 28, objectFit: 'contain', borderRadius: 4 }} />}
+            <span style={{ color: 'var(--gold)', fontSize: 16, fontWeight: 600 }}>💎 {d.treasure.name}</span>
+          </div>
+        )}
       </div>
 
       {!d.is_revealed && d.user_progress.completed_steps > 0 && (

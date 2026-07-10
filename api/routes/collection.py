@@ -413,6 +413,24 @@ def get_dragon(
 
     family = db.query(Family).filter(Family.id == dragon.family_id).first() if dragon.family_id else None
 
+    from models import Treasure, UserTreasure
+    treasure_info = None
+    if revealed:
+        t = db.query(Treasure).filter(
+            Treasure.dragon_id == dragon_id, Treasure.is_active == True
+        ).first()
+        if t:
+            owned = db.query(UserTreasure).filter(
+                UserTreasure.user_id == vk_id, UserTreasure.treasure_id == t.id
+            ).first()
+            if owned:
+                treasure_info = {
+                    "id": t.id,
+                    "name": t.name,
+                    "description": t.description,
+                    "image": f"/api/static/images/{t.image_path}" if t.image_path else "",
+                }
+
     return {
         "is_revealed": revealed,
         "name": dragon.name if revealed else None,
@@ -424,6 +442,7 @@ def get_dragon(
         "egg_url": f"/api/static/images/{dragon.egg_path}" if not revealed and dragon.egg_path else None,
         "next_step_available_at": next_step_available_at,
         "family_color": family.color if family else None,
+        "treasure": treasure_info,
         "user_progress": {
             "status": "completed" if revealed else ("growing" if completed_steps > 0 else "locked"),
             "completed_steps": completed_steps,
