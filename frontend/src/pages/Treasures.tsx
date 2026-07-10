@@ -40,6 +40,7 @@ function Treasures() {
   const [data, setData] = useState<TreasuresView | null>(null);
   const [load, setLoad] = useState(true);
   const [detail, setDetail] = useState<CollectedTreasure | null>(null);
+  const [zoomImg, setZoomImg] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>('dragon');
   const nav = useNavigate();
   const [params] = useSearchParams();
@@ -154,8 +155,8 @@ function Treasures() {
                style={{ maxWidth: 400, width: '100%', padding: 0, overflow: 'hidden', cursor: 'default' }}>
             <div style={{ position: 'relative' }}>
               {detail.image && (
-                <img src={mediaUrl(detail.image)} alt=""
-                     style={{ width: '100%', maxHeight: 320, objectFit: 'contain', display: 'block', borderTopLeftRadius: 24, borderTopRightRadius: 24, background: 'rgba(0,0,0,0.3)' }} />
+                <img src={mediaUrl(detail.image)} alt="" onClick={(e) => { e.stopPropagation(); setZoomImg(mediaUrl(detail.image)); }}
+                     style={{ width: '100%', maxHeight: 320, objectFit: 'contain', display: 'block', borderTopLeftRadius: 24, borderTopRightRadius: 24, background: 'rgba(0,0,0,0.3)', cursor: 'pointer' }} />
               )}
               <button onClick={() => setDetail(null)}
                       style={{ position: 'absolute', top: 8, right: 8, width: 36, height: 36, borderRadius: '50%', border: '2px solid var(--bronze)', background: 'rgba(21,15,26,0.85)', color: 'var(--gold)', fontSize: 18, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1 }}>
@@ -178,6 +179,16 @@ function Treasures() {
               )}
             </div>
           </div>
+        </div>
+      )}
+
+      {zoomImg && (
+        <div onClick={() => setZoomImg(null)}
+             style={{ position: 'fixed', inset: 0, zIndex: 1100, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+          <img src={zoomImg} alt="" onClick={(e) => e.stopPropagation()}
+               style={{ maxWidth: '90vw', maxHeight: '90vh', objectFit: 'contain', borderRadius: 8, boxShadow: '0 0 60px rgba(153,102,255,0.3)' }} />
+          <button onClick={() => setZoomImg(null)}
+                  style={{ position: 'absolute', top: 16, right: 16, background: 'none', border: 'none', color: '#fff', fontSize: 32, cursor: 'pointer', lineHeight: 1 }}>✕</button>
         </div>
       )}
     </div>
