@@ -9,7 +9,10 @@ interface Treasure {
   name: string;
   description: string;
   image_path: string;
-  dragon_id: number;
+  dragon_id: number | null;
+  dragon_name: string | null;
+  family_id: number | null;
+  family_name: string | null;
   is_active: boolean;
 }
 
@@ -17,7 +20,7 @@ const COLUMNS: Column<Treasure>[] = [
   { key: 'image', label: '', width: 60 },
   { key: 'name', label: 'Название', value: (t) => t.name, filter: 'text' },
   { key: 'description', label: 'Описание', value: (t) => t.description, filter: 'text' },
-  { key: 'dragon', label: 'Дракон', value: (t) => `#${t.dragon_id}`, sortValue: (t) => t.dragon_id },
+  { key: 'source', label: 'За', value: (t) => t.dragon_name ? `🐉 ${t.dragon_name}` : t.family_name ? `🏛 ${t.family_name}` : '—', filter: 'text', sortValue: (t) => t.dragon_name || t.family_name || '' },
   { key: 'actions', label: '', width: 60 },
 ];
 
@@ -31,6 +34,12 @@ function TreasuresList() {
     client.get('/admin/treasures').then((r) => setItems(r.data)).finally(() => setLoading(false));
   }, []);
 
+  const editLink = (tr: Treasure) => {
+    if (tr.dragon_id) return `/admin/dragons/${tr.dragon_id}/treasure`;
+    if (tr.family_id) return `/admin/families/${tr.family_id}/treasure`;
+    return '#';
+  };
+
   return (
     <>
       <div className="lair-header" style={{ display: 'flex', alignItems: 'center' }}>
@@ -41,7 +50,7 @@ function TreasuresList() {
         {loading ? (
           <div className="lair-skeleton" />
         ) : items.length === 0 ? (
-          <div className="lair-card"><p style={{ color: 'var(--text-secondary)' }}>Сокровищ пока нет. Нажми «➕ Создать» выше или создай сокровище из карточки редкого дракона.</p></div>
+          <div className="lair-card"><p style={{ color: 'var(--text-secondary)' }}>Сокровищ пока нет.</p></div>
         ) : (
           <>
             <TableToolbar controls={t} />
@@ -50,12 +59,12 @@ function TreasuresList() {
                 <DataTableHead controls={t} allRows={items} />
                 <tbody>
                   {t.rows.map((tr) => (
-                    <tr key={tr.id} className="clickable" onClick={() => nav(`/admin/dragons/${tr.dragon_id}/treasure`)}>
+                    <tr key={tr.id} className="clickable" onClick={() => nav(editLink(tr))}>
                       <td>{tr.image_path && <img src={`/dragons${tr.image_path}`} alt="" style={{ width: 48, height: 48, objectFit: 'contain', borderRadius: 6 }} onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />}</td>
                       <td>{tr.name}</td>
                       <td style={{ color: 'var(--text-muted)', fontSize: 13 }}>{tr.description}</td>
-                      <td>#{tr.dragon_id}</td>
-                      <td><button className="lair-btn lair-btn-sm lair-btn-outline" onClick={(e) => { e.stopPropagation(); nav(`/admin/dragons/${tr.dragon_id}/treasure`); }}>✎</button></td>
+                      <td>{tr.dragon_name ? `🐉 ${tr.dragon_name}` : tr.family_name ? `🏛 ${tr.family_name}` : '—'}</td>
+                      <td><button className="lair-btn lair-btn-sm lair-btn-outline" onClick={(e) => { e.stopPropagation(); nav(editLink(tr)); }}>✎</button></td>
                     </tr>
                   ))}
                   {t.rows.length === 0 && <tr><td colSpan={5} style={{ textAlign: 'center', color: 'var(--text-muted)', padding: 16 }}>Ничего не найдено</td></tr>}

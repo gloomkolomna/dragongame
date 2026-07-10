@@ -27,7 +27,7 @@ def get_shop(vk_id: int, db: Session = Depends(get_db)):
                 "description": it.description,
                 "cost_stitches": it.cost_stitches,
                 "image_path": f"/api/static/images/{it.image_path}" if it.image_path else "",
-                "character_effect": it.character_effect,
+                "is_consumable": it.is_consumable,
                 "is_optional": it.is_optional,
                 "owned": it.id in owned,
             }
@@ -45,7 +45,7 @@ def get_inventory_route(vk_id: int, db: Session = Depends(get_db)):
             "name": it.name,
             "description": it.description,
             "image_path": f"/api/static/images/{it.image_path}" if it.image_path else "",
-            "character_effect": it.character_effect,
+            "is_consumable": it.is_consumable,
             "quantity": qty,
         }
         for it, qty in get_inventory(db, vk_id)
@@ -164,6 +164,7 @@ def get_legends(vk_id: int, db: Session = Depends(get_db)):
 @router.get("/collection/{vk_id}/epic")
 def get_epic_view(vk_id: int, db: Session = Depends(get_db)):
     from services import epic_service
+    from services.character_service import character_summary
     dragon = epic_service.get_epic_dragon(db, vk_id)
     if not dragon:
         return {"has_epic": False}
@@ -171,10 +172,10 @@ def get_epic_view(vk_id: int, db: Session = Depends(get_db)):
     name = epic_service.get_epic_name(db, vk_id)
     care = epic_service.get_care(db, vk_id)
     moodlets = [
-        {"key": m.key, "title": m.title}
+        {"key": m.key, "title": m.title, "polarity": m.polarity, "text": m.text}
         for m in epic_service.get_moodlets(db, vk_id)
     ]
-    character = epic_service.character_effects(db, vk_id)
+    character = character_summary(db, care.user_dragon_id) if care else []
     base = {
         "has_epic": True,
         "name": name,

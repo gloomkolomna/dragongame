@@ -9,10 +9,12 @@ const NAV_ITEMS = [
   { path: '/admin/treasures', label: 'Сокровища', icon: '💎' },
   { path: '/admin/epic', label: 'Эпические драконы', icon: '🐲' },
   { path: '/admin/shop', label: 'Магазин', icon: '🛒' },
+  { path: '/admin/character-axes', label: 'Черты характера', icon: '🎭' },
   { path: '/admin/finance', label: 'Финансы', icon: '💳' },
   { path: '/admin/grid', label: 'Сетка', icon: '📐' },
   { path: '/admin/users', label: 'Игроки', icon: '👥' },
   { path: '/admin/suspicious', label: 'Подозрительные', icon: '⚠' },
+  { path: '/admin/intro', label: 'Вступительная история', icon: '📖' },
   { path: '/admin/logs', label: 'Логи', icon: '📋' },
 ];
 

@@ -153,6 +153,56 @@ def award_treasure(db, vk_id: int, dragon_id: int):
     return treasure
 
 
+def award_family_treasures(db, vk_id: int):
+    from models import Dragon, Family, Treasure, UserTreasure, UserDragon
+
+    user_dragon_ids = {
+        ud.dragon_id for ud in db.query(UserDragon).filter(
+            UserDragon.user_id == vk_id,
+            UserDragon.completed_at.isnot(None),
+        ).all()
+    }
+    if not user_dragon_ids:
+        return []
+
+    families = {
+        f.id: f for f in db.query(Family).all()
+    }
+    dragons = db.query(Dragon).filter(Dragon.id.in_(user_dragon_ids)).all()
+    family_dragons: dict[int, set] = {}
+    for d in dragons:
+        f = families.get(d.family_id)
+        if f:
+            family_dragons.setdefault(f.id, set()).add(d.id)
+
+    awarded = []
+    for fid, completed_ids in family_dragons.items():
+        all_in_family = {d.id for d in db.query(Dragon).filter(
+            Dragon.family_id == fid, Dragon.is_active == True
+        ).all()}
+        if not all_in_family:
+            continue
+        if not all_in_family.issubset(completed_ids):
+            continue
+        treasure = db.query(Treasure).filter(
+            Treasure.family_id == fid, Treasure.is_active == True
+        ).first()
+        if not treasure:
+            continue
+        existing = db.query(UserTreasure).filter(
+            UserTreasure.user_id == vk_id,
+            UserTreasure.treasure_id == treasure.id,
+        ).first()
+        if existing:
+            continue
+        db.add(UserTreasure(user_id=vk_id, treasure_id=treasure.id))
+        awarded.append(treasure)
+
+    if awarded:
+        db.commit()
+    return awarded
+
+
 def complete_dragon(db, vk_id: int, dragon_id: int):
     from models import UserDragon
     ud = db.query(UserDragon).filter(
@@ -163,7 +213,9 @@ def complete_dragon(db, vk_id: int, dragon_id: int):
         ud.next_step_available_at = None
         ud.timeout_notified = False
         db.commit()
-    return award_treasure(db, vk_id, dragon_id)
+    treasure = award_treasure(db, vk_id, dragon_id)
+    family_treasures = award_family_treasures(db, vk_id)
+    return treasure, family_treasures
 
 
 def get_anti_cheat_multiplier() -> int:

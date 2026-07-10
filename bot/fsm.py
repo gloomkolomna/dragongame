@@ -106,3 +106,36 @@ def is_epic_care_waiting(state: str) -> bool:
     return state.startswith("epic_care_") and any(
         state.endswith(suf) for suf in ("_norm", "_x2")
     )
+
+
+def epic_care_sub_state(stage_id: int, suffix: str = "") -> str:
+    base = f"epic_care_{stage_id}_sub"
+    return f"{base}_{suffix}" if suffix else base
+
+
+def is_epic_care_sub(state: str) -> bool:
+    return state.startswith("epic_care_") and "_sub" in state
+
+
+def is_epic_care_sub_waiting(state: str) -> bool:
+    return state.startswith("epic_care_") and "_sub" in state and any(
+        state.endswith(suf) for suf in ("_norm", "_x2")
+    )
+
+
+def intro_chapter_state(chapter: int) -> str:
+    return f"intro_chapter_{chapter}"
+
+
+def is_intro_chapter(state: str) -> bool:
+    return state.startswith("intro_chapter_")
+
+
+def intro_chapter_from_state(state: str) -> int:
+    if state.startswith("intro_chapter_"):
+        parts = state.split("_")
+        try:
+            return int(parts[2])
+        except (ValueError, IndexError):
+            pass
+    return 0

@@ -3,6 +3,8 @@ from models import (
     ShopItem, StageShopItem, UserInventory, SuspiciousReport,
     EpicStage, EpicStageAction, EpicCareState,
     StageChoiceBlock, StageChoiceOption, UserStageChoice, EpicMoodlet,
+    CharacterAxis, CharacterBalance,
+    EpicSubAction, EpicSubActionItem, EpicSubActionStep, EpicSubActionOutcome,
 )
 
 
@@ -253,3 +255,121 @@ def test_epic_moodlet(db):
     db.add(moodlet)
     db.commit()
     assert moodlet.id is not None
+
+
+def test_character_axis(db):
+    ax = CharacterAxis(positive_label="Добрый", negative_label="Злой", sort_order=1, is_active=True)
+    db.add(ax)
+    db.commit()
+    assert ax.id is not None
+    assert ax.positive_label == "Добрый"
+    assert ax.negative_label == "Злой"
+
+
+def test_character_balance(db):
+    user = User(vk_id=7000)
+    dragon = Dragon(name="F", rarity=1, steps_count=1, is_active=True)
+    db.add(user)
+    db.add(dragon)
+    db.flush()
+    ax = CharacterAxis(positive_label="Сильный", negative_label="Слабый")
+    db.add(ax)
+    db.flush()
+    ud = UserDragon(user_id=user.vk_id, dragon_id=dragon.id)
+    db.add(ud)
+    db.flush()
+    cb = CharacterBalance(user_dragon_id=ud.id, axis_id=ax.id, score=5)
+    db.add(cb)
+    db.commit()
+    assert cb.id is not None
+    assert cb.score == 5
+
+
+def test_epic_sub_action(db):
+    user = User(vk_id=8000)
+    dragon = Dragon(name="G", rarity=1, steps_count=1, is_active=True, is_epic=True)
+    stage = EpicStage(stage_number=1, name="S1")
+    db.add(user)
+    db.add(dragon)
+    db.add(stage)
+    db.flush()
+    action = EpicStageAction(dragon_id=dragon.id, stage_id=stage.id, action_label="Выходной", action_type="composite")
+    db.add(action)
+    db.flush()
+    ax = CharacterAxis(positive_label="Весёлый", negative_label="Грустный")
+    db.add(ax)
+    db.flush()
+    sa = EpicSubAction(action_id=action.id, label="На рыбалку", character_axis_id=ax.id)
+    db.add(sa)
+    db.commit()
+    assert sa.id is not None
+    assert sa.character_axis_id == ax.id
+
+
+def test_epic_sub_action_step(db):
+    user, dragon, stage = _epic_fixture(db)
+    action = EpicStageAction(dragon_id=dragon.id, stage_id=stage.id, action_label="Test", action_type="composite")
+    db.add(action)
+    db.flush()
+    sa = EpicSubAction(action_id=action.id, label="Поддействие")
+    db.add(sa)
+    db.flush()
+    step = EpicSubActionStep(sub_action_id=sa.id, step_label="Шаг 1", order=1, crosses_norm=500)
+    db.add(step)
+    db.commit()
+    assert step.id is not None
+    assert step.crosses_norm == 500
+
+
+def test_epic_sub_action_outcome(db):
+    user, dragon, stage = _epic_fixture(db)
+    action = EpicStageAction(dragon_id=dragon.id, stage_id=stage.id, action_label="Test", action_type="composite")
+    db.add(action)
+    db.flush()
+    sa = EpicSubAction(action_id=action.id, label="Поддействие")
+    db.add(sa)
+    db.flush()
+    o1 = EpicSubActionOutcome(sub_action_id=sa.id, polarity="positive", moodlet_title="Ура!")
+    o2 = EpicSubActionOutcome(sub_action_id=sa.id, polarity="negative", moodlet_title="Увы")
+    db.add(o1)
+    db.add(o2)
+    db.commit()
+    assert o1.id is not None
+    assert o2.id is not None
+    assert o1.polarity == "positive"
+
+
+def test_shop_item_is_consumable(db):
+    item = ShopItem(name="Инструмент", is_consumable=False, is_active=True)
+    db.add(item)
+    db.commit()
+    assert item.is_consumable is False
+
+
+def test_epic_care_state_sub_fields(db):
+    user, dragon, stage = _epic_fixture(db)
+    action = EpicStageAction(dragon_id=dragon.id, stage_id=stage.id, action_label="Test", action_type="composite")
+    db.add(action)
+    db.flush()
+    sa = EpicSubAction(action_id=action.id, label="Поддействие")
+    db.add(sa)
+    db.flush()
+    ud = UserDragon(user_id=user.vk_id, dragon_id=dragon.id)
+    db.add(ud)
+    db.flush()
+    care = EpicCareState(user_dragon_id=ud.id, stage_id=stage.id, current_sub_action_id=sa.id, current_step_order=2, sub_had_penalty=True)
+    db.add(care)
+    db.commit()
+    assert care.current_sub_action_id == sa.id
+    assert care.current_step_order == 2
+    assert care.sub_had_penalty is True
+
+
+def _epic_fixture(db):
+    user = User(vk_id=9000)
+    dragon = Dragon(name="H", rarity=1, steps_count=1, is_active=True, is_epic=True)
+    stage = EpicStage(stage_number=1, name="S1")
+    for obj in [user, dragon, stage]:
+        db.add(obj)
+    db.flush()
+    return user, dragon, stage

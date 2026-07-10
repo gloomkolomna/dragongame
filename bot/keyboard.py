@@ -212,3 +212,45 @@ def shop_keyboard(buyable_items, page, total_pages):
     buttons.append(garden_row())
     buttons.append(bestiary_link_row())
     return _keyboard(buttons)
+
+
+def sub_action_keyboard(sub_actions, missing_map):
+    buttons = []
+    for sa in sub_actions:
+        missing = missing_map.get(sa.id, [])
+        if missing:
+            label = f"🔒 {sa.label}"
+        else:
+            label = f"✅ {sa.label}"
+        buttons.append([{
+            "action": {
+                "type": "text",
+                "label": label[:40],
+                "payload": json.dumps({"cmd": "choose_sub", "sub_id": sa.id}, ensure_ascii=False),
+            },
+            "color": "positive" if not missing else "secondary",
+        }])
+    buttons.append(row(("🛒 Магазин", "shop")))
+    buttons.append(bestiary_link_row())
+    return _keyboard(buttons)
+
+
+def sub_step_keyboard():
+    return _keyboard([
+        [{"action": {"type": "text", "label": "🎯 Норма", "payload": json.dumps({"cmd": "norm"}, ensure_ascii=False)}, "color": "positive"}],
+        [{"action": {"type": "text", "label": "⚡ Штраф (x2)", "payload": json.dumps({"cmd": "x2"}, ensure_ascii=False)}, "color": "negative"}],
+        bestiary_link_row(),
+    ])
+
+
+def outcome_keyboard():
+    return _keyboard([
+        row(("▶ Продолжить", "grow")),
+    ])
+
+
+def intro_keyboard():
+    return _keyboard([
+        [{"action": {"type": "text", "label": "📖 Читать дальше", "payload": json.dumps({"cmd": "intro_next"}, ensure_ascii=False)}, "color": "primary"}],
+        bestiary_link_row(),
+    ])

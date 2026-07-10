@@ -171,7 +171,7 @@ class ShopItem(Base):
     cost_stitches = Column(Integer, default=0)
     category = Column(String, default="")
     image_path = Column(String, default="")
-    character_effect = Column(String, default="")
+    is_consumable = Column(Boolean, default=True)
     sort_order = Column(Integer, default=0)
     is_active = Column(Boolean, default=True)
     is_legend_book = Column(Boolean, default=False)
@@ -222,6 +222,7 @@ class EpicStageAction(Base):
     hint = Column(Text, default="")
     crosses_norm = Column(Integer, default=1000)
     image_path = Column(String, default="")
+    action_type = Column(String, default="simple")
     timeout_hours = Column(Integer, default=24)
     timeout_minutes = Column(Integer, default=0)
 
@@ -240,9 +241,80 @@ class EpicCareState(Base):
     user_dragon_id = Column(Integer, ForeignKey("user_dragons.id", ondelete="CASCADE"), nullable=False)
     stage_id = Column(Integer, ForeignKey("epic_stages.id", ondelete="SET NULL"), nullable=True)
     current_action_order = Column(Integer, default=0)
+    current_sub_action_id = Column(Integer, ForeignKey("epic_sub_actions.id", ondelete="SET NULL"), nullable=True)
+    current_step_order = Column(Integer, default=0)
+    sub_had_penalty = Column(Boolean, default=False)
     next_action_at = Column(String, nullable=True, default=None)
     care_notified = Column(Boolean, default=False)
     cycles_completed = Column(Integer, default=0)
+
+
+# ─── Характер (оси + баланс) ───
+
+class CharacterAxis(Base):
+    __tablename__ = "character_axes"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    positive_label = Column(String, default="")
+    negative_label = Column(String, default="")
+    sort_order = Column(Integer, default=0)
+    is_active = Column(Boolean, default=True)
+
+
+class CharacterBalance(Base):
+    __tablename__ = "character_balance"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_dragon_id = Column(Integer, ForeignKey("user_dragons.id", ondelete="CASCADE"), nullable=False)
+    axis_id = Column(Integer, ForeignKey("character_axes.id", ondelete="CASCADE"), nullable=False)
+    score = Column(Integer, default=0)
+    __table_args__ = (UniqueConstraint("user_dragon_id", "axis_id"),)
+
+
+# ─── Составные действия (composite) ───
+
+class EpicSubAction(Base):
+    __tablename__ = "epic_sub_actions"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    action_id = Column(Integer, ForeignKey("epic_stage_actions.id", ondelete="CASCADE"), nullable=False)
+    label = Column(String, default="")
+    description = Column(Text, default="")
+    order_in_sub = Column(Integer, default=0)
+    image_path = Column(String, default="")
+    character_axis_id = Column(Integer, ForeignKey("character_axes.id", ondelete="SET NULL"), nullable=True)
+    __table_args__ = (UniqueConstraint("action_id", "label"),)
+
+
+class EpicSubActionItem(Base):
+    __tablename__ = "epic_sub_action_items"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    sub_action_id = Column(Integer, ForeignKey("epic_sub_actions.id", ondelete="CASCADE"), nullable=False)
+    item_id = Column(Integer, ForeignKey("shop_items.id", ondelete="CASCADE"), nullable=False)
+    __table_args__ = (UniqueConstraint("sub_action_id", "item_id"),)
+
+
+class EpicSubActionStep(Base):
+    __tablename__ = "epic_sub_action_steps"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    sub_action_id = Column(Integer, ForeignKey("epic_sub_actions.id", ondelete="CASCADE"), nullable=False)
+    step_label = Column(String, default="")
+    order = Column(Integer, default=0)
+    task = Column(Text, default="")
+    hint = Column(Text, default="")
+    crosses_norm = Column(Integer, default=1000)
+    image_path = Column(String, default="")
+    timeout_hours = Column(Integer, default=24)
+    timeout_minutes = Column(Integer, default=0)
+
+
+class EpicSubActionOutcome(Base):
+    __tablename__ = "epic_sub_action_outcomes"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    sub_action_id = Column(Integer, ForeignKey("epic_sub_actions.id", ondelete="CASCADE"), nullable=False)
+    polarity = Column(String, default="positive")
+    label = Column(String, default="")
+    moodlet_title = Column(String, default="")
+    moodlet_text = Column(Text, default="")
+    image_path = Column(String, default="")
+    __table_args__ = (UniqueConstraint("sub_action_id", "polarity"),)
 
 
 # ─── Эпический дракон: выборы на стадии ───
@@ -291,6 +363,9 @@ class EpicMoodlet(Base):
     user_dragon_id = Column(Integer, ForeignKey("user_dragons.id", ondelete="CASCADE"), nullable=False)
     key = Column(String, default="")
     title = Column(String, default="")
+    polarity = Column(String, default="positive")
+    text = Column(Text, default="")
+    axis_id = Column(Integer, ForeignKey("character_axes.id", ondelete="SET NULL"), nullable=True)
     stage_id = Column(Integer, ForeignKey("epic_stages.id", ondelete="SET NULL"), nullable=True)
     acquired_at = Column(String, default="")
 
@@ -303,7 +378,8 @@ class Treasure(Base):
     name = Column(String, nullable=False)
     description = Column(Text, default="")
     image_path = Column(String, default="")
-    dragon_id = Column(Integer, ForeignKey("dragons.id", ondelete="CASCADE"), unique=True, nullable=False)
+    dragon_id = Column(Integer, ForeignKey("dragons.id", ondelete="CASCADE"), unique=True, nullable=True)
+    family_id = Column(Integer, ForeignKey("families.id", ondelete="CASCADE"), nullable=True, default=None)
     is_active = Column(Boolean, default=True)
 
 
@@ -361,3 +437,12 @@ class DonorCache(Base):
     don_since = Column(String, nullable=True)
     updated_at = Column(String, default="")
     last_synced_at = Column(String, default="")
+
+
+class IntroChapter(Base):
+    __tablename__ = "intro_chapters"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    chapter_number = Column(Integer, nullable=False, unique=True)
+    text = Column(Text, default="")
+    image_path = Column(String, default="")
+    is_active = Column(Boolean, default=True)

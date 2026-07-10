@@ -42,7 +42,7 @@ def _attach_egg(db, user, dragon, upload_image):
 
 def handle_start(user, db, send_message):
     if user.state == IDLE or not user.current_dragon_id:
-        from models import UserDragon
+        from models import UserDragon, IntroChapter
         has_any = db.query(UserDragon).filter(UserDragon.user_id == user.vk_id).first() is not None
         if has_any:
             send_message(
@@ -51,10 +51,16 @@ def handle_start(user, db, send_message):
                 "Купил яйцо? Нажми «🥚 Добавить яйцо дракона» и введи PIN-код."
             )
         else:
-            send_message(
-                "🐉 У тебя пока нет драконов.\n"
-                "Нажми «🥚 Добавить яйцо дракона» чтобы начать выращивание."
-            )
+            has_intro = db.query(IntroChapter).filter(IntroChapter.is_active == True).first() is not None
+            if has_intro:
+                from bot.handlers.intro import start_intro
+                start_intro(user, db, send_message)
+                return
+            else:
+                send_message(
+                    "🐉 У тебя пока нет драконов.\n"
+                    "Нажми «🥚 Добавить яйцо дракона» чтобы начать выращивание."
+                )
     else:
         dragon = db.query(Dragon).filter(Dragon.id == user.current_dragon_id).first()
         if not dragon:

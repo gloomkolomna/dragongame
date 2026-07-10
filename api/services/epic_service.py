@@ -6,6 +6,8 @@ from models import (
     User, Dragon, UserDragon, UserProgress, DragonStep,
     EpicStage, EpicStageAction, EpicActionItem, EpicCareState,
     UserInventory, EpicMoodlet, ShopItem,
+    CharacterAxis, CharacterBalance,
+    EpicSubAction, EpicSubActionItem, EpicSubActionStep, EpicSubActionOutcome,
 )
 
 
@@ -343,18 +345,150 @@ def advance_care(db, care):
     return event
 
 
-# ─── Character + finale + restart ───
+# ─── Composite actions (sub-actions → steps → outcome) ───
 
-def character_effects(db, vk_id):
-    rows = db.query(UserInventory).filter(UserInventory.user_id == vk_id).all()
-    effects = []
-    for inv in rows:
-        item = db.query(ShopItem).filter(ShopItem.id == inv.item_id).first()
-        if item and item.character_effect:
-            eff = item.character_effect.strip()
-            if eff and eff not in effects:
-                effects.append(eff)
-    return effects
+def get_sub_actions(db, action_id):
+    return (
+        db.query(EpicSubAction)
+        .filter(EpicSubAction.action_id == action_id)
+        .order_by(EpicSubAction.order_in_sub, EpicSubAction.id)
+        .all()
+    )
+
+
+def get_sub_action(db, sub_id):
+    return db.query(EpicSubAction).filter(EpicSubAction.id == sub_id).first()
+
+
+def get_sub_steps(db, sub_id):
+    return (
+        db.query(EpicSubActionStep)
+        .filter(EpicSubActionStep.sub_action_id == sub_id)
+        .order_by(EpicSubActionStep.order, EpicSubActionStep.id)
+        .all()
+    )
+
+
+def get_outcomes(db, sub_id):
+    return db.query(EpicSubActionOutcome).filter(EpicSubActionOutcome.sub_action_id == sub_id).all()
+
+
+def get_current_sub_step(db, care):
+    if not care or not care.current_sub_action_id:
+        return None
+    steps = get_sub_steps(db, care.current_sub_action_id)
+    idx = care.current_step_order or 0
+    if idx < 0 or idx >= len(steps):
+        return None
+    return steps[idx]
+
+
+def sub_action_items(db, sub_id):
+    ids = [
+        sai.item_id
+        for sai in db.query(EpicSubActionItem).filter(EpicSubActionItem.sub_action_id == sub_id).all()
+    ]
+    if not ids:
+        return []
+    return db.query(ShopItem).filter(ShopItem.id.in_(ids)).all()
+
+
+def missing_sub_items(db, vk_id, sub_id):
+    owned = {inv.item_id for inv in db.query(UserInventory).filter(UserInventory.user_id == vk_id).all()}
+    return [it for it in sub_action_items(db, sub_id) if it.id not in owned]
+
+
+def consume_sub_items(db, vk_id, sub_id):
+    for item in sub_action_items(db, sub_id):
+        if not item.is_consumable:
+            continue
+        inv = db.query(UserInventory).filter(
+            UserInventory.user_id == vk_id,
+            UserInventory.item_id == item.id,
+        ).first()
+        if inv:
+            if inv.quantity > 1:
+                inv.quantity -= 1
+            else:
+                db.delete(inv)
+    db.commit()
+
+
+def start_sub_action(db, care, sub_action_id, vk_id):
+    care.current_sub_action_id = sub_action_id
+    care.current_step_order = 0
+    care.sub_had_penalty = False
+    consume_sub_items(db, vk_id, sub_action_id)
+    db.commit()
+
+
+def advance_sub_step(db, care):
+    steps = get_sub_steps(db, care.current_sub_action_id)
+    care.current_step_order = (care.current_step_order or 0) + 1
+    db.commit()
+    if care.current_step_order >= len(steps):
+        return "outcome"
+    return "next_step"
+
+
+def roll_outcome_polarity(db, care):
+    balances = db.query(CharacterBalance).filter(
+        CharacterBalance.user_dragon_id == care.user_dragon_id
+    ).all()
+    pos = sum(max(b.score or 0, 0) for b in balances)
+    neg = sum(max(-(b.score or 0), 0) for b in balances)
+    if pos + neg > 0:
+        char_component = pos / (pos + neg)
+    else:
+        char_component = 0.5
+    penalty_mult = 0.5 if care.sub_had_penalty else 1.0
+    chance = max(0.05, min(0.95, char_component * penalty_mult))
+    return "positive" if random.random() < chance else "negative"
+
+
+def _award_outcome_moodlet(db, user_dragon_id, polarity, outcome):
+    key = f"sub:{outcome.sub_action_id}:{polarity}"
+    existing = db.query(EpicMoodlet).filter(
+        EpicMoodlet.user_dragon_id == user_dragon_id,
+        EpicMoodlet.key == key,
+    ).first()
+    if not existing:
+        sub_action = get_sub_action(db, outcome.sub_action_id)
+        db.add(EpicMoodlet(
+            user_dragon_id=user_dragon_id,
+            key=key,
+            title=outcome.moodlet_title,
+            polarity=polarity,
+            text=outcome.moodlet_text,
+            axis_id=sub_action.character_axis_id if sub_action else None,
+        ))
+        db.commit()
+
+
+def resolve_outcome(db, vk_id, care, sub_action):
+    polarity = roll_outcome_polarity(db, care)
+    outcome = db.query(EpicSubActionOutcome).filter(
+        EpicSubActionOutcome.sub_action_id == sub_action.id,
+        EpicSubActionOutcome.polarity == polarity,
+    ).first()
+    if not outcome:
+        outcome = db.query(EpicSubActionOutcome).filter(
+            EpicSubActionOutcome.sub_action_id == sub_action.id,
+        ).first()
+    if outcome:
+        _award_outcome_moodlet(db, care.user_dragon_id, polarity, outcome)
+    from services.character_service import upsert_balance
+    if sub_action.character_axis_id:
+        delta = 1 if polarity == "positive" else -1
+        upsert_balance(db, care.user_dragon_id, sub_action.character_axis_id, delta)
+    care.current_sub_action_id = None
+    care.current_step_order = 0
+    care.sub_had_penalty = False
+    db.commit()
+    return outcome, polarity
+
+
+# ─── Moodlets ───
 
 
 def get_moodlets(db, vk_id):
@@ -388,6 +522,7 @@ def _reset_epic_slot(db, vk_id, target_id):
     ).delete(synchronize_session=False)
     db.query(EpicCareState).filter(EpicCareState.user_dragon_id == ud.id).delete(synchronize_session=False)
     db.query(EpicMoodlet).filter(EpicMoodlet.user_dragon_id == ud.id).delete(synchronize_session=False)
+    db.query(CharacterBalance).filter(CharacterBalance.user_dragon_id == ud.id).delete(synchronize_session=False)
     db.commit()
 
 

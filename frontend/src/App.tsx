@@ -18,6 +18,7 @@ import FamiliesForm from './pages/admin/FamiliesForm';
 import DragonsList from './pages/admin/DragonsList';
 import DragonForm from './pages/admin/DragonForm';
 import TreasureForm from './pages/admin/TreasureForm';
+import FamilyTreasureForm from './pages/admin/FamilyTreasureForm';
 import TreasureCreate from './pages/admin/TreasureCreate';
 import TreasuresList from './pages/admin/TreasuresList';
 import StepsEditor from './pages/admin/StepsEditor';
@@ -30,10 +31,14 @@ import EpicDragons from './pages/admin/EpicDragons';
 import EpicSpeciesForm from './pages/admin/EpicSpeciesForm';
 import EpicStageForm from './pages/admin/EpicStageForm';
 import EpicStageEditor from './pages/admin/EpicStageEditor';
+import EpicActionEditor from './pages/admin/EpicActionEditor';
+import EpicSubActionEditor from './pages/admin/EpicSubActionEditor';
+import CharacterAxes from './pages/admin/CharacterAxes';
 import UsersList from './pages/admin/UsersList';
 import UserDragonProgress from './pages/admin/UserDragonProgress';
 import LogsList from './pages/admin/LogsList';
 import SuspiciousList from './pages/admin/SuspiciousList';
+import IntroChaptersList from './pages/admin/IntroChaptersList';
 
 import ProtectedRoute from './components/ProtectedRoute';
 
@@ -112,6 +117,7 @@ function App() {
           <Route path="dragons/:id/steps" element={<StepsEditor />} />
           <Route path="dragons/:id/legend" element={<LegendEditor />} />
           <Route path="dragons/:id/treasure" element={<TreasureForm />} />
+          <Route path="families/:id/treasure" element={<FamilyTreasureForm />} />
           <Route path="treasures/new" element={<TreasureCreate />} />
           <Route path="treasures" element={<TreasuresList />} />
           <Route path="grid" element={<GridEditor />} />
@@ -125,9 +131,13 @@ function App() {
           <Route path="epic/stages/new" element={<EpicStageForm />} />
           <Route path="epic/stages/:stageId/edit" element={<EpicStageForm />} />
           <Route path="epic/stages/:stageId" element={<EpicStageEditor />} />
+          <Route path="epic/stages/:stageId/actions/:actionId" element={<EpicActionEditor />} />
+          <Route path="epic/stages/:stageId/actions/:actionId/sub-actions/:subId" element={<EpicSubActionEditor />} />
+          <Route path="character-axes" element={<CharacterAxes />} />
           <Route path="users" element={<UsersList />} />
           <Route path="users/:vkId/dragons/:dragonId/progress" element={<UserDragonProgress />} />
           <Route path="suspicious" element={<SuspiciousList />} />
+          <Route path="intro" element={<IntroChaptersList />} />
           <Route path="logs" element={<LogsList />} />
         </Route>
 

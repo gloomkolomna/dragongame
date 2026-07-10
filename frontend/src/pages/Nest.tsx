@@ -15,8 +15,8 @@ interface EpicView {
   stage?: { number: number; name: string; description: string; image_start: string; image_end: string; cycle_completed: number; cycle_total: number };
   action?: { label: string; hint: string; crosses_norm: number; items: { id: number; name: string; owned: boolean }[] } | null;
   care_remaining_seconds?: number;
-  moodlets?: { key: string; title: string }[];
-  character?: string[];
+  moodlets?: { key: string; title: string; polarity?: string; text?: string }[];
+  character?: { axis: string; label: string; polarity: string }[];
 }
 
 function fmtRemaining(sec: number): string {
@@ -57,7 +57,13 @@ function Nest() {
         {img && <img src={mediaUrl(img)} alt="" style={{ maxWidth: 180, maxHeight: 180, objectFit: 'contain', borderRadius: 10 }} />}
         <h2 style={{ color: 'var(--gold)', margin: '10px 0 2px' }}>{data.name || data.egg_type || 'Эпический дракон'}</h2>
         {data.character && data.character.length > 0 && (
-          <div style={{ fontSize: 14, color: 'var(--parchment-dim)' }}>🎭 {data.character.join(', ')}</div>
+          <div style={{ fontSize: 14, color: 'var(--parchment-dim)', marginTop: 6 }}>
+            🎭 {data.character.map((c, i) => (
+              <span key={i} style={{ color: c.polarity === 'positive' ? '#6fcf97' : '#d474a0' }}>
+                {c.label}{i < data.character!.length - 1 ? ', ' : ''}
+              </span>
+            ))}
+          </div>
         )}
       </div>
 
@@ -99,8 +105,13 @@ function Nest() {
       {data.moodlets && data.moodlets.length > 0 && (
         <div className="lair-card" style={{ marginBottom: 12 }}>
           <h4 style={{ color: 'var(--gold)', marginTop: 0 }}>📔 Дневник воспоминаний</h4>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-            {data.moodlets.map((m) => <div key={m.key} style={{ fontSize: 14 }}>• {m.title}</div>)}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {data.moodlets.map((m) => (
+              <div key={m.key} style={{ fontSize: 14, padding: '6px 8px', borderRadius: 6, background: m.polarity === 'negative' ? 'rgba(212,116,160,0.08)' : 'rgba(111,207,151,0.06)' }}>
+                <div>{m.polarity === 'negative' ? '💔' : '🌟'} <strong>{m.title}</strong></div>
+                {m.text && <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>{m.text}</div>}
+              </div>
+            ))}
           </div>
         </div>
       )}

@@ -332,7 +332,7 @@ def test_award_treasure_none_when_inactive(db):
 
 def test_complete_dragon_returns_treasure(db):
     d, t = _setup_rare_with_treasure(db)
-    result = complete_dragon(db, 1, d.id)
+    result, _ = complete_dragon(db, 1, d.id)
     assert result is not None
     assert result.id == t.id
 

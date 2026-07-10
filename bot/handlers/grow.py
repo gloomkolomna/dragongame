@@ -271,7 +271,7 @@ def _handle_crosses_check(user, text, attachments, db, send_message, upload_imag
             db.commit()
             return True
 
-        treasure = complete_dragon(db, user.vk_id, dragon_id)
+        treasure, family_treasures = complete_dragon(db, user.vk_id, dragon_id)
         user.state = IDLE
         user.current_dragon_id = None
         user.current_step = 0
@@ -334,6 +334,17 @@ def _handle_crosses_check(user, text, attachments, db, send_message, upload_imag
                         db.commit()
                     t_attach = upload_image(t_filepath, log_error=log_err_t, peer_id=user.vk_id)
             send_message(t_msg, attachment=t_attach)
+
+        for ft in (family_treasures or []):
+            ft_msg = f"🏆 Вы собрали всех драконов семейства! Сокровище семьи: {ft.name}!"
+            if ft.description:
+                ft_msg += f"\n{ft.description}"
+            ft_attach = ""
+            if upload_image and ft.image_path:
+                ft_filepath = os.path.join(_IMAGES, os.path.basename(ft.image_path))
+                if os.path.isfile(ft_filepath):
+                    ft_attach = upload_image(ft_filepath, log_error=lambda msg, tb="": None, peer_id=user.vk_id)
+            send_message(ft_msg, attachment=ft_attach)
 
         from services.epic_service import maybe_spawn_first_epic
         epic = maybe_spawn_first_epic(db, user.vk_id)

@@ -3,7 +3,7 @@ import { useVkBridge } from '../context/VkBridgeContext';
 import client from '../api/client';
 import { mediaUrl } from '../api/media';
 
-interface Item { id: number; name: string; description: string; cost_stitches: number; image_path: string; character_effect: string; owned: boolean; }
+interface Item { id: number; name: string; description: string; cost_stitches: number; image_path: string; is_consumable: boolean; is_optional: boolean; owned: boolean; }
 interface InvItem { id: number; name: string; description: string; image_path: string; quantity: number; }
 
 function Shop() {

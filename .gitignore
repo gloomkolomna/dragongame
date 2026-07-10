@@ -25,3 +25,6 @@ cypher.txt
 
 images/
 api/images/
+*.log
+/.zcode
+/plans

@@ -17,6 +17,9 @@ from models import (
     EpicStage, EpicStageAction, EpicActionItem, EpicMoodlet,
     Treasure, UserTreasure, DonorCache,
     PricingConfig, DragonSet, PaymentOrder,
+    CharacterAxis, CharacterBalance,
+    EpicSubAction, EpicSubActionItem, EpicSubActionStep, EpicSubActionOutcome,
+    IntroChapter,
 )
 from config import API_ERROR_LOG, DONOR_SYNC_INTERVAL_HOURS
 from services.dragon_service import (
@@ -120,7 +123,7 @@ def get_dragon_by_id(dragon_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Dragon not found")
     data = {c.name: getattr(dragon, c.name) for c in dragon.__table__.columns}
     treasure = db.query(Treasure).filter(Treasure.dragon_id == dragon_id).first()
-    data["treasure"] = _treasure_dict(treasure) if treasure else None
+    data["treasure"] = _treasure_dict(db, treasure) if treasure else None
     return data
 
 
@@ -619,7 +622,7 @@ def get_user_detail(vk_id: int, db: Session = Depends(get_db)):
             }
             for s in suspicious
         ],
-        "treasures_collected": [_treasure_dict(t) for t in collected_treasures],
+        "treasures_collected": [_treasure_dict(db, t) for t in collected_treasures],
     }
 
 
@@ -1161,13 +1164,24 @@ def upload_image(image: UploadFile = File(...)):
 
 # ─── Treasures (Фаза 8) ───
 
-def _treasure_dict(t: Treasure) -> dict:
+def _treasure_dict(db, t: Treasure) -> dict:
+    dragon_name = None
+    family_name = None
+    if t.dragon_id:
+        dragon = db.query(Dragon).filter(Dragon.id == t.dragon_id).first()
+        dragon_name = dragon.name if dragon else None
+    if t.family_id:
+        family = db.query(Family).filter(Family.id == t.family_id).first()
+        family_name = family.name if family else None
     return {
         "id": t.id,
         "name": t.name,
         "description": t.description,
         "image_path": f"/api/static/images/{t.image_path}" if t.image_path else "",
         "dragon_id": t.dragon_id,
+        "dragon_name": dragon_name,
+        "family_id": t.family_id,
+        "family_name": family_name,
         "is_active": t.is_active,
     }
 
@@ -1188,7 +1202,7 @@ def list_dragons_without_treasure(db: Session = Depends(get_db)):
 @router.get("/treasures")
 def list_treasures(db: Session = Depends(get_db)):
     treasures = db.query(Treasure).order_by(Treasure.id).all()
-    return [_treasure_dict(t) for t in treasures]
+    return [_treasure_dict(db, t) for t in treasures]
 
 
 @router.post("/dragons/{dragon_id}/treasure")
@@ -1221,7 +1235,7 @@ def upsert_dragon_treasure(
 
     db.commit()
     db.refresh(treasure)
-    return _treasure_dict(treasure)
+    return _treasure_dict(db, treasure)
 
 
 @router.put("/treasures/{treasure_id}")
@@ -1252,7 +1266,7 @@ def update_treasure(
 
     db.commit()
     db.refresh(treasure)
-    return _treasure_dict(treasure)
+    return _treasure_dict(db, treasure)
 
 
 @router.delete("/treasures/{treasure_id}")
@@ -1264,6 +1278,50 @@ def delete_treasure(treasure_id: int, db: Session = Depends(get_db)):
     db.delete(treasure)
     db.commit()
     return {"ok": True}
+
+
+@router.get("/treasures/available-families")
+def list_families_without_treasure(db: Session = Depends(get_db)):
+    used_ids = db.query(Treasure.family_id).filter(Treasure.family_id.isnot(None), Treasure.is_active == True).all()
+    used = {r[0] for r in used_ids}
+    families = (
+        db.query(Family)
+        .filter(~Family.id.in_(used) if used else True)
+        .order_by(Family.sort_order, Family.id)
+        .all()
+    )
+    return [{"id": f.id, "name": f.name, "color": f.color} for f in families]
+
+
+@router.post("/families/{family_id}/treasure")
+def upsert_family_treasure(
+    family_id: int,
+    name: str = Form(...),
+    description: str = Form(""),
+    image: Optional[UploadFile] = File(None),
+    db: Session = Depends(get_db),
+):
+    family = db.query(Family).filter(Family.id == family_id).first()
+    if not family:
+        raise HTTPException(status_code=404, detail="Family not found")
+
+    from services.dragon_service import _save_upload, _cleanup_old, IMAGES_DIR
+    treasure = db.query(Treasure).filter(Treasure.family_id == family_id).first()
+    if not treasure:
+        treasure = Treasure(family_id=family_id, name=name, description=description)
+        db.add(treasure)
+    else:
+        treasure.name = name
+        treasure.description = description
+
+    if image and image.filename:
+        _cleanup_old(IMAGES_DIR, f"treasure_family_{family_id}", treasure.image_path)
+        filename = _save_upload(image, IMAGES_DIR, f"treasure_family_{family_id}")
+        treasure.image_path = f"dragons/{filename}"
+
+    db.commit()
+    db.refresh(treasure)
+    return _treasure_dict(db, treasure)
 
 
 # ─── Shop items ───
@@ -1285,7 +1343,7 @@ async def create_shop_item(request: Request, db: Session = Depends(get_db)):
         cost_stitches=max(0, int(b.get("cost_stitches", 0) or 0)),
         category=b.get("category", ""),
         image_path=b.get("image_path", ""),
-        character_effect=b.get("character_effect", ""),
+        is_consumable=bool(b.get("is_consumable", True)),
         sort_order=int(b.get("sort_order", 0) or 0),
         is_active=bool(b.get("is_active", True)),
         is_legend_book=bool(b.get("is_legend_book", False)),
@@ -1308,7 +1366,7 @@ async def update_shop_item(item_id: int, request: Request, db: Session = Depends
     if "cost_stitches" in b: item.cost_stitches = max(0, int(b["cost_stitches"] or 0))
     if "category" in b: item.category = b["category"]
     if "image_path" in b: item.image_path = b["image_path"]
-    if "character_effect" in b: item.character_effect = b["character_effect"]
+    if "is_consumable" in b: item.is_consumable = bool(b["is_consumable"])
     if "sort_order" in b: item.sort_order = int(b["sort_order"] or 0)
     if "is_active" in b: item.is_active = bool(b["is_active"])
     if "is_legend_book" in b: item.is_legend_book = bool(b["is_legend_book"])
@@ -1427,6 +1485,54 @@ def delete_epic_stage(stage_id: int, db: Session = Depends(get_db)):
     return {"ok": True}
 
 
+# ─── Character Axes ───
+
+@router.get("/character-axes")
+def list_character_axes(db: Session = Depends(get_db)):
+    return db.query(CharacterAxis).order_by(CharacterAxis.sort_order, CharacterAxis.id).all()
+
+
+@router.post("/character-axes")
+async def create_character_axis(request: Request, db: Session = Depends(get_db)):
+    b = await _json_body(request)
+    max_order = db.query(func.max(CharacterAxis.sort_order)).scalar() or 0
+    axis = CharacterAxis(
+        positive_label=b.get("positive_label", ""),
+        negative_label=b.get("negative_label", ""),
+        sort_order=max_order + 1,
+        is_active=bool(b.get("is_active", True)),
+    )
+    db.add(axis)
+    db.commit()
+    db.refresh(axis)
+    return axis
+
+
+@router.put("/character-axes/{axis_id}")
+async def update_character_axis(axis_id: int, request: Request, db: Session = Depends(get_db)):
+    axis = db.query(CharacterAxis).filter(CharacterAxis.id == axis_id).first()
+    if not axis:
+        raise HTTPException(status_code=404, detail="Axis not found")
+    b = await _json_body(request)
+    if "positive_label" in b: axis.positive_label = b["positive_label"]
+    if "negative_label" in b: axis.negative_label = b["negative_label"]
+    if "sort_order" in b: axis.sort_order = int(b["sort_order"] or 0)
+    if "is_active" in b: axis.is_active = bool(b["is_active"])
+    db.commit()
+    db.refresh(axis)
+    return axis
+
+
+@router.delete("/character-axes/{axis_id}")
+def delete_character_axis(axis_id: int, db: Session = Depends(get_db)):
+    axis = db.query(CharacterAxis).filter(CharacterAxis.id == axis_id).first()
+    if not axis:
+        raise HTTPException(status_code=404, detail="Axis not found")
+    db.delete(axis)
+    db.commit()
+    return {"ok": True}
+
+
 # ─── Epic stage actions (уход) ───
 
 def _resync_stage_items(db, stage_id: int):
@@ -1442,6 +1548,12 @@ def _resync_stage_items(db, stage_id: int):
             ai.item_id
             for ai in db.query(EpicActionItem).filter(EpicActionItem.action_id.in_(action_ids)).all()
         }
+        sub_ids = [sa.id for sa in db.query(EpicSubAction).filter(EpicSubAction.action_id.in_(action_ids)).all()]
+        if sub_ids:
+            want |= {
+                sai.item_id
+                for sai in db.query(EpicSubActionItem).filter(EpicSubActionItem.sub_action_id.in_(sub_ids)).all()
+            }
     existing = db.query(StageShopItem).filter(StageShopItem.stage_key == key).all()
     have = {l.item_id: l for l in existing}
     for item_id, link in have.items():
@@ -1468,7 +1580,7 @@ def _set_action_items(db, action_id: int, item_ids):
 
 
 def _action_dict(db, action: EpicStageAction) -> dict:
-    return {
+    result = {
         "id": action.id,
         "dragon_id": action.dragon_id,
         "stage_id": action.stage_id,
@@ -1478,10 +1590,54 @@ def _action_dict(db, action: EpicStageAction) -> dict:
         "hint": action.hint,
         "crosses_norm": action.crosses_norm,
         "image_path": action.image_path or "",
+        "action_type": getattr(action, "action_type", "simple") or "simple",
         "timeout_hours": action.timeout_hours,
         "timeout_minutes": action.timeout_minutes,
         "item_ids": _action_items(db, action.id),
     }
+    atype = result["action_type"]
+    if atype == "composite":
+        result["item_ids"] = []
+        result["sub_actions"] = _sub_actions_list(db, action.id)
+    return result
+
+
+def _sub_actions_list(db, action_id: int) -> list:
+    sub_actions = db.query(EpicSubAction).filter(EpicSubAction.action_id == action_id).order_by(EpicSubAction.order_in_sub, EpicSubAction.id).all()
+    result = []
+    for sa in sub_actions:
+        steps = db.query(EpicSubActionStep).filter(EpicSubActionStep.sub_action_id == sa.id).order_by(EpicSubActionStep.order, EpicSubActionStep.id).all()
+        outcomes = db.query(EpicSubActionOutcome).filter(EpicSubActionOutcome.sub_action_id == sa.id).all()
+        sai_ids = [sai.item_id for sai in db.query(EpicSubActionItem).filter(EpicSubActionItem.sub_action_id == sa.id).all()]
+        result.append({
+            "id": sa.id,
+            "label": sa.label,
+            "description": sa.description,
+            "order_in_sub": sa.order_in_sub,
+            "image_path": sa.image_path or "",
+            "character_axis_id": sa.character_axis_id,
+            "item_ids": sai_ids,
+            "steps": [{
+                "id": s.id,
+                "step_label": s.step_label,
+                "order": s.order,
+                "task": s.task,
+                "hint": s.hint,
+                "crosses_norm": s.crosses_norm,
+                "image_path": s.image_path or "",
+                "timeout_hours": s.timeout_hours,
+                "timeout_minutes": s.timeout_minutes,
+            } for s in steps],
+            "outcomes": [{
+                "id": o.id,
+                "polarity": o.polarity,
+                "label": o.label,
+                "moodlet_title": o.moodlet_title,
+                "moodlet_text": o.moodlet_text,
+                "image_path": o.image_path or "",
+            } for o in outcomes],
+        })
+    return result
 
 
 @router.get("/epic/species/{dragon_id}/stages/{stage_id}/actions")
@@ -1503,6 +1659,9 @@ async def create_epic_action(dragon_id: int, stage_id: int, request: Request, db
         raise HTTPException(status_code=404, detail="Epic dragon not found")
     b = await _json_body(request)
     label = b.get("action_label", "")
+    atype = b.get("action_type", "simple") or "simple"
+    if atype == "composite" and b.get("item_ids"):
+        raise HTTPException(status_code=422, detail="composite actions must not have direct item_ids (items belong to sub_actions)")
     action = EpicStageAction(
         dragon_id=dragon_id,
         stage_id=stage_id,
@@ -1512,13 +1671,15 @@ async def create_epic_action(dragon_id: int, stage_id: int, request: Request, db
         hint=b.get("hint", ""),
         crosses_norm=max(1, int(b.get("crosses_norm", 1000) or 1000)),
         image_path=b.get("image_path", ""),
+        action_type=atype,
         timeout_hours=max(0, int(b.get("timeout_hours", 24) or 24)),
         timeout_minutes=max(0, min(59, int(b.get("timeout_minutes", 0) or 0))),
     )
     db.add(action)
     db.commit()
     db.refresh(action)
-    _set_action_items(db, action.id, b.get("item_ids", []))
+    if atype != "composite":
+        _set_action_items(db, action.id, b.get("item_ids", []))
     _resync_stage_items(db, stage_id)
     db.refresh(action)
     return _action_dict(db, action)
@@ -1536,12 +1697,16 @@ async def update_epic_action(action_id: int, request: Request, db: Session = Dep
     if "hint" in b: action.hint = b["hint"]
     if "crosses_norm" in b: action.crosses_norm = max(1, int(b["crosses_norm"] or 1000))
     if "image_path" in b: action.image_path = b["image_path"]
+    if "action_type" in b: action.action_type = b["action_type"]
     if "timeout_hours" in b: action.timeout_hours = max(0, int(b["timeout_hours"] or 24))
     if "timeout_minutes" in b: action.timeout_minutes = max(0, min(59, int(b["timeout_minutes"] or 0)))
     db.commit()
     db.refresh(action)
-    if "item_ids" in b:
+    atype = getattr(action, "action_type", "simple") or "simple"
+    if atype != "composite" and "item_ids" in b:
         _set_action_items(db, action.id, b.get("item_ids", []))
+    if atype == "composite" and "item_ids" in b and b.get("item_ids"):
+        raise HTTPException(status_code=422, detail="composite actions must not have direct item_ids")
     stage_id = action.stage_id
     _resync_stage_items(db, stage_id)
     db.refresh(action)
@@ -1558,6 +1723,170 @@ def delete_epic_action(action_id: int, db: Session = Depends(get_db)):
     db.commit()
     _resync_stage_items(db, stage_id)
     return {"ok": True}
+
+
+# ─── Epic Sub-Actions (composite) ───
+
+@router.get("/epic/actions/{action_id}/sub-actions")
+def list_sub_actions(action_id: int, db: Session = Depends(get_db)):
+    return _sub_actions_list(db, action_id)
+
+
+@router.post("/epic/actions/{action_id}/sub-actions")
+async def create_sub_action(action_id: int, request: Request, db: Session = Depends(get_db)):
+    action = db.query(EpicStageAction).filter(EpicStageAction.id == action_id).first()
+    if not action:
+        raise HTTPException(status_code=404, detail="Action not found")
+    b = await _json_body(request)
+    axis_id = b.get("character_axis_id")
+    sa = EpicSubAction(
+        action_id=action_id,
+        label=b.get("label", ""),
+        description=b.get("description", ""),
+        order_in_sub=int(b.get("order_in_sub", 0) or 0),
+        image_path=b.get("image_path", ""),
+        character_axis_id=int(axis_id) if axis_id else None,
+    )
+    db.add(sa)
+    db.commit()
+    db.refresh(sa)
+    for polarity in ("positive", "negative"):
+        db.add(EpicSubActionOutcome(sub_action_id=sa.id, polarity=polarity))
+    db.commit()
+    _set_sub_action_items(db, sa.id, b.get("item_ids", []))
+    _resync_stage_items(db, action.stage_id)
+    db.refresh(sa)
+    return sa
+
+
+@router.put("/epic/sub-actions/{sub_id}")
+async def update_sub_action(sub_id: int, request: Request, db: Session = Depends(get_db)):
+    sa = db.query(EpicSubAction).filter(EpicSubAction.id == sub_id).first()
+    if not sa:
+        raise HTTPException(status_code=404, detail="Sub-action not found")
+    b = await _json_body(request)
+    if "label" in b: sa.label = b["label"]
+    if "description" in b: sa.description = b["description"]
+    if "order_in_sub" in b: sa.order_in_sub = int(b["order_in_sub"] or 0)
+    if "image_path" in b: sa.image_path = b["image_path"]
+    if "character_axis_id" in b: sa.character_axis_id = int(b["character_axis_id"] or 0) or None
+    db.commit()
+    if "item_ids" in b:
+        _set_sub_action_items(db, sa.id, b.get("item_ids", []))
+        action = db.query(EpicStageAction).filter(EpicStageAction.id == sa.action_id).first()
+        if action:
+            _resync_stage_items(db, action.stage_id)
+    db.refresh(sa)
+    return sa
+
+
+@router.delete("/epic/sub-actions/{sub_id}")
+def delete_sub_action(sub_id: int, db: Session = Depends(get_db)):
+    sa = db.query(EpicSubAction).filter(EpicSubAction.id == sub_id).first()
+    if not sa:
+        raise HTTPException(status_code=404, detail="Sub-action not found")
+    action_id = sa.action_id
+    action = db.query(EpicStageAction).filter(EpicStageAction.id == action_id).first()
+    db.delete(sa)
+    db.commit()
+    if action:
+        _resync_stage_items(db, action.stage_id)
+    return {"ok": True}
+
+
+def _set_sub_action_items(db, sub_action_id: int, item_ids):
+    db.query(EpicSubActionItem).filter(EpicSubActionItem.sub_action_id == sub_action_id).delete(synchronize_session=False)
+    seen = set()
+    for iid in (item_ids or []):
+        if iid and iid not in seen and db.query(ShopItem).filter(ShopItem.id == iid).first():
+            db.add(EpicSubActionItem(sub_action_id=sub_action_id, item_id=iid))
+            seen.add(iid)
+    db.commit()
+
+
+# ─── Epic Sub-Action Steps ───
+
+@router.get("/epic/sub-actions/{sub_id}/steps")
+def list_sub_steps(sub_id: int, db: Session = Depends(get_db)):
+    return (
+        db.query(EpicSubActionStep)
+        .filter(EpicSubActionStep.sub_action_id == sub_id)
+        .order_by(EpicSubActionStep.order, EpicSubActionStep.id)
+        .all()
+    )
+
+
+@router.post("/epic/sub-actions/{sub_id}/steps")
+async def create_sub_step(sub_id: int, request: Request, db: Session = Depends(get_db)):
+    if not db.query(EpicSubAction).filter(EpicSubAction.id == sub_id).first():
+        raise HTTPException(status_code=404, detail="Sub-action not found")
+    b = await _json_body(request)
+    step = EpicSubActionStep(
+        sub_action_id=sub_id,
+        step_label=b.get("step_label", ""),
+        order=int(b.get("order", 0) or 0),
+        task=b.get("task", ""),
+        hint=b.get("hint", ""),
+        crosses_norm=max(1, int(b.get("crosses_norm", 1000) or 1000)),
+        image_path=b.get("image_path", ""),
+        timeout_hours=max(0, int(b.get("timeout_hours", 24) or 24)),
+        timeout_minutes=max(0, min(59, int(b.get("timeout_minutes", 0) or 0))),
+    )
+    db.add(step)
+    db.commit()
+    db.refresh(step)
+    return step
+
+
+@router.put("/epic/sub-actions/steps/{step_id}")
+async def update_sub_step(step_id: int, request: Request, db: Session = Depends(get_db)):
+    step = db.query(EpicSubActionStep).filter(EpicSubActionStep.id == step_id).first()
+    if not step:
+        raise HTTPException(status_code=404, detail="Step not found")
+    b = await _json_body(request)
+    if "step_label" in b: step.step_label = b["step_label"]
+    if "order" in b: step.order = int(b["order"] or 0)
+    if "task" in b: step.task = b["task"]
+    if "hint" in b: step.hint = b["hint"]
+    if "crosses_norm" in b: step.crosses_norm = max(1, int(b["crosses_norm"] or 1000))
+    if "image_path" in b: step.image_path = b["image_path"]
+    if "timeout_hours" in b: step.timeout_hours = max(0, int(b["timeout_hours"] or 24))
+    if "timeout_minutes" in b: step.timeout_minutes = max(0, min(59, int(b["timeout_minutes"] or 0)))
+    db.commit()
+    db.refresh(step)
+    return step
+
+
+@router.delete("/epic/sub-actions/steps/{step_id}")
+def delete_sub_step(step_id: int, db: Session = Depends(get_db)):
+    step = db.query(EpicSubActionStep).filter(EpicSubActionStep.id == step_id).first()
+    if not step:
+        raise HTTPException(status_code=404, detail="Step not found")
+    db.delete(step)
+    db.commit()
+    return {"ok": True}
+
+
+# ─── Epic Sub-Action Outcomes ───
+
+@router.get("/epic/sub-actions/{sub_id}/outcomes")
+def list_sub_outcomes(sub_id: int, db: Session = Depends(get_db)):
+    return db.query(EpicSubActionOutcome).filter(EpicSubActionOutcome.sub_action_id == sub_id).all()
+
+
+@router.put("/epic/sub-actions/outcomes/{outcome_id}")
+async def update_sub_outcome(outcome_id: int, request: Request, db: Session = Depends(get_db)):
+    outcome = db.query(EpicSubActionOutcome).filter(EpicSubActionOutcome.id == outcome_id).first()
+    if not outcome:
+        raise HTTPException(status_code=404, detail="Outcome not found")
+    b = await _json_body(request)
+    if "label" in b: outcome.label = b["label"]
+    if "moodlet_title" in b: outcome.moodlet_title = b["moodlet_title"]
+    if "moodlet_text" in b: outcome.moodlet_text = b["moodlet_text"]
+    if "image_path" in b: outcome.image_path = b["image_path"]
+    db.commit()
+    db.refresh(outcome)
+    return outcome
 
 
 # ─── Legend fragments (легендарные драконы, phase=1) ───
@@ -1856,3 +2185,84 @@ async def set_custom_price(vk_id: int, request: Request, db: Session = Depends(g
     db.commit()
     db.refresh(user)
     return {"custom_price_per_dragon": user.custom_price_per_dragon}
+
+
+_INTRO_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "images", "intro")
+
+
+def _save_intro_image(file: UploadFile) -> str:
+    os.makedirs(_INTRO_DIR, exist_ok=True)
+    ext = os.path.splitext(file.filename or ".png")[1].lower() or ".png"
+    from time import time
+    ts = int(time())
+    filename = f"intro_{ts}{ext}"
+    path = os.path.join(_INTRO_DIR, filename)
+    with open(path, "wb") as f:
+        f.write(file.file.read())
+    return f"intro/{filename}"
+
+
+@router.get("/intro-chapters")
+def list_intro_chapters(db: Session = Depends(get_db)):
+    return db.query(IntroChapter).order_by(IntroChapter.chapter_number).all()
+
+
+@router.post("/intro-chapters")
+def create_intro_chapter(
+    chapter_number: int = Form(...),
+    text: str = Form(""),
+    is_active: bool = Form(True),
+    image: Optional[UploadFile] = File(None),
+    db: Session = Depends(get_db),
+):
+    existing = db.query(IntroChapter).filter(IntroChapter.chapter_number == chapter_number).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="Chapter with this number already exists")
+    ch = IntroChapter(chapter_number=chapter_number, text=text, is_active=is_active)
+    if image and image.filename:
+        ch.image_path = _save_intro_image(image)
+    db.add(ch)
+    db.commit()
+    db.refresh(ch)
+    return ch
+
+
+@router.put("/intro-chapters/{chapter_id}")
+def update_intro_chapter(
+    chapter_id: int,
+    chapter_number: Optional[int] = Form(None),
+    text: Optional[str] = Form(None),
+    is_active: Optional[bool] = Form(None),
+    image: Optional[UploadFile] = File(None),
+    db: Session = Depends(get_db),
+):
+    ch = db.query(IntroChapter).filter(IntroChapter.id == chapter_id).first()
+    if not ch:
+        raise HTTPException(status_code=404, detail="Chapter not found")
+    if chapter_number is not None:
+        dup = db.query(IntroChapter).filter(
+            IntroChapter.chapter_number == chapter_number,
+            IntroChapter.id != chapter_id,
+        ).first()
+        if dup:
+            raise HTTPException(status_code=400, detail="Chapter with this number already exists")
+        ch.chapter_number = chapter_number
+    if text is not None:
+        ch.text = text
+    if is_active is not None:
+        ch.is_active = is_active
+    if image and image.filename:
+        ch.image_path = _save_intro_image(image)
+    db.commit()
+    db.refresh(ch)
+    return ch
+
+
+@router.delete("/intro-chapters/{chapter_id}")
+def delete_intro_chapter(chapter_id: int, db: Session = Depends(get_db)):
+    ch = db.query(IntroChapter).filter(IntroChapter.id == chapter_id).first()
+    if not ch:
+        raise HTTPException(status_code=404, detail="Chapter not found")
+    db.delete(ch)
+    db.commit()
+    return {"ok": True}

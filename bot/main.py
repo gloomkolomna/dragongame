@@ -15,17 +15,18 @@ sys.path.insert(0, os.path.join(_root, "api"))
 
 import config
 from db import SessionLocal
-from bot.fsm import IDLE, AWAIT_PIN, AWAIT_GARDEN, AWAIT_LEGENDS, is_growing, is_waiting_text, grow_state, step_from_state, is_legend, is_legend_waiting, is_epic_egg, is_epic_egg_waiting, is_epic_care, is_epic_care_waiting, AWAIT_EPIC_NAME, AWAIT_EPIC_RESTART
+from bot.fsm import IDLE, AWAIT_PIN, AWAIT_GARDEN, AWAIT_LEGENDS, is_growing, is_waiting_text, grow_state, step_from_state, is_legend, is_legend_waiting, is_epic_egg, is_epic_egg_waiting, is_epic_care, is_epic_care_waiting, is_epic_care_sub, is_epic_care_sub_waiting, AWAIT_EPIC_NAME, AWAIT_EPIC_RESTART, is_intro_chapter, intro_chapter_from_state
 from bot.handlers.commands import handle_start, handle_help, handle_garden, switch_dragon, cancel_garden, handle_switch_to, handle_balance, handle_legends, handle_legends_pick, cancel_legends, user_has_legendary
 from bot.handlers.pin import handle_pin_command, handle_pin_entry
 from bot.handlers.grow import handle_grow_message, handle_grow_command, handle_norm_command, handle_x2_command, handle_back_command
 from bot.handlers.shop import handle_shop_command, handle_buy
 from bot.handlers.legend import handle_legend_start, handle_legend_mode, handle_legend_message
 from bot.handlers.epic import handle_epic_command, handle_epic_egg_mode, handle_epic_egg_message, handle_epic_name
+from bot.handlers.intro import handle_intro_next, handle_intro_chat, start_intro
 from bot.services.user_service import get_or_create_user
 from bot.scheduler import run_timeout_checker
 from bot.services.donor_sync import run_donor_sync
-from bot.keyboard import idle_keyboard, growing_keyboard, waiting_keyboard, start_growing_keyboard, step_buttons_keyboard, await_pin_keyboard, await_garden_keyboard, keyboard_with_legends
+from bot.keyboard import idle_keyboard, growing_keyboard, waiting_keyboard, start_growing_keyboard, step_buttons_keyboard, await_pin_keyboard, await_garden_keyboard, keyboard_with_legends, intro_keyboard
 from datetime import datetime
 
 
@@ -64,6 +65,8 @@ def get_keyboard(state: str, user=None) -> str:
         return await_pin_keyboard()
     if state == AWAIT_GARDEN:
         return await_garden_keyboard()
+    if is_intro_chapter(state):
+        return intro_keyboard()
     if is_growing(state):
         if is_waiting_text(state):
             return waiting_keyboard()
@@ -100,6 +103,8 @@ def extract_cmd(text: str, payload_str: str) -> str | None:
         return "epic"
     if "выращиванию" in t:
         return "grow"
+    if "читать" in t:
+        return "intro_next"
     if t in ("норма", "норма"):
         return "norm"
     if t in ("штраф", "штраф (x2)", "x2"):
@@ -308,6 +313,27 @@ def main():
                 handle_epic_egg_message(user, text, attachments, db, send_message, upload_image)
                 continue
 
+            if cmd == "choose_sub":
+                try:
+                    payload = json.loads(payload_str) if payload_str else {}
+                    sub_id = payload.get("sub_id")
+                except (json.JSONDecodeError, TypeError):
+                    sub_id = None
+                if sub_id:
+                    from bot.handlers.epic_care import handle_choose_sub
+                    handle_choose_sub(user, int(sub_id), db, send_message, upload_image)
+                continue
+
+            if is_epic_care_sub(user.state) and cmd in ("norm", "x2"):
+                from bot.handlers.epic_care import handle_sub_mode
+                handle_sub_mode(user, cmd, db, send_message)
+                continue
+
+            if is_epic_care_sub_waiting(user.state) and not cmd:
+                from bot.handlers.epic_care import handle_sub_message
+                handle_sub_message(user, text, attachments, db, send_message, upload_image)
+                continue
+
             if is_epic_care(user.state) and cmd == "use_item":
                 from bot.handlers.epic_care import handle_care_use_item
                 handle_care_use_item(user, db, send_message, upload_image)
@@ -365,6 +391,9 @@ def main():
             elif cmd == "back":
                 handle_back_command(user, db, send_message, upload_image)
 
+            elif cmd == "intro_next" and is_intro_chapter(user.state):
+                handle_intro_next(user, db, send_message, upload_image)
+
             elif user.state == AWAIT_PIN and text and not cmd:
                 handle_pin_entry(user, text, db, send_message, upload_image)
 
@@ -381,8 +410,11 @@ def main():
                 else:
                     _handle_growing_chat(user, db, send_message, upload_image)
 
+            elif is_intro_chapter(user.state) and text and not cmd:
+                handle_intro_chat(user, db, send_message, upload_image)
+
             elif user.state == IDLE and text and not cmd:
-                from models import UserDragon
+                from models import UserDragon, IntroChapter
                 has_any = db.query(UserDragon).filter(UserDragon.user_id == user_id).first() is not None
                 if has_any:
                     send_message(
@@ -390,10 +422,14 @@ def main():
                         "Нажми «🥚 Добавить яйцо дракона» чтобы начать выращивание."
                     )
                 else:
-                    send_message(
-                        "🐉 У тебя пока нет ни одного яйца дракона для выращивания.\n"
-                        "Нажми «🥚 Добавить яйцо дракона» чтобы начать выращивание."
-                    )
+                    has_intro = db.query(IntroChapter).filter(IntroChapter.is_active == True).first() is not None
+                    if has_intro:
+                        start_intro(user, db, send_message)
+                    else:
+                        send_message(
+                            "🐉 У тебя пока нет ни одного яйца дракона для выращивания.\n"
+                            "Нажми «🥚 Добавить яйцо дракона» чтобы начать выращивание."
+                        )
 
         except Exception as exc:
             print(f"Error processing message from {user_id}: {exc}")
