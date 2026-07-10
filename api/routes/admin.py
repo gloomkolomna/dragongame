@@ -694,9 +694,11 @@ async def toggle_user_step(vk_id: int, step_number: int, request: Request, db: S
     except Exception:
         pass
     dragon_id = body.get("dragon_id")
+    user = db.query(User).filter(User.vk_id == vk_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
     if not dragon_id:
-        user = db.query(User).filter(User.vk_id == vk_id).first()
-        if not user or not user.current_dragon_id:
+        if not user.current_dragon_id:
             raise HTTPException(status_code=400, detail="No active dragon")
         dragon_id = user.current_dragon_id
 
@@ -718,7 +720,7 @@ async def toggle_user_step(vk_id: int, step_number: int, request: Request, db: S
         was_completed = False
         progress = UserProgress(
             user_id=vk_id,
-            dragon_id=user.current_dragon_id,
+            dragon_id=dragon_id,
             step_number=step_number,
             completed=True,
             completed_at=datetime.now().strftime("%Y-%m-%dT%H:%M:%S"),
@@ -734,7 +736,7 @@ async def toggle_user_step(vk_id: int, step_number: int, request: Request, db: S
         for s in range(1, step_number):
             existing = db.query(UserProgress).filter(
                 UserProgress.user_id == vk_id,
-                UserProgress.dragon_id == user.current_dragon_id,
+                UserProgress.dragon_id == dragon_id,
                 UserProgress.step_number == s,
             ).first()
             if existing:
@@ -743,7 +745,7 @@ async def toggle_user_step(vk_id: int, step_number: int, request: Request, db: S
                     existing.completed_at = existing.completed_at or now_ts
             else:
                 db.add(UserProgress(
-                    user_id=vk_id, dragon_id=user.current_dragon_id, step_number=s,
+                    user_id=vk_id, dragon_id=dragon_id, step_number=s,
                     completed=True, completed_at=now_ts,
                 ))
 
@@ -751,7 +753,7 @@ async def toggle_user_step(vk_id: int, step_number: int, request: Request, db: S
         for s in range(step_number + 1, total + 1):
             existing = db.query(UserProgress).filter(
                 UserProgress.user_id == vk_id,
-                UserProgress.dragon_id == user.current_dragon_id,
+                UserProgress.dragon_id == dragon_id,
                 UserProgress.step_number == s,
             ).first()
             if existing and existing.completed:
@@ -760,9 +762,8 @@ async def toggle_user_step(vk_id: int, step_number: int, request: Request, db: S
 
     db.flush()
 
-    # Сброс таймаута при ручном изменении шага админом
     ud_toggle = db.query(UserDragon).filter(
-        UserDragon.user_id == vk_id, UserDragon.dragon_id == user.current_dragon_id
+        UserDragon.user_id == vk_id, UserDragon.dragon_id == dragon_id
     ).first()
     if ud_toggle:
         ud_toggle.next_step_available_at = None
@@ -770,12 +771,12 @@ async def toggle_user_step(vk_id: int, step_number: int, request: Request, db: S
 
     completed_count = db.query(UserProgress).filter(
         UserProgress.user_id == vk_id,
-        UserProgress.dragon_id == user.current_dragon_id,
+        UserProgress.dragon_id == dragon_id,
         UserProgress.completed == True,
     ).count()
 
     if completed_count >= total:
-        ud = db.query(UserDragon).filter(UserDragon.user_id == vk_id, UserDragon.dragon_id == user.current_dragon_id).first()
+        ud = db.query(UserDragon).filter(UserDragon.user_id == vk_id, UserDragon.dragon_id == dragon_id).first()
         if ud and not ud.completed_at:
             ud.completed_at = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
         user.state = "idle"
@@ -801,7 +802,7 @@ async def toggle_user_step(vk_id: int, step_number: int, request: Request, db: S
         user.current_step = completed_count + 1
         user.state = f"grow_step_{user.current_step}"
         step_def = db.query(DragonStep).filter(
-            DragonStep.dragon_id == user.current_dragon_id,
+            DragonStep.dragon_id == dragon_id,
             DragonStep.step_number == user.current_step,
         ).first()
         steps_msg = _format_step_text(step_def, user.current_step, total)
