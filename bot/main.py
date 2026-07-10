@@ -369,7 +369,7 @@ def main():
                 continue
 
             if cmd == "start":
-                handle_start(user, db, send_message)
+                handle_start(user, db, send_message, upload_image)
             elif cmd == "help":
                 handle_help(send_message)
             elif cmd == "balance":
@@ -424,7 +424,7 @@ def main():
                 else:
                     has_intro = db.query(IntroChapter).filter(IntroChapter.is_active == True).first() is not None
                     if has_intro:
-                        start_intro(user, db, send_message)
+                        start_intro(user, db, send_message, upload_image)
                     else:
                         send_message(
                             "🐉 У тебя пока нет ни одного яйца дракона для выращивания.\n"
