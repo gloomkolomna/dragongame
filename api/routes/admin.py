@@ -784,9 +784,11 @@ async def toggle_user_step(vk_id: int, step_number: int, request: Request, db: S
         user.current_step = 0
 
         from bot.services.grow_service import award_treasure, award_family_treasures
+        from services.epic_service import maybe_spawn_first_epic
         db.commit()
         treasure = award_treasure(db, vk_id, dragon_id)
         family_treasures = award_family_treasures(db, vk_id)
+        epic = maybe_spawn_first_epic(db, vk_id)
 
         msg = (
             f"🎉 Поздравляю! Ты вырастил дракона!\n\n"
@@ -835,6 +837,18 @@ async def toggle_user_step(vk_id: int, step_number: int, request: Request, db: S
                 ft_path = os.path.join(os.path.dirname(__file__), "..", "..", "images", "dragons", os.path.basename(ft.image_path))
                 ft_attach = _upload_vk_image(os.path.abspath(ft_path))
             _notify_user(vk_id, ft_msg, ft_attach)
+        if epic:
+            from services.epic_service import get_epic_name
+            epic_name = get_epic_name(db, vk_id) or epic.egg_type or "Эпический дракон"
+            e_attach = ""
+            if epic.egg_path:
+                e_path = os.path.join(os.path.dirname(__file__), "..", "..", "images", "dragons", os.path.basename(epic.egg_path))
+                e_attach = _upload_vk_image(os.path.abspath(e_path))
+            _notify_user(vk_id,
+                f"🐲🥚 В твоей пещере появилось эпическое яйцо!\n\n"
+                f"«{epic_name}» ждёт своего часа.\n"
+                f"Напиши «эпический» чтобы начать уход за ним.",
+                attachment=e_attach)
     else:
         user.current_step = completed_count + 1
         user.state = f"grow_step_{user.current_step}"
@@ -964,6 +978,8 @@ async def skip_step(vk_id: int, request: Request, db: Session = Depends(get_db))
         from bot.services.grow_service import award_treasure, award_family_treasures
         award_treasure(db, vk_id, dragon_id)
         award_family_treasures(db, vk_id)
+        from services.epic_service import maybe_spawn_first_epic
+        maybe_spawn_first_epic(db, vk_id)
         return {"ok": True, "new_step": 0}
 
     new_step = next_step + 1
