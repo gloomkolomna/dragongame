@@ -252,5 +252,4 @@ def outcome_keyboard():
 def intro_keyboard():
     return _keyboard([
         [{"action": {"type": "text", "label": "📖 Читать дальше", "payload": json.dumps({"cmd": "intro_next"}, ensure_ascii=False)}, "color": "primary"}],
-        bestiary_link_row(),
     ])
