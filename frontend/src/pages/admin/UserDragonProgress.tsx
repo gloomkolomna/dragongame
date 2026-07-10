@@ -42,7 +42,7 @@ function UserDragonProgress() {
     setUpdating(true);
     try {
       await client.post(`/admin/users/${vkId}/steps/${num}/toggle`, { dragon_id: Number(dragonId) });
-      fetchData();
+      await fetchData();
     } catch (e: any) {
       alert(e.response?.data?.detail || 'Ошибка');
     }
@@ -51,32 +51,26 @@ function UserDragonProgress() {
 
   const skipStep = async () => {
     if (!window.confirm('Пропустить текущий шаг?')) return;
+    setUpdating(true);
     try {
       await client.post(`/admin/users/${vkId}/skip-step`, { dragon_id: Number(dragonId) });
-      fetchData();
+      await fetchData();
     } catch (e: any) {
       alert(e.response?.data?.detail || 'Ошибка');
     }
-  };
-
-  const resetDragon = async () => {
-    if (!window.confirm('Сбросить весь прогресс по этому дракону?')) return;
-    try {
-      await client.post(`/admin/users/${vkId}/reset-dragon`, { dragon_id: Number(dragonId) });
-      fetchData();
-    } catch (e: any) {
-      alert(e.response?.data?.detail || 'Ошибка');
-    }
+    setUpdating(false);
   };
 
   const restartDragon = async () => {
-    if (!window.confirm('Возобновить выращивание заново?')) return;
+    if (!window.confirm('Начать выращивание заново с 1-го шага?')) return;
+    setUpdating(true);
     try {
       await client.post(`/admin/users/${vkId}/dragons/${dragonId}/restart`);
-      fetchData();
+      await fetchData();
     } catch (e: any) {
       alert(e.response?.data?.detail || 'Ошибка');
     }
+    setUpdating(false);
   };
 
   const completed = steps.filter((s) => s.completed).length;
@@ -151,10 +145,6 @@ function UserDragonProgress() {
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             <button className="lair-btn lair-btn-outline" onClick={skipStep} disabled={updating}>
               ⏩ Пропустить шаг
-            </button>
-            <button className="lair-btn lair-btn-outline" onClick={resetDragon} disabled={updating}
-                    style={{ color: 'var(--fire)', borderColor: 'var(--fire)' }}>
-              ♻ Сбросить прогресс
             </button>
             <button className="lair-btn lair-btn-outline" onClick={restartDragon} disabled={updating}>
               🔄 Начать заново
