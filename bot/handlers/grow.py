@@ -277,7 +277,7 @@ def _handle_crosses_check(user, text, attachments, db, send_message, upload_imag
         user.current_step = 0
         msg = (
             f"🎉 Поздравляю! Ты вырастил дракона!\n\n"
-            f"🐉 {dragon.name if dragon else '???'} 🐉\n"
+            f"🐲 {dragon.name if dragon else '???'} 🐲\n"
             f"Редкость: {rarity_name(dragon.rarity if dragon else 1)} {rarity_stars(dragon.rarity if dragon else 1)}\n"
         )
         if family_name:
@@ -292,10 +292,10 @@ def _handle_crosses_check(user, text, attachments, db, send_message, upload_imag
         legend_rows = []
         if has_legend:
             msg += (
-                "\n\n📖 У этого дракона есть легенда — нажми «🐉 Рассказать легенду», чтобы открыть её."
+                "\n\n📖 У этого дракона есть легенда — нажми «🐲 Рассказать легенду», чтобы открыть её."
                 "\nСобранные легенды можно перечитать в разделе «📖 Библиотека» мини-приложения."
             )
-            legend_rows.append([{"action": {"type": "text", "label": "🐉 Рассказать легенду", "payload": j.dumps({"cmd": "legend", "dragon_id": dragon_id}, ensure_ascii=False)}, "color": "primary"}])
+            legend_rows.append([{"action": {"type": "text", "label": "🐲 Рассказать легенду", "payload": j.dumps({"cmd": "legend", "dragon_id": dragon_id}, ensure_ascii=False)}, "color": "primary"}])
 
         keyboard = j.dumps({
             "one_time": True,

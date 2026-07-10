@@ -192,7 +192,7 @@ def handle_epic_egg_message(user, text, attachments, db, send_message, upload_im
                   photo_before_id=photo_before_id, photo_after_id=photo_after_id)
 
     if is_egg_hatched(db, user.vk_id):
-        send_message(f"🎉🐉 Эпическое яйцо вылупилось!")
+        send_message(f"🎉🐲 Эпическое яйцо вылупилось!")
         _prompt_name(user, dragon, db, send_message)
     else:
         send_message(f"✅ Шаг {step} эпического яйца выполнен!")
@@ -204,7 +204,7 @@ def _prompt_name(user, dragon, db, send_message):
     user.state = AWAIT_EPIC_NAME
     db.commit()
     send_message(
-        "🐉 Твой эпический дракон вылупился!\n"
+        "🐲 Твой эпический дракон вылупился!\n"
         "Как ты его назовёшь? Напиши имя одним сообщением."
     )
 
@@ -222,13 +222,13 @@ def handle_epic_name(user, text, db, send_message, upload_image=None):
         user.state = IDLE
         db.commit()
         send_message(
-            f"🐉 «{name}» вылупился! Стадии ухода ещё не настроены — загляни позже.",
+            f"🐲 «{name}» вылупился! Стадии ухода ещё не настроены — загляни позже.",
             keyboard=idle_keyboard(has_active=bool(user.current_dragon_id)),
         )
         return True
     user.state = epic_care_state(care.stage_id)
     db.commit()
-    send_message(f"🐉 «{name}» вылупился! Начинается забота о малыше.")
+    send_message(f"🐲 «{name}» вылупился! Начинается забота о малыше.")
     from bot.handlers.epic_care import show_care_action
     show_care_action(user, db, send_message, upload_image)
     return True

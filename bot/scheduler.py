@@ -160,7 +160,7 @@ def _check_expired(db, vk, logger, session_factory=None):
 
             msg = (
                 f"🎉 Поздравляю! Ты вырастил дракона!\n\n"
-                f"🐉 {dragon.name} 🐉\n"
+                f"🐲 {dragon.name} 🐲\n"
                 f"Редкость: {rarity_name(dragon.rarity)} {rarity_stars(dragon.rarity)}\n"
             )
             if family_name:

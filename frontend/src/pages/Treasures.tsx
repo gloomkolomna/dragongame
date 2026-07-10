@@ -101,7 +101,7 @@ function Treasures() {
       </div>
 
       <div style={{ display: 'flex', marginBottom: 12, borderRadius: 8, overflow: 'hidden', background: 'rgba(28,20,36,0.5)', border: '1px solid var(--bronze)' }}>
-        <div style={tabStyle('dragon')} onClick={() => setTab('dragon')}>🐉 С драконов</div>
+        <div style={tabStyle('dragon')} onClick={() => setTab('dragon')}>🐲 С драконов</div>
         <div style={tabStyle('family')} onClick={() => setTab('family')}>📂 С семейств</div>
       </div>
 
@@ -168,7 +168,7 @@ function Treasures() {
               {detail.dragon_name && detail.dragon_id && (
                 <div onClick={() => { setDetail(null); nav(`/dragon/${detail.dragon_id}`); }}
                      style={{ color: 'var(--fire)', fontSize: 14, marginTop: 4, cursor: 'pointer', textDecoration: 'underline' }}>
-                  🐉 {detail.dragon_name}
+                  🐲 {detail.dragon_name}
                 </div>
               )}
               {detail.family_name && (

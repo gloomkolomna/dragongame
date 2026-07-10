@@ -14,7 +14,7 @@ interface Suspicious { id: number; user_id: number; dragon_id: number | null; st
 
 const USER_COLUMNS: Column<User>[] = [
   { key: 'player', label: 'Игрок', value: (u) => `${[u.first_name, u.last_name].filter(Boolean).join(' ')} id${u.vk_id}`, sortValue: (u) => [u.first_name, u.last_name].filter(Boolean).join(' ').toLowerCase(), filter: 'text' },
-  { key: 'dragons', label: '🐉', value: (u) => String(u.dragons_collected), sortValue: (u) => u.dragons_collected, width: 60 },
+  { key: 'dragons', label: '🐲', value: (u) => String(u.dragons_collected), sortValue: (u) => u.dragons_collected, width: 60 },
   { key: 'current', label: 'Текущий', value: (u) => (u.state === 'idle' ? '—' : `шаг ${u.current_step}`), sortValue: (u) => u.current_step },
   { key: 'price', label: 'Цена', value: (u) => (u.custom_price_per_dragon != null ? `${u.custom_price_per_dragon / 100}₽` : '—'), sortValue: (u) => u.custom_price_per_dragon ?? 0 },
   { key: 'registered', label: 'Дата рег.', value: (u) => u.registered_at || '', sortValue: (u) => u.registered_at || '' },
@@ -156,7 +156,7 @@ function UsersList() {
                 )}
               </h3>
               <p style={{ color: 'var(--parchment-dim)', fontSize: 14 }}>
-                🥚 Активно: {detail.dragons_active} &nbsp;|&nbsp; ⭐ Выращено: {detail.dragons_collected} &nbsp;|&nbsp; 🐉 Всего: {detail.dragons_total}
+                🥚 Активно: {detail.dragons_active} &nbsp;|&nbsp; ⭐ Выращено: {detail.dragons_collected} &nbsp;|&nbsp; 🐲 Всего: {detail.dragons_total}
               </p>
             </div>
 

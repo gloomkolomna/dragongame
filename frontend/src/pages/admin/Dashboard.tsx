@@ -52,7 +52,7 @@ function Dashboard() {
   }, [fetchHealth, fetchCheats]);
 
   const cards = [
-    { value: stats?.dragons_total ?? '—', label: 'Всего драконов', icon: '🐉' },
+    { value: stats?.dragons_total ?? '—', label: 'Всего драконов', icon: '🐲' },
     { value: stats?.dragons_active ?? '—', label: 'Активных', icon: '✨' },
     { value: stats?.pins_total ?? '—', label: 'Всего PIN', icon: '🔑' },
     { value: stats?.pins_active ?? '—', label: 'PIN активны', icon: '🟢' },

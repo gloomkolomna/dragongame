@@ -46,7 +46,7 @@ def handle_start(user, db, send_message, upload_image=None):
         has_any = db.query(UserDragon).filter(UserDragon.user_id == user.vk_id).first() is not None
         if has_any:
             send_message(
-                "🐉 Добро пожаловать в Бестиарий драконьих легенд!\n\n"
+                "🐲 Добро пожаловать в Бестиарий драконьих легенд!\n\n"
                 "Здесь ты выращиваешь драконов через вышивку.\n"
                 "Купил яйцо? Нажми «🥚 Добавить яйцо дракона» и введи PIN-код."
             )
@@ -58,7 +58,7 @@ def handle_start(user, db, send_message, upload_image=None):
                 return
             else:
                 send_message(
-                    "🐉 У тебя пока нет драконов.\n"
+                    "🐲 У тебя пока нет драконов.\n"
                     "Нажми «🥚 Добавить яйцо дракона» чтобы начать выращивание."
                 )
     else:
@@ -113,7 +113,7 @@ def handle_start(user, db, send_message, upload_image=None):
 
 def handle_help(send_message):
     send_message(
-        "🐉 Добро пожаловать в Бестиарий драконьих легенд!\n\n"
+        "🐲 Добро пожаловать в Бестиарий драконьих легенд!\n\n"
         "📖 Мой Бестиарий — открыть коллекцию в мини-приложении ВК\n"
         "🥚 Добавить яйцо дракона — ввести PIN-код с яйца и начать выращивание\n"
         "🌱 Перейти к выращиванию — начать/продолжить текущий шаг\n"
@@ -165,7 +165,7 @@ def handle_garden(user, db, send_message):
         _sd["_prev_step"] = user.current_step
         _prev_state = user.state
 
-    lines = ["🥚🐉 Яйца драконов, которые ты выращиваешь:\n"]
+    lines = ["🥚🐲 Яйца драконов, которые ты выращиваешь:\n"]
     for ud in entries:
         dragon = db.query(Dragon).filter(Dragon.id == ud.dragon_id).first()
         if not dragon:
@@ -220,7 +220,7 @@ def handle_garden(user, db, send_message):
         user.state = AWAIT_GARDEN
         db.commit()
         if completed_entries:
-            lines.append(f"\n🐉 Выращено драконов: {len(completed_entries)}. Их можно посмотреть в мини-приложении «Мой Бестиарий».")
+            lines.append(f"\n🐲 Выращено драконов: {len(completed_entries)}. Их можно посмотреть в мини-приложении «Мой Бестиарий».")
         if user.current_dragon_id:
             lines.append("\nНапиши номер яйца, чтобы переключиться на него, или нажми кнопку «Не менять».")
         else:
@@ -254,7 +254,7 @@ def cancel_garden(user, db, send_message, upload_image=None):
         user.state = IDLE
         db.commit()
         send_message(
-            "Хорошо, остаёмся без дракона. Нажми «🐉 Добавить яйцо дракона» чтобы начать.",
+            "Хорошо, остаёмся без дракона. Нажми «🐲 Добавить яйцо дракона» чтобы начать.",
             keyboard=idle_keyboard(has_active=False),
         )
         return
@@ -328,7 +328,7 @@ def switch_dragon(user, num: int, db, send_message, upload_image=None):
         user.state = IDLE
         db.commit()
         send_message(
-            f"🐉 «{name}» уже выращен!\n"
+            f"🐲 «{name}» уже выращен!\n"
             f"Загляни в мини-приложение, чтобы увидеть его в коллекции, или добавь нового дракона.",
             keyboard=_completed_keyboard(),
         )
@@ -354,7 +354,7 @@ def switch_dragon(user, num: int, db, send_message, upload_image=None):
         user.current_step = 0
         db.commit()
         send_message(
-            f"🐉 «{dragon.name}» уже выращен!\n"
+            f"🐲 «{dragon.name}» уже выращен!\n"
             f"Загляни в мини-приложение, чтобы увидеть его в коллекции, или добавь нового дракона.",
             keyboard=_completed_keyboard(),
         )
@@ -428,7 +428,7 @@ def handle_switch_to(user, dragon_id: int, db, send_message, upload_image=None):
             user.state = IDLE
             db.commit()
         send_message(
-            f"🐉 «{dragon.name}» уже выращен!\n"
+            f"🐲 «{dragon.name}» уже выращен!\n"
             f"Загляни в мини-приложение, чтобы увидеть его в коллекции, или добавь нового дракона.",
             keyboard=_completed_keyboard(),
         )
@@ -508,7 +508,7 @@ def handle_legends(user, db, send_message):
             "Их легенды появятся здесь, когда ты вырастишь легендарного дракона."
         )
         return
-    lines = ["🐉 Легендарные драконы — выбери, чью легенду прочитать:\n"]
+    lines = ["🐲 Легендарные драконы — выбери, чью легенду прочитать:\n"]
     from bot.services.legend_service import get_legend_total
     from models import UserLegendProgress
     for i, d in enumerate(dragons, start=1):
@@ -518,7 +518,7 @@ def handle_legends(user, db, send_message):
             UserLegendProgress.dragon_id == d.id,
             UserLegendProgress.completed == True,
         ).count()
-        lines.append(f"{i}. 🐉 {d.name} 📖 {opened}/{total}")
+        lines.append(f"{i}. 🐲 {d.name} 📖 {opened}/{total}")
     lines.append("\nНапиши номер, чтобы прочитать легенду, или «0», чтобы вернуться.")
     user.state = AWAIT_LEGENDS
     db.commit()

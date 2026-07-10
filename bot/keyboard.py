@@ -47,7 +47,7 @@ def garden_row():
 
 
 def legends_row():
-    return row(("🐉 Легендарные драконы", "legends"))
+    return row(("🐲 Легендарные драконы", "legends"))
 
 
 def keyboard_with_legends(kb_json):

@@ -29,7 +29,7 @@ function DragonDetail() {
   }, [d, id, vkUserId, bl]);
 
   if (bl || load) return <div style={{ display: 'flex', justifyContent: 'center', padding: 60 }}><div className="dragon-skeleton-card" style={{ height: 300 }} /></div>;
-  if (!d) return <div className="lair-card" style={{ maxWidth: 400, margin: '40px auto', textAlign: 'center' }}><div className="lair-empty-icon">🐉</div><p style={{ color: 'var(--text-secondary)' }}>Дракон не найден</p></div>;
+  if (!d) return <div className="lair-card" style={{ maxWidth: 400, margin: '40px auto', textAlign: 'center' }}><div className="lair-empty-icon">🐲</div><p style={{ color: 'var(--text-secondary)' }}>Дракон не найден</p></div>;
 
     const clr = d.family_color || 'var(--accent-gold-light)';
    const hasTimeout = !!d.next_step_available_at && d.user_progress.completed_steps > 0;
@@ -51,7 +51,7 @@ function DragonDetail() {
           {d.is_revealed
             ? (d.dragon_url
                 ? <img src={`${mediaUrl(d.dragon_url)}?v=${d.rarity}`} alt="" onClick={() => setZoom(`${mediaUrl(d.dragon_url)}?v=${d.rarity}`)} onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} style={{ maxWidth: '100%', maxHeight: 300, borderRadius: 'var(--radius-md)', cursor: 'pointer' }} />
-                : <span style={{ fontSize: 64 }}>🐉</span>)
+                : <span style={{ fontSize: 64 }}>🐲</span>)
             : (d.egg_url
                 ? <img src={mediaUrl(d.egg_url)} alt="" onClick={() => setZoom(mediaUrl(d.egg_url))} onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} style={{ maxWidth: '100%', maxHeight: 300, borderRadius: 'var(--radius-md)', cursor: 'pointer' }} />
                 : <span style={{ fontSize: 64 }}>🥚</span>)}

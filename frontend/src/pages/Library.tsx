@@ -77,7 +77,7 @@ function Library() {
           <p style={{ color: 'var(--text-secondary)', fontSize: 17, lineHeight: 1.6, marginTop: 12, whiteSpace: 'pre-line', textAlign: 'left' }}>{detail.full_text}</p>
         )}
         <button className="lair-btn" style={{ width: '100%', marginTop: 14 }} onClick={() => nav(`/dragon/${detail.dragon_id}`)}>
-          🐉 К дракону
+          🐲 К дракону
         </button>
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>

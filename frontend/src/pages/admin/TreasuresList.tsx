@@ -20,7 +20,7 @@ const COLUMNS: Column<Treasure>[] = [
   { key: 'image', label: '', width: 60 },
   { key: 'name', label: 'Название', value: (t) => t.name, filter: 'text' },
   { key: 'description', label: 'Описание', value: (t) => t.description, filter: 'text' },
-  { key: 'source', label: 'За', value: (t) => t.dragon_name ? `🐉 ${t.dragon_name}` : t.family_name ? `🏛 ${t.family_name}` : '—', filter: 'text', sortValue: (t) => t.dragon_name || t.family_name || '' },
+  { key: 'source', label: 'За', value: (t) => t.dragon_name ? `🐲 ${t.dragon_name}` : t.family_name ? `🏛 ${t.family_name}` : '—', filter: 'text', sortValue: (t) => t.dragon_name || t.family_name || '' },
   { key: 'actions', label: '', width: 60 },
 ];
 
@@ -63,7 +63,7 @@ function TreasuresList() {
                       <td>{tr.image_path && <img src={`/dragons${tr.image_path}`} alt="" style={{ width: 48, height: 48, objectFit: 'contain', borderRadius: 6 }} onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />}</td>
                       <td>{tr.name}</td>
                       <td style={{ color: 'var(--text-muted)', fontSize: 13 }}>{tr.description}</td>
-                      <td>{tr.dragon_name ? `🐉 ${tr.dragon_name}` : tr.family_name ? `🏛 ${tr.family_name}` : '—'}</td>
+                      <td>{tr.dragon_name ? `🐲 ${tr.dragon_name}` : tr.family_name ? `🏛 ${tr.family_name}` : '—'}</td>
                       <td><button className="lair-btn lair-btn-sm lair-btn-outline" onClick={(e) => { e.stopPropagation(); nav(editLink(tr)); }}>✎</button></td>
                     </tr>
                   ))}

@@ -9,7 +9,7 @@ const TABS = [
   { path: '/', label: '🥚 Бестиарий' },
   { path: '/cave', label: '💎 Пещера' },
   { path: '/library', label: '📖 Библиотека' },
-  { path: '/nest', label: '🐉 Гнездо' },
+  { path: '/nest', label: '🐲 Гнездо' },
   { path: '/shop', label: '🛒 Лавка' },
 ];
 

@@ -603,7 +603,7 @@ def _finale(user, db, send_message, upload_image, event):
 
     summary = _character_summary(db, user.vk_id)
     msg = (
-        f"🐉✨ «{name}» вырос и стал взрослым драконом!\n"
+        f"🐲✨ «{name}» вырос и стал взрослым драконом!\n"
         f"Он расправил крылья и улетел в небо, оставив тёплые воспоминания.\n"
     )
     if summary:
@@ -613,7 +613,7 @@ def _finale(user, db, send_message, upload_image, event):
     kb = json.dumps({
         "one_time": False,
         "buttons": [
-            [{"action": {"type": "text", "label": "🐉 Такого же заново", "payload": json.dumps({"cmd": "epic_restart", "mode": "same"}, ensure_ascii=False)}, "color": "primary"}],
+            [{"action": {"type": "text", "label": "🐲 Такого же заново", "payload": json.dumps({"cmd": "epic_restart", "mode": "same"}, ensure_ascii=False)}, "color": "primary"}],
             [{"action": {"type": "text", "label": "🎲 Нового случайного", "payload": json.dumps({"cmd": "epic_restart", "mode": "random"}, ensure_ascii=False)}, "color": "secondary"}],
             [{"action": {"type": "open_link", "label": "📖 Мой Бестиарий", "link": "https://vk.com/app54663330"}}],
         ],

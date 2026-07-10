@@ -82,7 +82,7 @@ function Collection() {
   if (!vkUserId) return (
     <div style={{ maxWidth: 400, margin: '60px auto', textAlign: 'center' }}>
       <div className="lair-card" style={{ padding: 24 }}>
-        <div style={{ fontSize: 40, marginBottom: 8 }}>🐉</div>
+        <div style={{ fontSize: 40, marginBottom: 8 }}>🐲</div>
         <p style={{ color: 'var(--text-secondary)' }}>
           Откройте приложение через VK, чтобы увидеть свою коллекцию драконов.
         </p>
@@ -364,7 +364,7 @@ function Collection() {
         </div>
       ) : (
         <div className="lair-card" style={{ textAlign: 'center', padding: 32 }}>
-          <div style={{ fontSize: 40, marginBottom: 8 }}>🐉</div>
+          <div style={{ fontSize: 40, marginBottom: 8 }}>🐲</div>
           <p style={{ color: 'var(--text-secondary)' }}>
             {families.length === 0
               ? 'Коллекция пока пуста'

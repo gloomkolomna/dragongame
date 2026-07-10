@@ -67,7 +67,7 @@ function TreasureCreate() {
 
         <div className="lair-card" style={{ maxWidth: 600 }}>
           <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
-            <button className={mode === 'dragon' ? 'lair-btn' : 'lair-btn lair-btn-outline'} onClick={() => setMode('dragon')}>🐉 За дракона</button>
+            <button className={mode === 'dragon' ? 'lair-btn' : 'lair-btn lair-btn-outline'} onClick={() => setMode('dragon')}>🐲 За дракона</button>
             <button className={mode === 'family' ? 'lair-btn' : 'lair-btn lair-btn-outline'} onClick={() => setMode('family')}>🏛 За семейство</button>
           </div>
 
