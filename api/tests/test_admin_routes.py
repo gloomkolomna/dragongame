@@ -835,6 +835,37 @@ def test_simple_action_has_outcomes(client):
     assert pos2["moodlet_title"] == "Сыт и рад"
 
 
+def test_epic_action_timeout_zero_preserved(client):
+    fam = client.post("/api/admin/families", data={"name": "Ftmz"}).json()
+    dragon = client.post("/api/admin/dragons", data={"name": "TmzDragon", "rarity": 1, "family_id": fam["id"], "is_epic": True}).json()
+    stage = client.post("/api/admin/epic/stages", json={"stage_number": 1, "name": "S1"}).json()
+
+    action = client.post(f"/api/admin/epic/species/{dragon['id']}/stages/{stage['id']}/actions", json={
+        "action_label": "Кормить", "action_type": "simple", "order_in_cycle": 1,
+        "timeout_hours": 0, "timeout_minutes": 0,
+    }).json()
+    assert action["timeout_hours"] == 0
+    assert action["timeout_minutes"] == 0
+
+    upd = client.put(f"/api/admin/epic/actions/{action['id']}", json={"timeout_hours": 0}).json()
+    assert upd["timeout_hours"] == 0
+
+
+def test_sub_step_timeout_zero_preserved(client):
+    fam = client.post("/api/admin/families", data={"name": "Ftmz2"}).json()
+    dragon = client.post("/api/admin/dragons", data={"name": "Tmz2Dragon", "rarity": 1, "family_id": fam["id"], "is_epic": True}).json()
+    stage = client.post("/api/admin/epic/stages", json={"stage_number": 1, "name": "S1"}).json()
+    action = client.post(f"/api/admin/epic/species/{dragon['id']}/stages/{stage['id']}/actions", json={
+        "action_label": "Уход", "action_type": "composite"
+    }).json()
+    sa = client.post(f"/api/admin/epic/actions/{action['id']}/sub-actions", json={"label": "Вариант"}).json()
+    step = client.post(f"/api/admin/epic/sub-actions/{sa['id']}/steps", json={
+        "step_label": "Шаг 1", "order": 1, "crosses_norm": 100, "timeout_hours": 0, "timeout_minutes": 0
+    }).json()
+    assert step["timeout_hours"] == 0
+    assert step["timeout_minutes"] == 0
+
+
 def test_simple_action_confirm_fields(client):
     fam = client.post("/api/admin/families", data={"name": "Fconf"}).json()
     dragon = client.post("/api/admin/dragons", data={"name": "ConfDragon", "rarity": 1, "family_id": fam["id"], "is_epic": True}).json()

@@ -1762,7 +1762,7 @@ async def create_epic_action(dragon_id: int, stage_id: int, request: Request, db
         crosses_norm=max(1, int(b.get("crosses_norm", 1000) or 1000)),
         image_path=b.get("image_path", ""),
         action_type=atype,
-        timeout_hours=max(0, int(b.get("timeout_hours", 24) or 24)),
+        timeout_hours=max(0, int(b.get("timeout_hours", 0) or 0)),
         timeout_minutes=max(0, min(59, int(b.get("timeout_minutes", 0) or 0))),
         random_outcome=bool(b.get("random_outcome", True)),
         character_axis_id=int(b["character_axis_id"]) if b.get("character_axis_id") else None,
@@ -1795,7 +1795,7 @@ async def update_epic_action(action_id: int, request: Request, db: Session = Dep
     if "crosses_norm" in b: action.crosses_norm = max(1, int(b["crosses_norm"] or 1000))
     if "image_path" in b: action.image_path = b["image_path"]
     if "action_type" in b: action.action_type = b["action_type"]
-    if "timeout_hours" in b: action.timeout_hours = max(0, int(b["timeout_hours"] or 24))
+    if "timeout_hours" in b: action.timeout_hours = max(0, int(b["timeout_hours"] or 0))
     if "timeout_minutes" in b: action.timeout_minutes = max(0, min(59, int(b["timeout_minutes"] or 0)))
     if "random_outcome" in b: action.random_outcome = bool(b["random_outcome"])
     if "character_axis_id" in b: action.character_axis_id = int(b["character_axis_id"]) if b["character_axis_id"] else None
@@ -1940,7 +1940,7 @@ async def create_sub_step(sub_id: int, request: Request, db: Session = Depends(g
         hint=b.get("hint", ""),
         crosses_norm=max(1, int(b.get("crosses_norm", 1000) or 1000)),
         image_path=b.get("image_path", ""),
-        timeout_hours=max(0, int(b.get("timeout_hours", 24) or 24)),
+        timeout_hours=max(0, int(b.get("timeout_hours", 0) or 0)),
         timeout_minutes=max(0, min(59, int(b.get("timeout_minutes", 0) or 0))),
     )
     db.add(step)
@@ -1961,7 +1961,7 @@ async def update_sub_step(step_id: int, request: Request, db: Session = Depends(
     if "hint" in b: step.hint = b["hint"]
     if "crosses_norm" in b: step.crosses_norm = max(1, int(b["crosses_norm"] or 1000))
     if "image_path" in b: step.image_path = b["image_path"]
-    if "timeout_hours" in b: step.timeout_hours = max(0, int(b["timeout_hours"] or 24))
+    if "timeout_hours" in b: step.timeout_hours = max(0, int(b["timeout_hours"] or 0))
     if "timeout_minutes" in b: step.timeout_minutes = max(0, min(59, int(b["timeout_minutes"] or 0)))
     db.commit()
     db.refresh(step)

@@ -209,7 +209,7 @@ function ItemPicker({ subActionId, currentIds, items, reload }: any) {
 
 function StepsEditor({ subActionId, steps, reload, uploadImage }: any) {
   const addStep = async () => {
-    await client.post(`/admin/epic/sub-actions/${subActionId}/steps`, { step_label: 'Новый шаг', order: steps.length + 1, crosses_norm: 1000, timeout_hours: 24, timeout_minutes: 0 });
+    await client.post(`/admin/epic/sub-actions/${subActionId}/steps`, { step_label: 'Новый шаг', order: steps.length + 1, crosses_norm: 1000, timeout_hours: 0, timeout_minutes: 0 });
     reload();
   };
   const delStep = async (id: number) => { await client.delete(`/admin/epic/sub-actions/steps/${id}`); reload(); };
@@ -229,7 +229,7 @@ function StepCard({ step, reload, delStep, uploadImage }: any) {
   const [task, setTask] = useState(step.task || '');
   const [hint, setHint] = useState(step.hint || '');
   const [norm, setNorm] = useState(step.crosses_norm);
-  const [th, setTh] = useState(step.timeout_hours ?? 24);
+  const [th, setTh] = useState(step.timeout_hours ?? 0);
   const [tm, setTm] = useState(step.timeout_minutes ?? 0);
   const [imagePath, setImagePath] = useState(step.image_path || '');
 

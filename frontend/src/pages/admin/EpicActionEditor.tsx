@@ -22,7 +22,7 @@ function EpicActionEditor() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
-  const [edit, setEdit] = useState({ action_label: '', task: '', crosses_norm: 1000, hint: '', image_path: '', action_type: 'simple', timeout_hours: 24, timeout_minutes: 0, item_ids: [] as number[], random_outcome: true, character_axis_id: null as number | null, description: '', confirm_button_label: '' });
+  const [edit, setEdit] = useState({ action_label: '', task: '', crosses_norm: 1000, hint: '', image_path: '', action_type: 'simple', timeout_hours: 0, timeout_minutes: 0, item_ids: [] as number[], random_outcome: true, character_axis_id: null as number | null, description: '', confirm_button_label: '' });
 
   useEffect(() => {
     client.get('/admin/shop-items').then((r) => setItems(r.data));
@@ -40,7 +40,7 @@ function EpicActionEditor() {
           setEdit({
             action_label: a.action_label, task: a.task || '', crosses_norm: a.crosses_norm, hint: a.hint || '',
             image_path: a.image_path || '', action_type: a.action_type || 'simple',
-            timeout_hours: a.timeout_hours ?? 24, timeout_minutes: a.timeout_minutes ?? 0,
+            timeout_hours: a.timeout_hours ?? 0, timeout_minutes: a.timeout_minutes ?? 0,
             item_ids: [...(a.item_ids || [])],
             random_outcome: a.random_outcome ?? true, character_axis_id: a.character_axis_id ?? null,
             description: a.description || '', confirm_button_label: a.confirm_button_label || '',

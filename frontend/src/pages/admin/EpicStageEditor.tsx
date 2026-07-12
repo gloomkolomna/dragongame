@@ -44,7 +44,7 @@ function EpicStageEditor() {
     if (!did) { setError('Выбери эпического дракона'); return; }
     setError('');
     const r = await client.post(`/admin/epic/species/${did}/stages/${sid}/actions`, {
-      action_label: label, action_type: actionType, order_in_cycle: nextOrder, crosses_norm: 1000, timeout_hours: 24, timeout_minutes: 0,
+      action_label: label, action_type: actionType, order_in_cycle: nextOrder, crosses_norm: 1000, timeout_hours: 0, timeout_minutes: 0,
     });
     setLabel(''); setActionType('simple');
     loadActions();
@@ -138,7 +138,7 @@ function ActionsList({ did, sid, rows, actions, dragIdx, setDragIdx, onDrop, nav
               <span style={{ color: 'var(--gold)', fontSize: 12 }}>{a.crosses_norm} ✚</span>
             )}
             <span style={{ color: 'var(--parchment-faded)', fontSize: 12 }}>
-              ⏳ {a.timeout_hours ?? 24}ч {a.timeout_minutes ?? 0}м
+              ⏳ {a.timeout_hours ?? 0}ч {a.timeout_minutes ?? 0}м
             </span>
             <div style={{ marginLeft: 'auto', display: 'flex', gap: 4 }}>
               <button className="lair-btn lair-btn-sm lair-btn-outline"

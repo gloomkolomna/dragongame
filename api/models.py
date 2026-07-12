@@ -223,7 +223,7 @@ class EpicStageAction(Base):
     crosses_norm = Column(Integer, default=1000)
     image_path = Column(String, default="")
     action_type = Column(String, default="simple")
-    timeout_hours = Column(Integer, default=24)
+    timeout_hours = Column(Integer, default=0)
     timeout_minutes = Column(Integer, default=0)
     random_outcome = Column(Boolean, default=True)
     character_axis_id = Column(Integer, ForeignKey("character_axes.id", ondelete="SET NULL"), nullable=True)
@@ -319,7 +319,7 @@ class EpicSubActionStep(Base):
     hint = Column(Text, default="")
     crosses_norm = Column(Integer, default=1000)
     image_path = Column(String, default="")
-    timeout_hours = Column(Integer, default=24)
+    timeout_hours = Column(Integer, default=0)
     timeout_minutes = Column(Integer, default=0)
 
 
