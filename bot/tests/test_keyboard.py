@@ -54,6 +54,33 @@ def test_max_five_columns():
             assert len(r) <= 5, f"{name} row {i} has too many columns"
 
 
+def test_max_ten_rows():
+    for name, kb in _all_keyboards().items():
+        rows = json.loads(kb)["buttons"]
+        assert len(rows) <= 10, f"{name} has too many rows ({len(rows)})"
+
+
+def test_shop_with_legends_and_epics_stays_within_limit():
+    from types import SimpleNamespace
+    items = [SimpleNamespace(id=i, name=f"Item{i}", cost_stitches=100) for i in range(5)]
+    kb = keyboard.shop_keyboard(items, page=0, total_pages=3)
+    kb = keyboard.keyboard_with_legends(kb)
+    kb = keyboard.keyboard_with_epics(kb)
+    rows = json.loads(kb)["buttons"]
+    assert len(rows) <= 10, f"shop+legends+epics has {len(rows)} rows"
+
+
+def test_injection_skipped_when_full():
+    data = {"one_time": False, "buttons": [
+        [{"action": {"type": "text", "label": f"b{i}", "payload": json.dumps({"cmd": f"c{i}"})}}]
+        for i in range(10)
+    ]}
+    full = json.dumps(data, ensure_ascii=False)
+    out = keyboard.keyboard_with_legends(full)
+    assert len(json.loads(out)["buttons"]) == 10
+    assert "legends" not in _cmds(out)
+
+
 def test_shop_keyboard_cols():
     from types import SimpleNamespace
     items = [SimpleNamespace(id=i, name=f"Item{i}", cost_stitches=100) for i in range(5)]

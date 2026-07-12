@@ -66,6 +66,8 @@ def keyboard_with_legends(kb_json):
                         return kb_json
                 except (json.JSONDecodeError, TypeError):
                     pass
+    if len(buttons) >= 10:
+        return kb_json
     insert_at = len(buttons)
     for i, r in enumerate(buttons):
         if any(b.get("action", {}).get("type") == "open_link" for b in r):
@@ -88,6 +90,8 @@ def keyboard_with_epics(kb_json):
                         return kb_json
                 except (json.JSONDecodeError, TypeError):
                     pass
+    if len(buttons) >= 10:
+        return kb_json
     insert_at = len(buttons)
     for i, r in enumerate(buttons):
         if any(b.get("action", {}).get("type") == "open_link" for b in r):
@@ -237,8 +241,7 @@ def shop_keyboard(buyable_items, page, total_pages):
         })
     if nav:
         buttons.append(nav)
-    buttons.append(row(("🎒 Мой инвентарь", "inventory")))
-    buttons.append(row(("🐲 К эпическому дракону", "epic")))
+    buttons.append(row(("🎒 Мой инвентарь", "inventory"), ("🐲 К эпическому дракону", "epic")))
     buttons.append(garden_row())
     buttons.append(bestiary_link_row())
     return _keyboard(buttons)
