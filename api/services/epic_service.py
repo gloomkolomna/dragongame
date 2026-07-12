@@ -8,6 +8,7 @@ from models import (
     UserInventory, EpicMoodlet, ShopItem,
     CharacterAxis, CharacterBalance,
     EpicSubAction, EpicSubActionItem, EpicSubActionStep, EpicSubActionOutcome,
+    EpicActionOutcome,
 )
 
 
@@ -533,6 +534,74 @@ def resolve_outcome(db, vk_id, care, sub_action):
     care.sub_had_penalty = False
     db.commit()
     return outcome, polarity
+
+
+def _award_action_outcome_moodlet(db, user_dragon_id, polarity, outcome, action):
+    key = f"action_outcome:{outcome.action_id}:{polarity}"
+    existing = db.query(EpicMoodlet).filter(
+        EpicMoodlet.user_dragon_id == user_dragon_id,
+        EpicMoodlet.key == key,
+    ).first()
+    if not existing:
+        db.add(EpicMoodlet(
+            user_dragon_id=user_dragon_id,
+            key=key,
+            title=outcome.moodlet_title,
+            polarity=polarity,
+            text=outcome.moodlet_text,
+            axis_id=action.character_axis_id if action else None,
+        ))
+        db.commit()
+
+
+def resolve_action_outcome(db, care, action, had_penalty=False):
+    """Resolve the moodlet outcome for a simple (non-composite) action.
+    Returns (outcome, polarity) or (None, polarity). Applies character shift."""
+    if getattr(action, "random_outcome", True):
+        polarity = _roll_action_polarity(db, care, had_penalty)
+        outcome = db.query(EpicActionOutcome).filter(
+            EpicActionOutcome.action_id == action.id,
+            EpicActionOutcome.polarity == polarity,
+        ).first()
+        if not outcome:
+            outcome = db.query(EpicActionOutcome).filter(
+                EpicActionOutcome.action_id == action.id,
+            ).first()
+    else:
+        outcome = (
+            db.query(EpicActionOutcome)
+            .filter(
+                EpicActionOutcome.action_id == action.id,
+                EpicActionOutcome.image_path != None,
+                EpicActionOutcome.image_path != "",
+            )
+            .order_by(EpicActionOutcome.id)
+            .first()
+        )
+        polarity = outcome.polarity if outcome else "positive"
+
+    if outcome and outcome_has_content(outcome):
+        _award_action_outcome_moodlet(db, care.user_dragon_id, polarity, outcome, action)
+    else:
+        outcome = None
+    from services.character_service import upsert_balance
+    if getattr(action, "character_axis_id", None):
+        delta = 1 if polarity == "positive" else -1
+        upsert_balance(db, care.user_dragon_id, action.character_axis_id, delta)
+    db.commit()
+    return outcome, polarity
+
+
+def _roll_action_polarity(db, care, had_penalty=False):
+    balances = db.query(CharacterBalance).filter(
+        CharacterBalance.user_dragon_id == care.user_dragon_id
+    ).all()
+    pos = sum(max(b.score or 0, 0) for b in balances)
+    neg = sum(max(-(b.score or 0), 0) for b in balances)
+    char_component = pos / (pos + neg) if pos + neg > 0 else 0.5
+    penalty_mult = 0.5 if had_penalty else 1.0
+    chance = max(0.05, min(0.95, char_component * penalty_mult))
+    return "positive" if random.random() < chance else "negative"
 
 
 # ─── Moodlets ───

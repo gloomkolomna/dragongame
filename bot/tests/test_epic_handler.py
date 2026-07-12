@@ -166,6 +166,37 @@ def test_epic_care_stage_up_via_handlers(db):
     assert any("Подросток" in m for m in msgs)
 
 
+def test_simple_action_shows_outcome(db):
+    from models import EpicActionOutcome
+    u, d = _epic(db, vk=45)
+    u.epic_unlocked = True
+    u.epic_dragon_id = d.id
+    db.commit()
+    st = EpicStage(stage_number=1, name="S1", cycles_count=1)
+    db.add(st)
+    db.flush()
+    action = EpicStageAction(dragon_id=d.id, stage_id=st.id, action_label="кормить", order_in_cycle=0,
+                             crosses_norm=100, timeout_hours=0, random_outcome=False)
+    db.add(action)
+    db.flush()
+    db.add(EpicActionOutcome(action_id=action.id, polarity="positive",
+                             moodlet_title="Сыт и счастлив", image_path="dragons/full.png"))
+    db.add(EpicActionOutcome(action_id=action.id, polarity="negative"))
+    db.commit()
+    epic_service.set_epic_name(db, 45, "Уголёк")
+    epic_service.start_care(db, 45)
+
+    msgs = []
+
+    def send(m, **k):
+        msgs.append(m)
+
+    show_care_action(u, db, send)
+    handle_care_mode(u, "norm", db, send)
+    handle_care_message(u, "вышито 100", _photos(), db, send)
+    assert any("Сыт и счастлив" in m for m in msgs)
+
+
 def _composite_setup(db, vk, with_steps, with_items):
     from models import EpicSubAction, EpicSubActionItem, EpicSubActionStep, EpicSubActionOutcome
     u, d = _epic(db, vk=vk)

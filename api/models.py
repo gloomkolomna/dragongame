@@ -225,6 +225,20 @@ class EpicStageAction(Base):
     action_type = Column(String, default="simple")
     timeout_hours = Column(Integer, default=24)
     timeout_minutes = Column(Integer, default=0)
+    random_outcome = Column(Boolean, default=True)
+    character_axis_id = Column(Integer, ForeignKey("character_axes.id", ondelete="SET NULL"), nullable=True)
+
+
+class EpicActionOutcome(Base):
+    __tablename__ = "epic_action_outcomes"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    action_id = Column(Integer, ForeignKey("epic_stage_actions.id", ondelete="CASCADE"), nullable=False)
+    polarity = Column(String, default="positive")
+    label = Column(String, default="")
+    moodlet_title = Column(String, default="")
+    moodlet_text = Column(Text, default="")
+    image_path = Column(String, default="")
+    __table_args__ = (UniqueConstraint("action_id", "polarity"),)
 
 
 class EpicActionItem(Base):

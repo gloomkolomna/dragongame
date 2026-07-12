@@ -808,3 +808,28 @@ def test_composite_action_rejects_item_ids(client):
         "action_label": "Test", "action_type": "composite", "item_ids": [item["id"]]
     })
     assert r.status_code == 422
+
+
+def test_simple_action_has_outcomes(client):
+    fam = client.post("/api/admin/families", data={"name": "Fout"}).json()
+    dragon = client.post("/api/admin/dragons", data={"name": "OutDragon", "rarity": 1, "family_id": fam["id"], "is_epic": True}).json()
+    stage = client.post("/api/admin/epic/stages", json={"stage_number": 1, "name": "S1"}).json()
+    ax = client.post("/api/admin/character-axes", json={"positive_label": "Сытый", "negative_label": "Голодный"}).json()
+
+    action = client.post(f"/api/admin/epic/species/{dragon['id']}/stages/{stage['id']}/actions", json={
+        "action_label": "Кормить", "action_type": "simple", "order_in_cycle": 1,
+        "random_outcome": False, "character_axis_id": ax["id"],
+    }).json()
+    assert action["random_outcome"] is False
+    assert action["character_axis_id"] == ax["id"]
+    assert len(action["outcomes"]) == 2
+    polarities = {o["polarity"] for o in action["outcomes"]}
+    assert polarities == {"positive", "negative"}
+
+    pos = next(o for o in action["outcomes"] if o["polarity"] == "positive")
+    upd = client.put(f"/api/admin/epic/actions/outcomes/{pos['id']}", json={"moodlet_title": "Сыт и рад"}).json()
+    assert upd["moodlet_title"] == "Сыт и рад"
+
+    refetched = client.get(f"/api/admin/epic/species/{dragon['id']}/stages/{stage['id']}/actions").json()[0]
+    pos2 = next(o for o in refetched["outcomes"] if o["polarity"] == "positive")
+    assert pos2["moodlet_title"] == "Сыт и рад"

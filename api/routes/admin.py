@@ -19,6 +19,7 @@ from models import (
     PricingConfig, DragonSet, PaymentOrder,
     CharacterAxis, CharacterBalance,
     EpicSubAction, EpicSubActionItem, EpicSubActionStep, EpicSubActionOutcome,
+    EpicActionOutcome,
     IntroChapter,
 )
 from config import API_ERROR_LOG, DONOR_SYNC_INTERVAL_HOURS
@@ -1672,6 +1673,18 @@ def _action_dict(db, action: EpicStageAction) -> dict:
     if atype == "composite":
         result["item_ids"] = []
         result["sub_actions"] = _sub_actions_list(db, action.id)
+    else:
+        result["random_outcome"] = bool(getattr(action, "random_outcome", True))
+        result["character_axis_id"] = action.character_axis_id
+        outcomes = db.query(EpicActionOutcome).filter(EpicActionOutcome.action_id == action.id).all()
+        result["outcomes"] = [{
+            "id": o.id,
+            "polarity": o.polarity,
+            "label": o.label,
+            "moodlet_title": o.moodlet_title,
+            "moodlet_text": o.moodlet_text,
+            "image_path": o.image_path or "",
+        } for o in outcomes]
     return result
 
 
@@ -1749,12 +1762,17 @@ async def create_epic_action(dragon_id: int, stage_id: int, request: Request, db
         action_type=atype,
         timeout_hours=max(0, int(b.get("timeout_hours", 24) or 24)),
         timeout_minutes=max(0, min(59, int(b.get("timeout_minutes", 0) or 0))),
+        random_outcome=bool(b.get("random_outcome", True)),
+        character_axis_id=int(b["character_axis_id"]) if b.get("character_axis_id") else None,
     )
     db.add(action)
     db.commit()
     db.refresh(action)
     if atype != "composite":
         _set_action_items(db, action.id, b.get("item_ids", []))
+        for polarity in ("positive", "negative"):
+            db.add(EpicActionOutcome(action_id=action.id, polarity=polarity))
+        db.commit()
     _resync_stage_items(db, stage_id)
     db.refresh(action)
     return _action_dict(db, action)
@@ -1775,6 +1793,8 @@ async def update_epic_action(action_id: int, request: Request, db: Session = Dep
     if "action_type" in b: action.action_type = b["action_type"]
     if "timeout_hours" in b: action.timeout_hours = max(0, int(b["timeout_hours"] or 24))
     if "timeout_minutes" in b: action.timeout_minutes = max(0, min(59, int(b["timeout_minutes"] or 0)))
+    if "random_outcome" in b: action.random_outcome = bool(b["random_outcome"])
+    if "character_axis_id" in b: action.character_axis_id = int(b["character_axis_id"]) if b["character_axis_id"] else None
     db.commit()
     db.refresh(action)
     atype = getattr(action, "action_type", "simple") or "simple"
@@ -1782,6 +1802,12 @@ async def update_epic_action(action_id: int, request: Request, db: Session = Dep
         _set_action_items(db, action.id, b.get("item_ids", []))
     if atype == "composite" and "item_ids" in b and b.get("item_ids"):
         raise HTTPException(status_code=422, detail="composite actions must not have direct item_ids")
+    if atype != "composite":
+        existing = {o.polarity for o in db.query(EpicActionOutcome).filter(EpicActionOutcome.action_id == action.id).all()}
+        for polarity in ("positive", "negative"):
+            if polarity not in existing:
+                db.add(EpicActionOutcome(action_id=action.id, polarity=polarity))
+        db.commit()
     stage_id = action.stage_id
     _resync_stage_items(db, stage_id)
     db.refresh(action)
@@ -1956,6 +1982,23 @@ def list_sub_outcomes(sub_id: int, db: Session = Depends(get_db)):
 @router.put("/epic/sub-actions/outcomes/{outcome_id}")
 async def update_sub_outcome(outcome_id: int, request: Request, db: Session = Depends(get_db)):
     outcome = db.query(EpicSubActionOutcome).filter(EpicSubActionOutcome.id == outcome_id).first()
+    if not outcome:
+        raise HTTPException(status_code=404, detail="Outcome not found")
+    b = await _json_body(request)
+    if "label" in b: outcome.label = b["label"]
+    if "moodlet_title" in b: outcome.moodlet_title = b["moodlet_title"]
+    if "moodlet_text" in b: outcome.moodlet_text = b["moodlet_text"]
+    if "image_path" in b: outcome.image_path = b["image_path"]
+    db.commit()
+    db.refresh(outcome)
+    return outcome
+
+
+# ─── Epic Action Outcomes (simple actions) ───
+
+@router.put("/epic/actions/outcomes/{outcome_id}")
+async def update_action_outcome(outcome_id: int, request: Request, db: Session = Depends(get_db)):
+    outcome = db.query(EpicActionOutcome).filter(EpicActionOutcome.id == outcome_id).first()
     if not outcome:
         raise HTTPException(status_code=404, detail="Outcome not found")
     b = await _json_body(request)

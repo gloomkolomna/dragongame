@@ -4,6 +4,7 @@ from models import (
     EpicCareState, EpicMoodlet,
     CharacterAxis, CharacterBalance,
     EpicSubAction, EpicSubActionItem, EpicSubActionStep, EpicSubActionOutcome,
+    EpicActionOutcome,
 )
 from services import epic_service
 from bot.services.grow_service import complete_step
@@ -438,6 +439,90 @@ def test_resolve_outcome_non_random_both_empty_none(db):
     outcome, polarity = epic_service.resolve_outcome(db, 123, care, sa)
     assert outcome is None
     assert db.query(EpicMoodlet).filter(EpicMoodlet.user_dragon_id == care.user_dragon_id).count() == 0
+
+
+def test_resolve_action_outcome_random_awards_moodlet(db):
+    db.add(User(vk_id=130, stitches_balance=500))
+    d = _epic_dragon(db)
+    epic_service.spawn_random_epic(db, 130)
+    st, _ = _stage(db, number=1, cycles=1, actions=0, dragon_id=d.id)
+    action = EpicStageAction(dragon_id=d.id, stage_id=st.id, action_label="кормить", order_in_cycle=0,
+                             crosses_norm=100, random_outcome=True)
+    db.add(action)
+    db.flush()
+    db.add(EpicActionOutcome(action_id=action.id, polarity="positive", moodlet_title="Сыт"))
+    db.add(EpicActionOutcome(action_id=action.id, polarity="negative", moodlet_title="Голоден"))
+    db.commit()
+
+    care = epic_service.start_care(db, 130)
+    outcome, polarity = epic_service.resolve_action_outcome(db, care, action)
+    assert outcome is not None
+    assert db.query(EpicMoodlet).filter(EpicMoodlet.user_dragon_id == care.user_dragon_id).count() == 1
+
+
+def test_resolve_action_outcome_non_random_picks_image(db):
+    db.add(User(vk_id=131, stitches_balance=500))
+    d = _epic_dragon(db)
+    epic_service.spawn_random_epic(db, 131)
+    st, _ = _stage(db, number=1, cycles=1, actions=0, dragon_id=d.id)
+    action = EpicStageAction(dragon_id=d.id, stage_id=st.id, action_label="кормить", order_in_cycle=0,
+                             crosses_norm=100, random_outcome=False)
+    db.add(action)
+    db.flush()
+    db.add(EpicActionOutcome(action_id=action.id, polarity="positive"))
+    db.add(EpicActionOutcome(action_id=action.id, polarity="negative",
+                             moodlet_title="Испачкался", image_path="dragons/dirty.png"))
+    db.commit()
+
+    care = epic_service.start_care(db, 131)
+    outcome, polarity = epic_service.resolve_action_outcome(db, care, action)
+    assert outcome is not None
+    assert polarity == "negative"
+    assert outcome.image_path == "dragons/dirty.png"
+
+
+def test_resolve_action_outcome_empty_returns_none(db):
+    db.add(User(vk_id=132, stitches_balance=500))
+    d = _epic_dragon(db)
+    epic_service.spawn_random_epic(db, 132)
+    st, _ = _stage(db, number=1, cycles=1, actions=0, dragon_id=d.id)
+    action = EpicStageAction(dragon_id=d.id, stage_id=st.id, action_label="кормить", order_in_cycle=0,
+                             crosses_norm=100, random_outcome=True)
+    db.add(action)
+    db.flush()
+    db.add(EpicActionOutcome(action_id=action.id, polarity="positive"))
+    db.add(EpicActionOutcome(action_id=action.id, polarity="negative"))
+    db.commit()
+
+    care = epic_service.start_care(db, 132)
+    outcome, polarity = epic_service.resolve_action_outcome(db, care, action)
+    assert outcome is None
+    assert db.query(EpicMoodlet).filter(EpicMoodlet.user_dragon_id == care.user_dragon_id).count() == 0
+
+
+def test_resolve_action_outcome_shifts_character(db):
+    db.add(User(vk_id=133, stitches_balance=500))
+    d = _epic_dragon(db)
+    epic_service.spawn_random_epic(db, 133)
+    st, _ = _stage(db, number=1, cycles=1, actions=0, dragon_id=d.id)
+    ax = CharacterAxis(positive_label="Сытый", negative_label="Голодный", is_active=True)
+    db.add(ax)
+    db.flush()
+    action = EpicStageAction(dragon_id=d.id, stage_id=st.id, action_label="кормить", order_in_cycle=0,
+                             crosses_norm=100, random_outcome=False, character_axis_id=ax.id)
+    db.add(action)
+    db.flush()
+    db.add(EpicActionOutcome(action_id=action.id, polarity="positive", moodlet_title="Сыт", image_path="dragons/full.png"))
+    db.add(EpicActionOutcome(action_id=action.id, polarity="negative"))
+    db.commit()
+
+    care = epic_service.start_care(db, 133)
+    outcome, polarity = epic_service.resolve_action_outcome(db, care, action)
+    assert polarity == "positive"
+    bal = db.query(CharacterBalance).filter(
+        CharacterBalance.user_dragon_id == care.user_dragon_id, CharacterBalance.axis_id == ax.id
+    ).first()
+    assert bal is not None and bal.score == 1
 
 
 def test_character_summary(db):

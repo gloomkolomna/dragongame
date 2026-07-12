@@ -163,6 +163,7 @@ def handle_care_use_item(user, db, send_message, upload_image=None):
 
     _award_action_moodlet(db, user.vk_id, care, action)
     send_message(f"✅ «{action.action_label}» — {name} доволен! Товары использованы.")
+    _show_action_outcome(db, user.vk_id, care, action, send_message, upload_image)
 
     event = advance_care(db, care)
     kind = event.get("event")
@@ -201,6 +202,7 @@ def handle_care_skip_item(user, db, send_message, upload_image=None):
 
     _award_action_moodlet(db, user.vk_id, care, action)
     send_message(f"✅ «{action.action_label}» пропущено. «{name}» не против.")
+    _show_action_outcome(db, user.vk_id, care, action, send_message, upload_image)
 
     event = advance_care(db, care)
     kind = event.get("event")
@@ -299,6 +301,7 @@ def handle_care_message(user, text, attachments, db, send_message, upload_image=
 
     name = get_epic_name(db, user.vk_id) or (epic_dragon.name if epic_dragon else "малыш")
     send_message(f"✅ «{action.action_label}» — сделано! «{name}» доволен.")
+    _show_action_outcome(db, user.vk_id, care, action, send_message, upload_image, had_penalty=(mode == "x2"))
 
     event = advance_care(db, care)
     kind = event.get("event")
@@ -682,6 +685,22 @@ def _award_action_moodlet(db, vk_id, care, action):
         acquired_at=datetime.now().strftime("%Y-%m-%dT%H:%M:%S"),
     ))
     db.commit()
+
+
+def _show_action_outcome(db, vk_id, care, action, send_message, upload_image, had_penalty=False):
+    from services.epic_service import resolve_action_outcome
+    outcome, polarity = resolve_action_outcome(db, care, action, had_penalty=had_penalty)
+    if not outcome:
+        return
+    pol_label = "🌟" if polarity == "positive" else "💔"
+    msg = f"{pol_label} {outcome.moodlet_title or outcome.label or action.action_label}"
+    if outcome.moodlet_text:
+        msg += f"\n\n{outcome.moodlet_text}"
+    if outcome.image_path:
+        attachment = _attach(upload_image, outcome.image_path, vk_id)
+        send_message(msg, attachment=attachment)
+    else:
+        send_message(msg)
 
 
 def _finale(user, db, send_message, upload_image, event):

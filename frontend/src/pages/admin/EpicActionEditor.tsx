@@ -2,7 +2,7 @@ import { useEffect, useState, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import client from '../../api/client';
 
-interface Action { id: number; dragon_id: number; stage_id: number; action_label: string; order_in_cycle: number; task: string; hint: string; crosses_norm: number; image_path: string; action_type: string; timeout_hours: number; timeout_minutes: number; item_ids: number[]; sub_actions?: SubAction[]; }
+interface Action { id: number; dragon_id: number; stage_id: number; action_label: string; order_in_cycle: number; task: string; hint: string; crosses_norm: number; image_path: string; action_type: string; timeout_hours: number; timeout_minutes: number; item_ids: number[]; random_outcome?: boolean; character_axis_id?: number | null; outcomes?: Outcome[]; sub_actions?: SubAction[]; }
 interface ShopItem { id: number; name: string; }
 interface Axis { id: number; positive_label: string; negative_label: string; }
 interface SubAction { id: number; label: string; description: string; order_in_sub: number; image_path: string; character_axis_id: number | null; item_ids: number[]; steps: SubStep[]; outcomes: Outcome[]; }
@@ -22,7 +22,7 @@ function EpicActionEditor() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
-  const [edit, setEdit] = useState({ action_label: '', task: '', crosses_norm: 1000, hint: '', image_path: '', action_type: 'simple', timeout_hours: 24, timeout_minutes: 0, item_ids: [] as number[] });
+  const [edit, setEdit] = useState({ action_label: '', task: '', crosses_norm: 1000, hint: '', image_path: '', action_type: 'simple', timeout_hours: 24, timeout_minutes: 0, item_ids: [] as number[], random_outcome: true, character_axis_id: null as number | null });
 
   useEffect(() => {
     client.get('/admin/shop-items').then((r) => setItems(r.data));
@@ -42,6 +42,7 @@ function EpicActionEditor() {
             image_path: a.image_path || '', action_type: a.action_type || 'simple',
             timeout_hours: a.timeout_hours ?? 24, timeout_minutes: a.timeout_minutes ?? 0,
             item_ids: [...(a.item_ids || [])],
+            random_outcome: a.random_outcome ?? true, character_axis_id: a.character_axis_id ?? null,
           });
         }
         setLoading(false);
@@ -77,6 +78,15 @@ function EpicActionEditor() {
   };
 
   const toggleItem = (id: number) => setEdit((e) => ({ ...e, item_ids: e.item_ids.includes(id) ? e.item_ids.filter((x) => x !== id) : [...e.item_ids, id] }));
+
+  const saveOutcomeMeta = async (data: any) => {
+    try {
+      await client.put(`/admin/epic/actions/${aid}`, data);
+      loadAction();
+    } catch (e: any) {
+      setError(e.response?.data?.detail || 'Ошибка сохранения');
+    }
+  };
 
   if (loading) return <div className="lair-content"><div className="lair-skeleton" /></div>;
   if (!action) return <div className="lair-content"><div className="lair-card"><p>Действие не найдено.</p><button className="lair-btn lair-btn-outline" onClick={() => nav(`/admin/epic/stages/${sid}`)}>← К стадии</button></div></div>;
@@ -172,6 +182,33 @@ function EpicActionEditor() {
             <SubActionsEditor actionId={aid} subActions={action.sub_actions || []} axes={axes} reload={loadAction} setError={setError} sid={sid} aid={aid} />
           </div>
         )}
+
+        {!isComposite && (
+          <div className="lair-card" style={{ maxWidth: 700 }}>
+            <h3 style={{ color: 'var(--gold)', margin: '0 0 8px' }}>Исход (мудлет характера)</h3>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', flexWrap: 'wrap', marginBottom: 10 }}>
+              <div style={{ width: 220 }}>
+                <label className="lair-label">Ось характера</label>
+                <select className="lair-input" value={edit.character_axis_id ?? ''}
+                        onChange={(e) => { const v = e.target.value ? Number(e.target.value) : null; setEdit({ ...edit, character_axis_id: v }); saveOutcomeMeta({ character_axis_id: v }); }}>
+                  <option value="">Без характера</option>
+                  {axes.map((ax) => <option key={ax.id} value={ax.id}>{ax.positive_label} ⇄ {ax.negative_label}</option>)}
+                </select>
+              </div>
+              <label className="lair-checkbox">
+                <input type="checkbox" checked={edit.random_outcome}
+                       onChange={(e) => { setEdit({ ...edit, random_outcome: e.target.checked }); saveOutcomeMeta({ random_outcome: e.target.checked }); }} />
+                🎲 Случайный исход
+              </label>
+            </div>
+            <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 10 }}>
+              {edit.random_outcome
+                ? 'Один из двух исходов выбирается случайно (с учётом характера).'
+                : 'Выбирается исход, у которого загружена картинка. Если оба пустые — исход не показывается.'}
+            </div>
+            <ActionOutcomesEditor outcomes={action.outcomes || []} reload={loadAction} uploadImage={uploadImage} />
+          </div>
+        )}
       </div>
     </>
   );
@@ -254,6 +291,53 @@ function SubActionsEditor({ actionId, subActions, axes, reload, setError, sid, a
         </select>
         <button className="lair-btn" onClick={addSub}>+ Добавить</button>
       </div>
+    </div>
+  );
+}
+
+function ActionOutcomesEditor({ outcomes, reload, uploadImage }: any) {
+  const updateOutcome = async (id: number, data: any) => { await client.put(`/admin/epic/actions/outcomes/${id}`, data); reload(); };
+
+  if (!outcomes || outcomes.length === 0) {
+    return <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>Исходы появятся после сохранения действия.</div>;
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      {outcomes.map((o: Outcome) => (
+        <div key={o.id} style={{ padding: '10px 12px', background: 'rgba(255,255,255,0.03)', borderRadius: 6, border: '1px solid rgba(180,150,100,0.15)' }}>
+          <div style={{ fontSize: 13, color: o.polarity === 'positive' ? '#6fcf97' : '#d474a0', marginBottom: 8, fontWeight: 600 }}>
+            {o.polarity === 'positive' ? '🌟 Положительный исход' : '💔 Отрицательный исход'}
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 8 }}>
+            <div>
+              <label className="lair-label" style={{ fontSize: 11 }}>Заголовок мудлета</label>
+              <input className="lair-input" defaultValue={o.moodlet_title}
+                     onBlur={(e) => updateOutcome(o.id, { moodlet_title: e.target.value })}
+                     placeholder="Например: Сыт и счастлив!" style={{ height: 32, fontSize: 13 }} />
+            </div>
+            <div>
+              <label className="lair-label" style={{ fontSize: 11 }}>Текст мудлета</label>
+              <input className="lair-input" defaultValue={o.moodlet_text}
+                     onBlur={(e) => updateOutcome(o.id, { moodlet_text: e.target.value })}
+                     placeholder="Описание того, что произошло" style={{ height: 32, fontSize: 13 }} />
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <label className="lair-file" style={{ margin: 0, fontSize: 12 }}>
+              <input type="file" accept="image/*" style={{ display: 'none' }}
+                     onChange={async (e) => { const f = e.target.files?.[0]; if (f) { const p = await uploadImage(f); updateOutcome(o.id, { image_path: p }); } }} />
+              {o.image_path ? '🖼 Заменить картинку' : '🖼 Добавить картинку'}
+            </label>
+            {o.image_path && (
+              <img src={`/dragons/api/static/images/${o.image_path}?t=${Date.now()}`} alt=""
+                   style={{ width: 48, height: 48, objectFit: 'cover', borderRadius: 6, border: '1px solid var(--bronze)', cursor: 'pointer' }}
+                   onClick={() => window.open(`/dragons/api/static/images/${o.image_path}`, '_blank')}
+                   onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+            )}
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
