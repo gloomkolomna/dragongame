@@ -137,6 +137,20 @@ function EpicActionEditor() {
                   </div>
                 </div>
               )}
+              {edit.item_ids.length > 0 && (
+                <>
+                  <div style={{ marginBottom: 12 }}>
+                    <label className="lair-label">Описание (показывается на экране подтверждения списания товара)</label>
+                    <textarea className="lair-textarea" value={edit.description} onChange={(e) => setEdit({ ...edit, description: e.target.value })}
+                              placeholder="Например: Ты насыпаешь корм в миску и малыш с аппетитом ест…" style={{ minHeight: 70 }} />
+                  </div>
+                  <div style={{ marginBottom: 12 }}>
+                    <label className="lair-label">Надпись на кнопке подтверждения</label>
+                    <input className="lair-input" value={edit.confirm_button_label} onChange={(e) => setEdit({ ...edit, confirm_button_label: e.target.value })}
+                           placeholder="🎒 Использовать" />
+                  </div>
+                </>
+              )}
             </>
           )}
 

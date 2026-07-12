@@ -833,3 +833,19 @@ def test_simple_action_has_outcomes(client):
     refetched = client.get(f"/api/admin/epic/species/{dragon['id']}/stages/{stage['id']}/actions").json()[0]
     pos2 = next(o for o in refetched["outcomes"] if o["polarity"] == "positive")
     assert pos2["moodlet_title"] == "Сыт и рад"
+
+
+def test_simple_action_confirm_fields(client):
+    fam = client.post("/api/admin/families", data={"name": "Fconf"}).json()
+    dragon = client.post("/api/admin/dragons", data={"name": "ConfDragon", "rarity": 1, "family_id": fam["id"], "is_epic": True}).json()
+    stage = client.post("/api/admin/epic/stages", json={"stage_number": 1, "name": "S1"}).json()
+
+    action = client.post(f"/api/admin/epic/species/{dragon['id']}/stages/{stage['id']}/actions", json={
+        "action_label": "Кормить", "action_type": "simple", "order_in_cycle": 1,
+        "description": "Ты насыпаешь корм…", "confirm_button_label": "🍖 Покормить",
+    }).json()
+    assert action["description"] == "Ты насыпаешь корм…"
+    assert action["confirm_button_label"] == "🍖 Покормить"
+
+    upd = client.put(f"/api/admin/epic/actions/{action['id']}", json={"confirm_button_label": "🍗 Дать корм"}).json()
+    assert upd["confirm_button_label"] == "🍗 Дать корм"

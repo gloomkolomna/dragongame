@@ -197,6 +197,43 @@ def test_simple_action_shows_outcome(db):
     assert any("Сыт и счастлив" in m for m in msgs)
 
 
+def test_simple_action_with_item_shows_confirm(db):
+    u, d = _epic(db, vk=46)
+    u.epic_unlocked = True
+    u.epic_dragon_id = d.id
+    db.commit()
+    st = EpicStage(stage_number=1, name="S1", cycles_count=1)
+    db.add(st)
+    db.flush()
+    action = EpicStageAction(dragon_id=d.id, stage_id=st.id, action_label="кормить", order_in_cycle=0,
+                             crosses_norm=100, timeout_hours=0,
+                             description="Ты насыпаешь корм в миску…", confirm_button_label="🍖 Покормить")
+    db.add(action)
+    db.flush()
+    it = ShopItem(name="Корм", is_active=True, is_consumable=True)
+    db.add(it)
+    db.flush()
+    db.add(EpicActionItem(action_id=action.id, item_id=it.id))
+    db.add(UserInventory(user_id=46, item_id=it.id, quantity=1))
+    db.commit()
+    epic_service.set_epic_name(db, 46, "Уголёк")
+    epic_service.start_care(db, 46)
+
+    msgs = []
+    sent = {}
+
+    def send(m, **k):
+        msgs.append(m)
+        sent.update(k)
+
+    show_care_action(u, db, send)
+    assert any("Ты насыпаешь корм в миску" in m for m in msgs)
+    assert "🍖 Покормить" in sent.get("keyboard", "")
+    assert "use_item" in sent.get("keyboard", "")
+    inv = db.query(UserInventory).filter(UserInventory.user_id == 46).first()
+    assert inv is not None and inv.quantity == 1
+
+
 def _composite_setup(db, vk, with_steps, with_items):
     from models import EpicSubAction, EpicSubActionItem, EpicSubActionStep, EpicSubActionOutcome
     u, d = _epic(db, vk=vk)
