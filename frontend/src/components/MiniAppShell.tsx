@@ -6,11 +6,8 @@ interface Props {
 }
 
 const TABS = [
-  { path: '/', label: '🥚 Бестиарий' },
-  { path: '/cave', label: '💎 Пещера' },
-  { path: '/library', label: '📖 Библиотека' },
-  { path: '/nest', label: '🐲 Гнездо' },
-  { path: '/shop', label: '🛒 Лавка' },
+  { path: '/', label: '🥚 Мой бестиарий' },
+  { path: '/cave/nest', label: '🏔 Пещера дракона' },
 ];
 
 function MiniAppShell({ children }: Props) {

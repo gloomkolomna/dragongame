@@ -2,6 +2,7 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 
 import { VkBridgeProvider } from './context/VkBridgeContext';
 import MiniAppShell from './components/MiniAppShell';
+import CaveLayout from './components/CaveLayout';
 
 import Login from './pages/Login';
 import AdminLayout from './pages/AdminLayout';
@@ -63,38 +64,54 @@ function App() {
             </MiniAppShell>
           }
         />
+
+        {/* Пещера дракона — подразделы с CaveLayout */}
         <Route
-          path="/cave"
+          path="/cave/nest"
           element={
             <MiniAppShell>
-              <Treasures />
+              <CaveLayout>
+                <Nest />
+              </CaveLayout>
             </MiniAppShell>
           }
         />
         <Route
-          path="/library"
+          path="/cave/treasures"
           element={
             <MiniAppShell>
-              <Library />
+              <CaveLayout>
+                <Treasures />
+              </CaveLayout>
             </MiniAppShell>
           }
         />
         <Route
-          path="/nest"
+          path="/cave/library"
           element={
             <MiniAppShell>
-              <Nest />
+              <CaveLayout>
+                <Library />
+              </CaveLayout>
             </MiniAppShell>
           }
         />
         <Route
-          path="/shop"
+          path="/cave/shop"
           element={
             <MiniAppShell>
-              <Shop />
+              <CaveLayout>
+                <Shop />
+              </CaveLayout>
             </MiniAppShell>
           }
         />
+
+        {/* Redirects для старых путей */}
+        <Route path="/cave" element={<Navigate to="/cave/nest" replace />} />
+        <Route path="/nest" element={<Navigate to="/cave/nest" replace />} />
+        <Route path="/library" element={<Navigate to="/cave/library" replace />} />
+        <Route path="/shop" element={<Navigate to="/cave/shop" replace />} />
 
         {/* Admin — защищённые страницы */}
         <Route path="/admin/login" element={<Login />} />

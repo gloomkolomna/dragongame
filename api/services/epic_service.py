@@ -481,6 +481,7 @@ def _award_outcome_moodlet(db, user_dragon_id, polarity, outcome):
             title=outcome.moodlet_title,
             polarity=polarity,
             text=outcome.moodlet_text,
+            image_path=outcome.image_path,
             axis_id=sub_action.character_axis_id if sub_action else None,
         ))
         db.commit()
@@ -549,6 +550,7 @@ def _award_action_outcome_moodlet(db, user_dragon_id, polarity, outcome, action)
             title=outcome.moodlet_title,
             polarity=polarity,
             text=outcome.moodlet_text,
+            image_path=outcome.image_path,
             axis_id=action.character_axis_id if action else None,
         ))
         db.commit()

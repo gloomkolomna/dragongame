@@ -35,6 +35,10 @@ interface TreasuresView {
 
 type Tab = 'dragon' | 'family';
 
+const PER_PAGE = 8;
+const COLS = 2;
+const ROWS = 4;
+
 function Treasures() {
   const { vkUserId, loading: bl } = useVkBridge();
   const [data, setData] = useState<TreasuresView | null>(null);
@@ -42,6 +46,7 @@ function Treasures() {
   const [detail, setDetail] = useState<CollectedTreasure | null>(null);
   const [zoomImg, setZoomImg] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>('dragon');
+  const [page, setPage] = useState(0);
   const nav = useNavigate();
   const [params] = useSearchParams();
 
@@ -63,6 +68,10 @@ function Treasures() {
       .catch(() => setData(null))
       .finally(() => setLoad(false));
   }, [vkUserId, bl]);
+
+  useEffect(() => {
+    setPage(0);
+  }, [tab]);
 
   if (bl || load) return <div style={{ padding: 40, textAlign: 'center' }}><div className="lair-skeleton" style={{ height: 200 }} /></div>;
 
@@ -93,6 +102,14 @@ function Treasures() {
     transition: 'all 0.2s',
   });
 
+  const allItems: ({ type: 'collected' } & CollectedTreasure | { type: 'uncollected' } & UncollectedTreasure)[] = [
+    ...section.collected.map((t) => ({ ...t, type: 'collected' as const })),
+    ...section.uncollected.map((t) => ({ ...t, type: 'uncollected' as const })),
+  ];
+  const totalPages = Math.max(1, Math.ceil(allItems.length / PER_PAGE));
+  const start = page * PER_PAGE;
+  const pageItems = allItems.slice(start, start + PER_PAGE);
+
   return (
     <div style={{ padding: '12px 10px', maxWidth: 640, margin: '0 auto' }}>
       <div className="lair-card" style={{ marginBottom: 12, textAlign: 'center' }}>
@@ -113,40 +130,73 @@ function Treasures() {
         </div>
       )}
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 12 }}>
-        {section.collected.map((t) => (
-          <div key={`c${t.id}`} className="lair-grid-cell" onClick={() => setDetail(t)}
-               style={{ position: 'relative', overflow: 'hidden', cursor: 'pointer', padding: 0, minHeight: 160, border: '2px solid var(--bronze)', background: 'var(--bg-card)' }}>
-            {t.image && (
-              <img src={mediaUrl(t.image)} alt=""
-                   style={{ width: '100%', height: '100%', objectFit: 'cover', position: 'absolute', inset: 0 }}
-                   onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-            )}
-            <div style={{
-              position: 'absolute', bottom: 0, left: 0, right: 0,
-              padding: '5px 8px', background: 'rgba(21,15,26,0.78)',
-              fontSize: 14, color: 'var(--gold)', textAlign: 'center',
-              whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontWeight: 600,
-            }}>
-              {t.name}
-            </div>
+      {totalCount > 0 && (
+        <>
+          <div style={{ display: 'grid', gridTemplateColumns: `repeat(${COLS}, 1fr)`, gap: 8 }}>
+            {pageItems.map((t) => {
+              if (t.type === 'collected') {
+                return (
+                  <div key={`c${t.id}`} className="lair-grid-cell" onClick={() => setDetail(t)}
+                       style={{ position: 'relative', overflow: 'hidden', cursor: 'pointer', padding: 0, minHeight: 160, border: '2px solid var(--bronze)', background: 'var(--bg-card)' }}>
+                    {t.image && (
+                      <img src={mediaUrl(t.image)} alt=""
+                           style={{ width: '100%', height: '100%', objectFit: 'cover', position: 'absolute', inset: 0 }}
+                           onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                    )}
+                    <div style={{
+                      position: 'absolute', bottom: 0, left: 0, right: 0,
+                      padding: '5px 8px', background: 'rgba(21,15,26,0.78)',
+                      fontSize: 14, color: 'var(--gold)', textAlign: 'center',
+                      whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontWeight: 600,
+                    }}>
+                      {t.name}
+                    </div>
+                  </div>
+                );
+              }
+              return (
+                <div key={`u${t.id}`} className="lair-grid-cell"
+                     style={{ position: 'relative', overflow: 'hidden', padding: 0, minHeight: 160, border: '2px solid var(--bronze)', background: 'var(--bg-card)', opacity: 0.65 }}>
+                  <div style={{ position: 'relative', width: '100%', height: '100%', minHeight: 160 }}>
+                    {t.silhouette ? (
+                      <img src={mediaUrl(t.silhouette)} alt=""
+                           style={{ width: '100%', height: '100%', objectFit: 'cover', position: 'absolute', inset: 0, filter: 'brightness(0) opacity(0.55)' }} />
+                    ) : (
+                      <div style={{ height: 160, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 40 }}>💎</div>
+                    )}
+                    <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 40, color: 'var(--parchment-dim)' }}>?</div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
-        ))}
-        {section.uncollected.map((t) => (
-          <div key={`u${t.id}`} className="lair-grid-cell"
-               style={{ position: 'relative', overflow: 'hidden', padding: 0, minHeight: 160, border: '2px solid var(--bronze)', background: 'var(--bg-card)', opacity: 0.65 }}>
-            <div style={{ position: 'relative', width: '100%', height: '100%', minHeight: 160 }}>
-              {t.silhouette ? (
-                <img src={mediaUrl(t.silhouette)} alt=""
-                     style={{ width: '100%', height: '100%', objectFit: 'cover', position: 'absolute', inset: 0, filter: 'brightness(0) opacity(0.55)' }} />
-              ) : (
-                <div style={{ height: 160, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 40 }}>💎</div>
-              )}
-              <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 40, color: 'var(--parchment-dim)' }}>?</div>
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 12, marginTop: 16 }}>
+              <button
+                className="lair-btn lair-btn-sm"
+                disabled={page === 0}
+                onClick={() => setPage(page - 1)}
+                style={{ opacity: page === 0 ? 0.4 : 1 }}
+              >
+                ← Назад
+              </button>
+              <span style={{ color: 'var(--parchment-dim)', fontSize: 14 }}>
+                {page + 1} / {totalPages}
+              </span>
+              <button
+                className="lair-btn lair-btn-sm"
+                disabled={page >= totalPages - 1}
+                onClick={() => setPage(page + 1)}
+                style={{ opacity: page >= totalPages - 1 ? 0.4 : 1 }}
+              >
+                Вперёд →
+              </button>
             </div>
-          </div>
-        ))}
-      </div>
+          )}
+        </>
+      )}
 
       {detail && (
         <div onClick={() => setDetail(null)}

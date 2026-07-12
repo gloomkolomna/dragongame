@@ -202,7 +202,7 @@ def get_epic_view(vk_id: int, db: Session = Depends(get_db)):
     name = epic_service.get_epic_name(db, vk_id)
     care = epic_service.get_care(db, vk_id)
     moodlets = [
-        {"key": m.key, "title": m.title, "polarity": m.polarity, "text": m.text}
+        {"key": m.key, "title": m.title, "polarity": m.polarity, "text": m.text, "image_path": f"/api/static/images/{m.image_path}" if m.image_path else ""}
         for m in epic_service.get_moodlets(db, vk_id)
     ]
     character = character_summary(db, care.user_dragon_id) if care else []

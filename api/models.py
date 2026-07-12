@@ -383,6 +383,7 @@ class EpicMoodlet(Base):
     title = Column(String, default="")
     polarity = Column(String, default="positive")
     text = Column(Text, default="")
+    image_path = Column(String, default="")
     axis_id = Column(Integer, ForeignKey("character_axes.id", ondelete="SET NULL"), nullable=True)
     stage_id = Column(Integer, ForeignKey("epic_stages.id", ondelete="SET NULL"), nullable=True)
     acquired_at = Column(String, default="")

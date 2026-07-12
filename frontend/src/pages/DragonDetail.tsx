@@ -62,7 +62,7 @@ function DragonDetail() {
         {d.is_revealed && <div style={{ color: 'var(--text-secondary)', fontSize: 21, fontWeight: 600, marginBottom: 12 }}>Редкость: <span style={{ color: 'var(--gold)' }}>{RARITY[d.rarity ?? 1] ?? 'Легендарный'}</span></div>}
         {d.is_revealed && d.description && <p style={{ color: 'var(--text-secondary)', fontSize: 21, fontWeight: 600 }}>{d.description}</p>}
         {d.treasure && (
-          <div onClick={() => nav(`/cave?treasure=${d.treasure!.id}`)}
+          <div onClick={() => nav(`/cave/treasures?treasure=${d.treasure!.id}`)}
                style={{ display: 'inline-flex', alignItems: 'center', gap: 8, cursor: 'pointer', marginTop: 10, padding: '8px 16px', borderRadius: 10, border: '1px solid var(--bronze)', background: 'rgba(21,15,26,0.5)' }}>
             {d.treasure.image && <img src={mediaUrl(d.treasure.image)} alt="" style={{ width: 28, height: 28, objectFit: 'contain', borderRadius: 4 }} />}
             <span style={{ color: 'var(--gold)', fontSize: 16, fontWeight: 600 }}>💎 {d.treasure.name}</span>
@@ -144,7 +144,7 @@ function DragonDetail() {
         <div className="lair-card" style={{ marginTop: 16 }}>
           <h3 style={{ color: clr, marginTop: 0 }}>📖 Легенда{legend.name ? `: ${legend.name}` : ''}</h3>
           {legend.cover && (
-            <div onClick={() => nav(`/library?dragon=${id}`)}
+            <div onClick={() => nav(`/cave/library?dragon=${id}`)}
                  style={{ cursor: 'pointer', display: 'flex', gap: 12, marginBottom: 10 }}>
               <img src={mediaUrl(legend.cover)} alt=""
                    style={{ width: 100, height: 100, objectFit: 'cover', borderRadius: 8, flexShrink: 0 }}
@@ -169,7 +169,7 @@ function DragonDetail() {
                 : 'Легенда готова к прочтению'}
             </div>
           )}
-          <button className="lair-btn" style={{ width: '100%' }} onClick={() => nav(`/library?dragon=${id}`)}>
+          <button className="lair-btn" style={{ width: '100%' }} onClick={() => nav(`/cave/library?dragon=${id}`)}>
             📖 Открыть в Библиотеке
           </button>
         </div>
