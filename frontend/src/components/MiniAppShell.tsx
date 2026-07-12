@@ -31,7 +31,6 @@ function MiniAppShell({ children }: Props) {
             style={{
               flex: 1, minWidth: 0, padding: '8px 4px', fontSize: 12,
               whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-              letterSpacing: 0, textTransform: 'none',
             }}
           >
             {t.label}

@@ -33,7 +33,6 @@ function CaveLayout({ children }: Props) {
               style={{
                 flex: 1, minWidth: 0, padding: '6px 3px', fontSize: 11,
                 whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-                letterSpacing: 0, textTransform: 'none',
               }}
             >
               {t.label}
