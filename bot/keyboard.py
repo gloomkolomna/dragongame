@@ -237,10 +237,28 @@ def shop_keyboard(buyable_items, page, total_pages):
         })
     if nav:
         buttons.append(nav)
+    buttons.append(row(("🎒 Мой инвентарь", "inventory")))
     buttons.append(row(("🐲 К эпическому дракону", "epic")))
     buttons.append(garden_row())
     buttons.append(bestiary_link_row())
     return _keyboard(buttons)
+
+
+def inventory_keyboard():
+    return _keyboard([
+        row(("🛒 Магазин", "shop")),
+        row(("🐲 К эпическому дракону", "epic")),
+        garden_row(),
+        bestiary_link_row(),
+    ])
+
+
+def care_shop_keyboard():
+    return _keyboard([
+        row(("🛒 Магазин", "shop")),
+        garden_row(),
+        bestiary_link_row(),
+    ])
 
 
 def sub_action_keyboard(sub_actions, missing_map):
@@ -260,6 +278,7 @@ def sub_action_keyboard(sub_actions, missing_map):
             "color": "positive" if not missing else "secondary",
         }])
     buttons.append(row(("🛒 Магазин", "shop")))
+    buttons.append(garden_row())
     buttons.append(bestiary_link_row())
     return _keyboard(buttons)
 
@@ -268,6 +287,7 @@ def sub_step_keyboard():
     return _keyboard([
         [{"action": {"type": "text", "label": "🎯 Норма", "payload": json.dumps({"cmd": "norm"}, ensure_ascii=False)}, "color": "positive"}],
         [{"action": {"type": "text", "label": "⚡ Штраф (x2)", "payload": json.dumps({"cmd": "x2"}, ensure_ascii=False)}, "color": "negative"}],
+        garden_row(),
         bestiary_link_row(),
     ])
 

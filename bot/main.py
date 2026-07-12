@@ -19,7 +19,7 @@ from bot.fsm import IDLE, AWAIT_PIN, AWAIT_GARDEN, AWAIT_LEGENDS, AWAIT_EPICS, i
 from bot.handlers.commands import handle_start, handle_help, handle_garden, switch_dragon, cancel_garden, handle_switch_to, handle_balance, handle_legends, handle_legends_pick, cancel_legends, user_has_legendary
 from bot.handlers.pin import handle_pin_command, handle_pin_entry
 from bot.handlers.grow import handle_grow_message, handle_grow_command, handle_norm_command, handle_x2_command, handle_back_command
-from bot.handlers.shop import handle_shop_command, handle_buy
+from bot.handlers.shop import handle_shop_command, handle_buy, handle_inventory
 from bot.handlers.legend import handle_legend_start, handle_legend_mode, handle_legend_message
 from bot.handlers.epic import handle_epic_command, handle_epic_egg_mode, handle_epic_egg_message, handle_epic_name, handle_epics, handle_epics_pick, cancel_epics, user_has_epic
 from bot.handlers.intro import handle_intro_next, handle_intro_chat, start_intro
@@ -101,6 +101,8 @@ def extract_cmd(text: str, payload_str: str) -> str | None:
         return "balance"
     if "магазин" in t or "лавка" in t:
         return "shop"
+    if "инвентарь" in t:
+        return "inventory"
     if "эпические драконы" in t:
         return "epics"
     if "эпическ" in t or "пещера" in t or "пещеру" in t:
@@ -296,6 +298,10 @@ def main():
                 handle_shop_command(user, db, send_message, page)
                 continue
 
+            if cmd == "inventory":
+                handle_inventory(user, db, send_message)
+                continue
+
             if cmd == "buy":
                 try:
                     payload = json.loads(payload_str) if payload_str else {}
@@ -303,7 +309,7 @@ def main():
                 except (json.JSONDecodeError, TypeError):
                     item_id = None
                 if item_id:
-                    handle_buy(user, int(item_id), db, send_message)
+                    handle_buy(user, int(item_id), db, send_message, upload_image)
                 else:
                     send_message("Не удалось купить товар.")
                 continue

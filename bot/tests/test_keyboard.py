@@ -19,6 +19,13 @@ def _all_keyboards():
         "legend": keyboard.legend_buttons_keyboard(),
         "epic_egg": keyboard.epic_egg_buttons_keyboard(),
         "epic_care": keyboard.epic_care_keyboard(),
+        "epic_care_item": keyboard.epic_care_item_keyboard(),
+        "epic_care_optional_item": keyboard.epic_care_optional_item_keyboard(),
+        "care_shop": keyboard.care_shop_keyboard(),
+        "inventory": keyboard.inventory_keyboard(),
+        "sub_step": keyboard.sub_step_keyboard(),
+        "sub_action": keyboard.sub_action_keyboard([SimpleNamespace(id=1, label="A")], {}),
+        "sub_confirm": keyboard.sub_confirm_keyboard(),
         "shop": keyboard.shop_keyboard(shop_items, page=0, total_pages=1),
     }
 

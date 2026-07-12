@@ -35,13 +35,16 @@ def handle_shop_command(user, db, send_message, page=0):
     send_message("\n".join(lines), keyboard=shop_keyboard(buyable, page, total_pages))
 
 
-def handle_buy(user, item_id, db, send_message):
+def handle_buy(user, item_id, db, send_message, upload_image=None):
     from services.shop_service import purchase
 
     res = purchase(db, user.vk_id, item_id)
     status = res.get("status")
     if status == "ok":
         send_message(f"✅ Куплено: {res['item'].name}. Осталось крестиков: {res['balance']}.")
+        from bot.handlers.epic import handle_epic_command
+        handle_epic_command(user, db, send_message, upload_image)
+        return
     elif status == "already":
         send_message(f"Ты уже купил «{res['item'].name}» на этой стадии.")
     elif status == "insufficient":
@@ -56,3 +59,21 @@ def handle_buy(user, item_id, db, send_message):
         return
 
     handle_shop_command(user, db, send_message)
+
+
+def handle_inventory(user, db, send_message):
+    from services.shop_service import get_inventory
+    from bot.keyboard import inventory_keyboard
+
+    inv = get_inventory(db, user.vk_id)
+    if not inv:
+        send_message(
+            "🎒 Твой инвентарь пуст.\nКупи предметы в магазине, чтобы заботиться об эпическом драконе.",
+            keyboard=inventory_keyboard(),
+        )
+        return
+
+    lines = ["🎒 Мой инвентарь\n"]
+    for item, qty in inv:
+        lines.append(f"• {item.name} — {qty} шт.")
+    send_message("\n".join(lines), keyboard=inventory_keyboard())

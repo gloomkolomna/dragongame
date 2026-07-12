@@ -85,8 +85,8 @@ def show_care_action(user, db, send_message, upload_image=None):
     if has_items:
         if missing_non_opt:
             names = ", ".join(f"«{m.name}»" for m in missing_non_opt)
-            from bot.keyboard import _keyboard, row, bestiary_link_row
-            kb = _keyboard([row(("🛒 Магазин", "shop")), bestiary_link_row()])
+            from bot.keyboard import care_shop_keyboard
+            kb = care_shop_keyboard()
             send_message(
                 f"🐲 «{name}» — стадия «{stage.name if stage else '?'}»\n"
                 f"Для действия «{action.action_label}» нужно купить в магазине: {names}.",
@@ -151,8 +151,8 @@ def handle_care_use_item(user, db, send_message, upload_image=None):
     missing = missing_action_items(db, user.vk_id, action.id)
     if missing:
         names = ", ".join(f"«{m.name}»" for m in missing)
-        from bot.keyboard import _keyboard, row, bestiary_link_row
-        kb = _keyboard([row(("🛒 Магазин", "shop")), bestiary_link_row()])
+        from bot.keyboard import care_shop_keyboard
+        kb = care_shop_keyboard()
         send_message(
             f"❌ У тебя нет {names}. Купи их в магазине!",
             keyboard=kb,
@@ -393,8 +393,8 @@ def handle_choose_sub(user, sub_id, db, send_message, upload_image=None):
     missing = missing_sub_items(db, user.vk_id, sub_id)
     if missing:
         names = ", ".join(f"«{m.name}»" for m in missing)
-        from bot.keyboard import _keyboard, row, bestiary_link_row
-        kb = _keyboard([row(("🛒 Магазин", "shop")), bestiary_link_row()])
+        from bot.keyboard import care_shop_keyboard
+        kb = care_shop_keyboard()
         send_message(
             f"❌ Для «{sub_action.label}» нужны товары: {names}. Купи их в магазине!",
             keyboard=kb,
@@ -463,8 +463,8 @@ def handle_confirm_sub(user, db, send_message, upload_image=None):
     missing = missing_sub_items(db, user.vk_id, sub_id)
     if missing:
         names = ", ".join(f"«{m.name}»" for m in missing)
-        from bot.keyboard import _keyboard, row, bestiary_link_row
-        kb = _keyboard([row(("🛒 Магазин", "shop")), bestiary_link_row()])
+        from bot.keyboard import care_shop_keyboard
+        kb = care_shop_keyboard()
         send_message(f"❌ У тебя нет {names}. Купи их в магазине!", keyboard=kb)
         return
 
