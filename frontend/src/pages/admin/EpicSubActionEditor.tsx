@@ -6,7 +6,7 @@ interface Axis { id: number; positive_label: string; negative_label: string; }
 interface ShopItem { id: number; name: string; }
 interface SubAction {
   id: number; action_id: number; label: string; description: string;
-  confirm_button_label: string;
+  confirm_button_label: string; random_outcome: boolean;
   order_in_sub: number; image_path: string; character_axis_id: number | null;
   item_ids: number[]; steps: SubStep[]; outcomes: Outcome[];
 }
@@ -36,6 +36,7 @@ function EpicSubActionEditor() {
   const [editDescription, setEditDescription] = useState('');
   const [editConfirmLabel, setEditConfirmLabel] = useState('');
   const [editImagePath, setEditImagePath] = useState('');
+  const [editRandomOutcome, setEditRandomOutcome] = useState(true);
 
   const load = () => {
     client.get('/admin/epic/species').then((r) => {
@@ -52,6 +53,7 @@ function EpicSubActionEditor() {
             setEditDescription(found.description || '');
             setEditConfirmLabel(found.confirm_button_label || '');
             setEditImagePath(found.image_path || '');
+            setEditRandomOutcome(found.random_outcome ?? true);
           }
         }
         setLoading(false);
@@ -77,7 +79,7 @@ function EpicSubActionEditor() {
     client.put(`/admin/epic/sub-actions/${suid}`, {
       label: editLabel, character_axis_id: editAxisId,
       description: editDescription, confirm_button_label: editConfirmLabel,
-      image_path: editImagePath, ...extra,
+      image_path: editImagePath, random_outcome: editRandomOutcome, ...extra,
     })
       .then(() => load())
       .catch((e: any) => setError(e.response?.data?.detail || 'Ошибка'));
@@ -149,6 +151,16 @@ function EpicSubActionEditor() {
 
         <div className="lair-card" style={{ maxWidth: 640 }}>
           <h3 style={{ color: 'var(--gold)', margin: '0 0 8px' }}>Исходы</h3>
+          <label className="lair-checkbox" style={{ marginBottom: 8 }}>
+            <input type="checkbox" checked={editRandomOutcome}
+                   onChange={(e) => { setEditRandomOutcome(e.target.checked); saveMeta({ random_outcome: e.target.checked }); }} />
+            🎲 Случайный исход
+          </label>
+          <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 10 }}>
+            {editRandomOutcome
+              ? 'Один из двух исходов выбирается случайно (с учётом характера).'
+              : 'Выбирается исход, у которого загружена картинка. Если оба пустые — исход не показывается.'}
+          </div>
           <OutcomesEditor subActionId={suid} outcomes={sa.outcomes || []} reload={load} uploadImage={uploadImage} />
         </div>
       </div>

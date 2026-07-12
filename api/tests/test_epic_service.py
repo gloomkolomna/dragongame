@@ -350,6 +350,96 @@ def test_consume_sub_items_respects_is_consumable(db):
     assert inv_tool.quantity == 1
 
 
+def test_resolve_outcome_empty_returns_none(db):
+    db.add(User(vk_id=120, stitches_balance=500))
+    d = _epic_dragon(db)
+    epic_service.spawn_random_epic(db, 120)
+    st, _ = _stage(db, number=1, cycles=1, actions=0, dragon_id=d.id)
+    action = EpicStageAction(dragon_id=d.id, stage_id=st.id, action_label="уход", order_in_cycle=0, action_type="composite")
+    db.add(action)
+    db.flush()
+    sa = EpicSubAction(action_id=action.id, label="Sub")
+    db.add(sa)
+    db.flush()
+    db.add(EpicSubActionOutcome(sub_action_id=sa.id, polarity="positive"))
+    db.add(EpicSubActionOutcome(sub_action_id=sa.id, polarity="negative"))
+    db.commit()
+
+    care = epic_service.start_care(db, 120)
+    epic_service.start_sub_action(db, care, sa.id, 120)
+    outcome, polarity = epic_service.resolve_outcome(db, 120, care, sa)
+    assert outcome is None
+    assert db.query(EpicMoodlet).filter(EpicMoodlet.user_dragon_id == care.user_dragon_id).count() == 0
+
+
+def test_resolve_outcome_with_content_awards_moodlet(db):
+    db.add(User(vk_id=121, stitches_balance=500))
+    d = _epic_dragon(db)
+    epic_service.spawn_random_epic(db, 121)
+    st, _ = _stage(db, number=1, cycles=1, actions=0, dragon_id=d.id)
+    action = EpicStageAction(dragon_id=d.id, stage_id=st.id, action_label="уход", order_in_cycle=0, action_type="composite")
+    db.add(action)
+    db.flush()
+    sa = EpicSubAction(action_id=action.id, label="Sub")
+    db.add(sa)
+    db.flush()
+    db.add(EpicSubActionOutcome(sub_action_id=sa.id, polarity="positive", moodlet_title="Радость"))
+    db.add(EpicSubActionOutcome(sub_action_id=sa.id, polarity="negative", moodlet_title="Грусть"))
+    db.commit()
+
+    care = epic_service.start_care(db, 121)
+    epic_service.start_sub_action(db, care, sa.id, 121)
+    outcome, polarity = epic_service.resolve_outcome(db, 121, care, sa)
+    assert outcome is not None
+    assert db.query(EpicMoodlet).filter(EpicMoodlet.user_dragon_id == care.user_dragon_id).count() == 1
+
+
+def test_resolve_outcome_non_random_picks_image_outcome(db):
+    db.add(User(vk_id=122, stitches_balance=500))
+    d = _epic_dragon(db)
+    epic_service.spawn_random_epic(db, 122)
+    st, _ = _stage(db, number=1, cycles=1, actions=0, dragon_id=d.id)
+    action = EpicStageAction(dragon_id=d.id, stage_id=st.id, action_label="уход", order_in_cycle=0, action_type="composite")
+    db.add(action)
+    db.flush()
+    sa = EpicSubAction(action_id=action.id, label="Sub", random_outcome=False)
+    db.add(sa)
+    db.flush()
+    db.add(EpicSubActionOutcome(sub_action_id=sa.id, polarity="positive"))
+    db.add(EpicSubActionOutcome(sub_action_id=sa.id, polarity="negative",
+                                moodlet_title="Грустит", image_path="dragons/sad.png"))
+    db.commit()
+
+    care = epic_service.start_care(db, 122)
+    epic_service.start_sub_action(db, care, sa.id, 122)
+    outcome, polarity = epic_service.resolve_outcome(db, 122, care, sa)
+    assert outcome is not None
+    assert polarity == "negative"
+    assert outcome.image_path == "dragons/sad.png"
+
+
+def test_resolve_outcome_non_random_both_empty_none(db):
+    db.add(User(vk_id=123, stitches_balance=500))
+    d = _epic_dragon(db)
+    epic_service.spawn_random_epic(db, 123)
+    st, _ = _stage(db, number=1, cycles=1, actions=0, dragon_id=d.id)
+    action = EpicStageAction(dragon_id=d.id, stage_id=st.id, action_label="уход", order_in_cycle=0, action_type="composite")
+    db.add(action)
+    db.flush()
+    sa = EpicSubAction(action_id=action.id, label="Sub", random_outcome=False)
+    db.add(sa)
+    db.flush()
+    db.add(EpicSubActionOutcome(sub_action_id=sa.id, polarity="positive"))
+    db.add(EpicSubActionOutcome(sub_action_id=sa.id, polarity="negative"))
+    db.commit()
+
+    care = epic_service.start_care(db, 123)
+    epic_service.start_sub_action(db, care, sa.id, 123)
+    outcome, polarity = epic_service.resolve_outcome(db, 123, care, sa)
+    assert outcome is None
+    assert db.query(EpicMoodlet).filter(EpicMoodlet.user_dragon_id == care.user_dragon_id).count() == 0
+
+
 def test_character_summary(db):
     from services.character_service import character_summary, upsert_balance, get_axes
     user = User(vk_id=200)

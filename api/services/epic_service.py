@@ -485,18 +485,45 @@ def _award_outcome_moodlet(db, user_dragon_id, polarity, outcome):
         db.commit()
 
 
-def resolve_outcome(db, vk_id, care, sub_action):
-    polarity = roll_outcome_polarity(db, care)
-    outcome = db.query(EpicSubActionOutcome).filter(
-        EpicSubActionOutcome.sub_action_id == sub_action.id,
-        EpicSubActionOutcome.polarity == polarity,
-    ).first()
+def outcome_has_content(outcome) -> bool:
     if not outcome:
+        return False
+    return bool(
+        (outcome.moodlet_title or "").strip()
+        or (outcome.moodlet_text or "").strip()
+        or (outcome.label or "").strip()
+        or (outcome.image_path or "").strip()
+    )
+
+
+def resolve_outcome(db, vk_id, care, sub_action):
+    if getattr(sub_action, "random_outcome", True):
+        polarity = roll_outcome_polarity(db, care)
         outcome = db.query(EpicSubActionOutcome).filter(
             EpicSubActionOutcome.sub_action_id == sub_action.id,
+            EpicSubActionOutcome.polarity == polarity,
         ).first()
-    if outcome:
+        if not outcome:
+            outcome = db.query(EpicSubActionOutcome).filter(
+                EpicSubActionOutcome.sub_action_id == sub_action.id,
+            ).first()
+    else:
+        outcome = (
+            db.query(EpicSubActionOutcome)
+            .filter(
+                EpicSubActionOutcome.sub_action_id == sub_action.id,
+                EpicSubActionOutcome.image_path != None,
+                EpicSubActionOutcome.image_path != "",
+            )
+            .order_by(EpicSubActionOutcome.id)
+            .first()
+        )
+        polarity = outcome.polarity if outcome else "positive"
+
+    if outcome and outcome_has_content(outcome):
         _award_outcome_moodlet(db, care.user_dragon_id, polarity, outcome)
+    else:
+        outcome = None
     from services.character_service import upsert_balance
     if sub_action.character_axis_id:
         delta = 1 if polarity == "positive" else -1
