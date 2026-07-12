@@ -269,6 +269,20 @@ def _check_care_due(db, vk, logger, session_factory=None):
                 [{"action": {"type": "open_link", "label": "📖 Мой Бестиарий", "link": "https://vk.com/app54663330"}}],
             ],
         }, ensure_ascii=False)
+        try:
+            from bot.handlers.commands import user_has_legendary
+            from bot.keyboard import keyboard_with_legends
+            if user_has_legendary(db, ud.user_id):
+                kb = keyboard_with_legends(kb)
+        except Exception:
+            pass
+        try:
+            from bot.handlers.epic import user_has_epic
+            from bot.keyboard import keyboard_with_epics
+            if user_has_epic(db, ud.user_id):
+                kb = keyboard_with_epics(kb)
+        except Exception:
+            pass
         _send(vk, ud.user_id, f"🐲 «{epic_name}» заскучал — пора продолжить заботу!", kb, logger, session_factory=session_factory)
 
 

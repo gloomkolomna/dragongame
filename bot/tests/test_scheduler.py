@@ -180,3 +180,42 @@ def test_check_care_due_uses_epic_name(db):
     assert vk_mock.messages.send.called
     msg = vk_mock.messages.send.call_args[1].get("message", "")
     assert "Пепел" in msg
+
+
+def test_check_care_due_injects_legendary_button(db):
+    import json
+    from bot.scheduler import _check_care_due
+    from models import EpicCareState, EpicStage, DragonStep, UserLegendProgress
+    from services import epic_service
+
+    ed = Dragon(name="EpicSched2", rarity=3, steps_count=1, is_active=True, is_epic=True, egg_type="лунное")
+    db.add(ed)
+    db.flush()
+    leg = Dragon(name="Легенда", rarity=3, steps_count=1, is_active=True, is_epic=False)
+    db.add(leg)
+    db.flush()
+    db.add(DragonStep(dragon_id=leg.id, step_number=1, phase=1))
+    u = User(vk_id=901, state="idle", epic_unlocked=True, epic_dragon_id=ed.id)
+    db.add(u)
+    ud = UserDragon(user_id=901, dragon_id=ed.id, completed_at="")
+    db.add(ud)
+    db.add(UserDragon(user_id=901, dragon_id=leg.id, completed_at="2026-07-01T12:00:00"))
+    st = EpicStage(stage_number=1, name="S1", cycles_count=1)
+    db.add(st)
+    db.flush()
+    past = (datetime.now() - timedelta(minutes=5)).strftime("%Y-%m-%dT%H:%M:%S")
+    db.add(EpicCareState(user_dragon_id=ud.id, stage_id=st.id, next_action_at=past, care_notified=False))
+    db.commit()
+
+    vk_mock = MagicMock()
+    _check_care_due(db, vk_mock, logging.getLogger("test"))
+
+    assert vk_mock.messages.send.called
+    kb = vk_mock.messages.send.call_args[1].get("keyboard", "")
+    payloads = [
+        b.get("action", {}).get("payload", "")
+        for row in json.loads(kb)["buttons"] for b in row
+    ]
+    cmds = [json.loads(p).get("cmd") for p in payloads if p]
+    assert "legends" in cmds
+    assert "garden" in cmds
