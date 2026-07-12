@@ -237,6 +237,7 @@ def shop_keyboard(buyable_items, page, total_pages):
         })
     if nav:
         buttons.append(nav)
+    buttons.append(row(("🐲 К эпическому дракону", "epic")))
     buttons.append(garden_row())
     buttons.append(bestiary_link_row())
     return _keyboard(buttons)
