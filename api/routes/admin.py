@@ -1113,7 +1113,15 @@ def restart_dragon(vk_id: int, dragon_id: int, db: Session = Depends(get_db)):
     total = dragon.steps_count
     first_step = db.query(DragonStep).filter(DragonStep.dragon_id == dragon_id, DragonStep.step_number == 1).first()
     steps_msg = _format_step_text(first_step, 1, total)
-    _notify_user(vk_id, f"🔄 Администратор возобновил выращивание дракона «{dragon.name}»!\n\n{steps_msg}\n\nПришли 2 фото (до и после) и напиши «вышито» когда выполнишь.")
+    norm = first_step.crosses_norm if first_step else 1000
+    instruction = f"\n\n🎯 Норма крестиков: {norm}\nВыбери режим:"
+    attachment = ""
+    rel = (first_step.image_path if first_step and first_step.image_path else dragon.egg_path)
+    if rel:
+        img_path = os.path.join(os.path.dirname(__file__), "..", "..", "images", "dragons", os.path.basename(rel))
+        attachment = _upload_vk_image(os.path.abspath(img_path), peer_id=vk_id)
+    from bot.keyboard import step_buttons_keyboard
+    _notify_user(vk_id, f"🔄 Администратор возобновил выращивание дракона «{dragon.name}»!\n\n{steps_msg}{instruction}", attachment, keyboard=step_buttons_keyboard())
     return {"ok": True}
 
 
