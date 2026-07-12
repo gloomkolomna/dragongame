@@ -18,13 +18,21 @@ function MiniAppShell({ children }: Props) {
 
   return (
     <>
-      <div style={{ display: 'flex', gap: 6, padding: '8px 8px 0', position: 'sticky', top: 0, zIndex: 20, background: 'var(--coal, #150f1a)' }}>
+      <div style={{
+        display: 'flex', gap: 6, padding: '8px 8px 0',
+        paddingTop: 'calc(8px + var(--vk-inset-top, 0px))',
+        position: 'sticky', top: 0, zIndex: 20, background: 'var(--coal, #150f1a)',
+      }}>
         {TABS.map((t) => (
           <button
             key={t.path}
             onClick={() => nav(t.path)}
             className={active === t.path ? 'lair-btn' : 'lair-btn lair-btn-outline'}
-            style={{ flex: 1, padding: '8px 2px', fontSize: 12, whiteSpace: 'nowrap' }}
+            style={{
+              flex: 1, minWidth: 0, padding: '8px 4px', fontSize: 12,
+              whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+              letterSpacing: 0, textTransform: 'none',
+            }}
           >
             {t.label}
           </button>

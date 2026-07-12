@@ -20,7 +20,7 @@ function CaveLayout({ children }: Props) {
     <>
       <div style={{
         display: 'flex', gap: 4, padding: '4px 8px 0',
-        position: 'sticky', top: 44, zIndex: 19,
+        position: 'sticky', top: 'calc(44px + var(--vk-inset-top, 0px))', zIndex: 19,
         background: 'var(--coal, #150f1a)',
       }}>
         {CAVE_TABS.map((t) => {
@@ -30,7 +30,11 @@ function CaveLayout({ children }: Props) {
               key={t.path}
               onClick={() => nav(t.path)}
               className={isActive ? 'lair-btn' : 'lair-btn lair-btn-outline'}
-              style={{ flex: 1, padding: '6px 2px', fontSize: 11, whiteSpace: 'nowrap' }}
+              style={{
+                flex: 1, minWidth: 0, padding: '6px 3px', fontSize: 11,
+                whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                letterSpacing: 0, textTransform: 'none',
+              }}
             >
               {t.label}
             </button>

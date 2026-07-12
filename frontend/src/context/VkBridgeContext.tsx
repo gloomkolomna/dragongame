@@ -59,6 +59,28 @@ export function VkBridgeProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    const applyInsetTop = (top: unknown) => {
+      const px = Math.max(0, Number(top) || 0);
+      document.documentElement.style.setProperty('--vk-inset-top', `${px}px`);
+    };
+
+    const listener = (e: any) => {
+      const type = e?.detail?.type;
+      const data = e?.detail?.data;
+      if (!type || !data) return;
+      if (type === 'VKWebAppUpdateConfig' || type === 'VKWebAppUpdateInsets') {
+        const top = data?.insets?.top;
+        if (top !== undefined) applyInsetTop(top);
+      }
+    };
+
+    bridge.subscribe(listener);
+    return () => {
+      try { bridge.unsubscribe(listener); } catch { /* noop */ }
+    };
+  }, []);
+
+  useEffect(() => {
     let cancelled = false;
 
     async function init() {
