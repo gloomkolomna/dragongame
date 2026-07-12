@@ -143,10 +143,10 @@ function Nest() {
           {!data.moodlets || data.moodlets.length === 0 ? (
             <div style={{ color: 'var(--text-muted)', fontSize: 14 }}>Воспоминаний пока нет.</div>
           ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))', gap: 8 }}>
-              {data.moodlets.map((m) => (
+            (() => {
+              const m = data.moodlets[data.moodlets.length - 1];
+              return (
                 <div
-                  key={m.key}
                   onClick={() => setZoomMoodlet(m)}
                   style={{
                     cursor: 'pointer',
@@ -154,20 +154,21 @@ function Nest() {
                     overflow: 'hidden',
                     border: '2px solid var(--bronze)',
                     background: m.polarity === 'negative' ? 'rgba(212,116,160,0.08)' : 'rgba(111,207,151,0.06)',
-                    aspectRatio: '1 / 1',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
+                    textAlign: 'center',
                   }}
                 >
                   {m.image_path ? (
-                    <img src={mediaUrl(m.image_path)} alt={m.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    <img src={mediaUrl(m.image_path)} alt={m.title} style={{ width: '100%', maxHeight: 260, objectFit: 'contain', display: 'block' }} />
                   ) : (
-                    <span style={{ fontSize: 32 }}>{m.polarity === 'negative' ? '💔' : '🌟'}</span>
+                    <div style={{ fontSize: 64, padding: 32 }}>{m.polarity === 'negative' ? '💔' : '🌟'}</div>
                   )}
+                  <div style={{ padding: '10px 16px 14px' }}>
+                    <div style={{ color: 'var(--gold)', fontWeight: 600, fontSize: 16 }}>{m.title}</div>
+                    {m.text && <div style={{ color: 'var(--parchment-dim)', fontSize: 14, marginTop: 6 }}>{m.text}</div>}
+                  </div>
                 </div>
-              ))}
-            </div>
+              );
+            })()
           )}
         </div>
       )}

@@ -35,9 +35,9 @@ interface TreasuresView {
 
 type Tab = 'dragon' | 'family';
 
-const PER_PAGE = 8;
-const COLS = 2;
-const ROWS = 4;
+const PER_PAGE = 9;
+const COLS = 3;
+const ROWS = 3;
 
 function Treasures() {
   const { vkUserId, loading: bl } = useVkBridge();
