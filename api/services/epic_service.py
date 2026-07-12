@@ -363,6 +363,114 @@ def advance_care(db, care):
     return event
 
 
+# ─── Admin care control ───
+
+def admin_advance_care(db, care):
+    """Admin: clear any pending sub-action, unlock timeout, then advance one action."""
+    care.current_sub_action_id = None
+    care.current_step_order = 0
+    care.sub_had_penalty = False
+    care.next_action_at = None
+    care.care_notified = False
+    db.commit()
+    return advance_care(db, care)
+
+
+def admin_clear_sub(db, care):
+    """Admin: reset a stuck composite sub-action selection."""
+    care.current_sub_action_id = None
+    care.current_step_order = 0
+    care.sub_had_penalty = False
+    db.commit()
+
+
+def admin_goto(db, care, stage_id=None, action_order=None, cycles_completed=None):
+    """Admin: jump to a specific stage / action / cycle count."""
+    dragon_id = care_dragon_id(db, care)
+    if stage_id is not None:
+        stage = db.query(EpicStage).filter(
+            EpicStage.id == stage_id, EpicStage.dragon_id == dragon_id
+        ).first()
+        if not stage:
+            return False
+        care.stage_id = stage.id
+    if cycles_completed is not None:
+        care.cycles_completed = max(0, int(cycles_completed))
+    if action_order is not None:
+        actions = get_stage_actions(db, care.stage_id, dragon_id)
+        idx = max(0, int(action_order))
+        if actions:
+            idx = min(idx, len(actions) - 1)
+        care.current_action_order = idx
+    care.current_sub_action_id = None
+    care.current_step_order = 0
+    care.sub_had_penalty = False
+    care.next_action_at = None
+    care.care_notified = False
+    db.commit()
+    return True
+
+
+def admin_restart_care(db, care):
+    """Admin: reset care to the first stage / first action / zero cycles."""
+    dragon_id = care_dragon_id(db, care)
+    stage = first_stage(db, dragon_id)
+    care.stage_id = stage.id if stage else None
+    care.current_action_order = 0
+    care.cycles_completed = 0
+    care.current_sub_action_id = None
+    care.current_step_order = 0
+    care.sub_had_penalty = False
+    care.next_action_at = None
+    care.care_notified = False
+    db.commit()
+    return stage is not None
+
+
+def care_overview(db, vk_id):
+    """Admin: full care state snapshot for the epic dragon of vk_id."""
+    ud = get_epic_user_dragon(db, vk_id)
+    if not ud:
+        return None
+    care = db.query(EpicCareState).filter(EpicCareState.user_dragon_id == ud.id).first()
+    if not care:
+        return None
+    dragon_id = ud.dragon_id
+    stages = (
+        db.query(EpicStage)
+        .filter(EpicStage.dragon_id == dragon_id)
+        .order_by(EpicStage.stage_number, EpicStage.id)
+        .all()
+    )
+    cur_stage = get_stage(db, care.stage_id)
+    actions = get_stage_actions(db, care.stage_id, dragon_id) if care.stage_id else []
+    cur_action = get_current_action(db, care)
+    sub_action = None
+    if care.current_sub_action_id:
+        sub_action = get_sub_action(db, care.current_sub_action_id)
+    return {
+        "dragon_id": dragon_id,
+        "stages": [
+            {"id": s.id, "stage_number": s.stage_number, "name": s.name, "cycles_count": s.cycles_count}
+            for s in stages
+        ],
+        "stage_id": care.stage_id,
+        "stage_name": cur_stage.name if cur_stage else "",
+        "stage_number": cur_stage.stage_number if cur_stage else 0,
+        "cycles_completed": care.cycles_completed or 0,
+        "cycles_total": cur_stage.cycles_count if cur_stage else 0,
+        "current_action_order": care.current_action_order or 0,
+        "actions": [
+            {"order_in_cycle": a.order_in_cycle, "action_label": a.action_label, "action_type": getattr(a, "action_type", "simple")}
+            for a in actions
+        ],
+        "current_action_label": cur_action.action_label if cur_action else "",
+        "current_sub_action_id": care.current_sub_action_id,
+        "current_sub_action_label": sub_action.label if sub_action else "",
+        "current_step_order": care.current_step_order or 0,
+    }
+
+
 # ─── Composite actions (sub-actions → steps → outcome) ───
 
 def get_sub_actions(db, action_id):
@@ -429,6 +537,25 @@ def consume_sub_items(db, vk_id, sub_id):
                 inv.quantity -= 1
             else:
                 db.delete(inv)
+    db.commit()
+
+
+def restore_sub_items(db, vk_id, sub_id):
+    from datetime import datetime
+    for item in sub_action_items(db, sub_id):
+        if not item.is_consumable:
+            continue
+        inv = db.query(UserInventory).filter(
+            UserInventory.user_id == vk_id,
+            UserInventory.item_id == item.id,
+        ).first()
+        if inv:
+            inv.quantity = (inv.quantity or 0) + 1
+        else:
+            db.add(UserInventory(
+                user_id=vk_id, item_id=item.id, quantity=1,
+                acquired_at=datetime.now().strftime("%Y-%m-%dT%H:%M:%S"),
+            ))
     db.commit()
 
 

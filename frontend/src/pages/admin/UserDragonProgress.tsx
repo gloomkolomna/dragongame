@@ -11,6 +11,24 @@ interface StepInfo {
   current: boolean;
 }
 
+interface CareStage { id: number; stage_number: number; name: string; cycles_count: number; }
+interface CareAction { order_in_cycle: number; action_label: string; action_type: string; }
+interface CareState {
+  has_care: boolean;
+  stage_id: number;
+  stage_name: string;
+  stage_number: number;
+  cycles_completed: number;
+  cycles_total: number;
+  current_action_order: number;
+  current_action_label: string;
+  current_sub_action_id: number | null;
+  current_sub_action_label: string;
+  current_step_order: number;
+  stages: CareStage[];
+  actions: CareAction[];
+}
+
 function UserDragonProgress() {
   const { vkId, dragonId } = useParams<{ vkId: string; dragonId: string }>();
   const navigate = useNavigate();
@@ -20,6 +38,7 @@ function UserDragonProgress() {
   const [currentStep, setCurrentStep] = useState(0);
   const [load, setLoad] = useState(true);
   const [updating, setUpdating] = useState(false);
+  const [care, setCare] = useState<CareState | null>(null);
 
   const fetchData = async () => {
     if (!vkId || !dragonId) return;
@@ -31,6 +50,12 @@ function UserDragonProgress() {
       setCurrentStep(r.data.current_step);
     } catch (e) {
       console.error(e);
+    }
+    try {
+      const c = await client.get(`/admin/users/${vkId}/epic-care`);
+      setCare(c.data.has_care ? c.data : null);
+    } catch {
+      setCare(null);
     } finally {
       setLoad(false);
     }
@@ -73,9 +98,24 @@ function UserDragonProgress() {
     setUpdating(false);
   };
 
+  const careAction = async (path: string, body?: any, confirmMsg?: string) => {
+    if (confirmMsg && !window.confirm(confirmMsg)) return;
+    setUpdating(true);
+    try {
+      await client.post(`/admin/users/${vkId}/epic-care/${path}`, body || {});
+      await fetchData();
+    } catch (e: any) {
+      alert(e.response?.data?.detail || 'Ошибка');
+    }
+    setUpdating(false);
+  };
+
+  const careGoto = async (patch: Partial<{ stage_id: number; action_order: number; cycles_completed: number }>) => {
+    await careAction('goto', patch);
+  };
+
   const completed = steps.filter((s) => s.completed).length;
   const pct = total ? Math.round((completed / total) * 100) : 0;
-
   return (
     <div style={{ padding: 20 }}>
       <button onClick={() => navigate(`/admin/users?vk_id=${vkId}`)} className="lair-btn lair-btn-outline lair-btn-sm"
@@ -150,6 +190,57 @@ function UserDragonProgress() {
               🔄 Начать заново
             </button>
           </div>
+
+          {care && (
+            <div className="lair-card" style={{ marginTop: 16 }}>
+              <h4 style={{ color: 'var(--gold)', margin: '0 0 12px' }}>🐲 Уход за эпическим драконом</h4>
+              <div style={{ fontSize: 14, color: 'var(--parchment-dim)', marginBottom: 12 }}>
+                Стадия <strong style={{ color: 'var(--accent-gold-light)' }}>{care.stage_number}. {care.stage_name}</strong>
+                &nbsp;·&nbsp; цикл {(care.cycles_completed || 0) + 1}/{care.cycles_total || 1}
+                <br />
+                Действие: <strong>{care.current_action_label || '—'}</strong>
+                {care.current_sub_action_id && <span style={{ color: 'var(--gold)' }}> · вариант «{care.current_sub_action_label}» (шаг {(care.current_step_order || 0) + 1})</span>}
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '90px 1fr', gap: 8, alignItems: 'center', maxWidth: 520, marginBottom: 12 }}>
+                <label className="lair-label" style={{ margin: 0 }}>Стадия</label>
+                <select className="lair-input" value={care.stage_id || ''} disabled={updating}
+                        onChange={(e) => careGoto({ stage_id: Number(e.target.value), action_order: 0, cycles_completed: 0 })}>
+                  {care.stages.map((s) => <option key={s.id} value={s.id}>{s.stage_number}. {s.name}</option>)}
+                </select>
+
+                <label className="lair-label" style={{ margin: 0 }}>Действие</label>
+                <select className="lair-input" value={care.current_action_order || 0} disabled={updating || care.actions.length === 0}
+                        onChange={(e) => careGoto({ action_order: Number(e.target.value) })}>
+                  {care.actions.length === 0 && <option value={0}>— нет действий —</option>}
+                  {care.actions.map((a, i) => <option key={i} value={i}>#{a.order_in_cycle} {a.action_label}{a.action_type === 'composite' ? ' (составное)' : ''}</option>)}
+                </select>
+
+                <label className="lair-label" style={{ margin: 0 }}>Циклов пройдено</label>
+                <input className="lair-input" type="text" inputMode="numeric" value={care.cycles_completed || 0} disabled={updating}
+                       onChange={(e) => setCare({ ...care, cycles_completed: parseInt(e.target.value, 10) || 0 })}
+                       onBlur={(e) => careGoto({ cycles_completed: parseInt(e.target.value, 10) || 0 })}
+                       style={{ maxWidth: 100 }} />
+              </div>
+
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <button className="lair-btn" disabled={updating}
+                        onClick={() => careAction('advance', {}, 'Завершить текущее действие и перейти к следующему?')}>
+                  ✅ Завершить действие
+                </button>
+                {care.current_sub_action_id && (
+                  <button className="lair-btn lair-btn-outline" disabled={updating}
+                          onClick={() => careAction('clear-sub')}>
+                    ↩ Сбросить выбор варианта
+                  </button>
+                )}
+                <button className="lair-btn lair-btn-outline" disabled={updating}
+                        onClick={() => careAction('restart', {}, 'Сбросить уход на первую стадию?')}>
+                  🔄 Уход заново
+                </button>
+              </div>
+            </div>
+          )}
         </>
       )}
 

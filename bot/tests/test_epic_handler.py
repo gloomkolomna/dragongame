@@ -343,6 +343,111 @@ def test_choose_sub_without_items_skips_confirm(db):
     assert u.state == f"epic_care_{care.stage_id}_sub"
 
 
+def test_choose_sub_shows_back_button_on_first_step(db):
+    from bot.handlers.epic_care import handle_choose_sub
+    u, d, sa = _composite_setup(db, vk=50, with_steps=True, with_items=False)
+    sent = {}
+    handle_choose_sub(u, sa.id, db, lambda m, **k: sent.update(k))
+    assert "sub_back" in sent.get("keyboard", "")
+
+
+def test_sub_back_from_confirm_returns_to_choice(db):
+    from bot.handlers.epic_care import handle_choose_sub, handle_sub_back
+    u, d, sa = _composite_setup(db, vk=51, with_steps=True, with_items=True)
+    care = epic_service.get_care(db, 51)
+    handle_choose_sub(u, sa.id, db, lambda m, **k: None)
+    db.refresh(u)
+    assert u.state == f"epic_care_{care.stage_id}_sub_confirm"
+
+    sent = {}
+    handle_sub_back(u, db, lambda m, **k: sent.update(k))
+    db.refresh(u)
+    care = epic_service.get_care(db, 51)
+    assert care.current_sub_action_id is None
+    assert "choose_sub" in sent.get("keyboard", "")
+    # items were not consumed at confirm screen — still 1
+    inv = db.query(UserInventory).filter(UserInventory.user_id == 51).first()
+    assert inv is not None and inv.quantity == 1
+
+
+def test_sub_back_restores_consumed_items(db):
+    from bot.handlers.epic_care import handle_choose_sub, handle_confirm_sub, handle_sub_back
+    u, d, sa = _composite_setup(db, vk=52, with_steps=True, with_items=True)
+    care = epic_service.get_care(db, 52)
+    handle_choose_sub(u, sa.id, db, lambda m, **k: None)
+    handle_confirm_sub(u, db, lambda m, **k: None)
+    db.refresh(u)
+    assert u.state == f"epic_care_{care.stage_id}_sub"
+    assert db.query(UserInventory).filter(UserInventory.user_id == 52).first() is None
+
+    sent = {}
+    handle_sub_back(u, db, lambda m, **k: sent.update(k))
+    db.refresh(u)
+    care = epic_service.get_care(db, 52)
+    assert care.current_sub_action_id is None
+    assert "choose_sub" in sent.get("keyboard", "")
+    inv = db.query(UserInventory).filter(UserInventory.user_id == 52).first()
+    assert inv is not None and inv.quantity == 1
+
+
+def test_sub_back_blocked_after_first_step(db):
+    from bot.handlers.epic_care import handle_choose_sub, handle_sub_back
+    from models import EpicSubActionStep
+    u, d, sa = _composite_setup(db, vk=53, with_steps=True, with_items=False)
+    db.add(EpicSubActionStep(sub_action_id=sa.id, step_label="Шаг 2", order=1, crosses_norm=100))
+    db.commit()
+    care = epic_service.get_care(db, 53)
+    handle_choose_sub(u, sa.id, db, lambda m, **k: None)
+    care.current_step_order = 1
+    db.commit()
+
+    msgs = []
+    handle_sub_back(u, db, lambda m, **k: msgs.append(m))
+    care = epic_service.get_care(db, 53)
+    assert care.current_sub_action_id == sa.id
+    assert any("нельзя" in m.lower() for m in msgs)
+
+
+def test_composite_no_variants_gives_keyboard(db):
+    from bot.handlers.epic_care import show_care_action
+    u, d = _epic(db, vk=54)
+    u.epic_unlocked = True
+    u.epic_dragon_id = d.id
+    db.commit()
+    st = EpicStage(dragon_id=d.id, stage_number=1, name="S1", cycles_count=1)
+    db.add(st)
+    db.flush()
+    db.add(EpicStageAction(dragon_id=d.id, stage_id=st.id, action_label="именины",
+                           order_in_cycle=0, action_type="composite"))
+    db.commit()
+    epic_service.set_epic_name(db, 54, "Афанасий")
+    epic_service.start_care(db, 54)
+
+    msgs, sent = [], {}
+    show_care_action(u, db, lambda m, **k: (msgs.append(m), sent.update(k)))
+    assert any("нет вариантов" in m for m in msgs)
+    assert sent.get("keyboard")
+    assert "garden" in sent["keyboard"]
+
+
+def test_no_care_actions_gives_keyboard(db):
+    from bot.handlers.epic_care import show_care_action
+    u, d = _epic(db, vk=55)
+    u.epic_unlocked = True
+    u.epic_dragon_id = d.id
+    db.commit()
+    st = EpicStage(dragon_id=d.id, stage_number=1, name="S1", cycles_count=1)
+    db.add(st)
+    db.commit()
+    epic_service.set_epic_name(db, 55, "Пустыш")
+    epic_service.start_care(db, 55)
+
+    sent = {}
+    show_care_action(u, db, lambda m, **k: sent.update(k))
+    assert sent.get("keyboard")
+    assert "garden" in sent["keyboard"]
+
+
 def _grown_epic(db, vk, name, steps=1, egg_type="Тень"):
     d = Dragon(name=name, rarity=1, steps_count=steps, is_active=True, is_epic=True, egg_type=egg_type)
     db.add(d)

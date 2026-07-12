@@ -19,7 +19,7 @@ from models import (
     PricingConfig, DragonSet, PaymentOrder,
     CharacterAxis, CharacterBalance,
     EpicSubAction, EpicSubActionItem, EpicSubActionStep, EpicSubActionOutcome,
-    EpicActionOutcome,
+    EpicActionOutcome, EpicCareState,
     IntroChapter,
 )
 from config import API_ERROR_LOG, DONOR_SYNC_INTERVAL_HOURS
@@ -1124,6 +1124,124 @@ def restart_dragon(vk_id: int, dragon_id: int, db: Session = Depends(get_db)):
         attachment = _upload_vk_image(os.path.abspath(img_path), peer_id=vk_id)
     from bot.keyboard import step_buttons_keyboard
     _notify_user(vk_id, f"🔄 Администратор возобновил выращивание дракона «{dragon.name}»!\n\n{steps_msg}{instruction}", attachment, keyboard=step_buttons_keyboard())
+    return {"ok": True}
+
+
+# ─── Epic care admin stepping ───
+
+def _push_epic_care_screen(vk_id: int):
+    """Render the current epic-care screen and send it to the player (via VK)."""
+    from db import SessionLocal
+    from services.epic_service import get_care, get_epic_dragon
+    from bot.fsm import epic_care_state
+    from bot.handlers.epic_care import show_care_action
+
+    def _upload(filepath, peer_id=0, log_error=None):
+        return _upload_vk_image(os.path.abspath(filepath), peer_id=peer_id)
+
+    def _send(message, attachment="", keyboard=None):
+        _notify_user(vk_id, message, attachment or "", keyboard=keyboard)
+
+    db2 = SessionLocal()
+    try:
+        care = get_care(db2, vk_id)
+        dragon = get_epic_dragon(db2, vk_id)
+        if not care or not dragon:
+            return
+        user = db2.query(User).filter(User.vk_id == vk_id).first()
+        if not user:
+            return
+        user.state = epic_care_state(care.stage_id)
+        db2.commit()
+        show_care_action(user, db2, _send, upload_image=_upload)
+    except Exception:
+        pass
+    finally:
+        db2.close()
+
+
+def _epic_care_or_404(vk_id: int, db: Session):
+    from services.epic_service import get_care
+    user = db.query(User).filter(User.vk_id == vk_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    care = get_care(db, vk_id)
+    if not care:
+        raise HTTPException(status_code=400, detail="У игрока нет активного ухода за эпическим драконом")
+    return user, care
+
+
+@router.get("/users/{vk_id}/epic-care")
+def get_epic_care(vk_id: int, db: Session = Depends(get_db)):
+    from services.epic_service import care_overview
+    ov = care_overview(db, vk_id)
+    if not ov:
+        return {"has_care": False}
+    ov["has_care"] = True
+    return ov
+
+
+@router.post("/users/{vk_id}/epic-care/advance")
+def epic_care_advance(vk_id: int, db: Session = Depends(get_db)):
+    from services.epic_service import admin_advance_care
+    user, care = _epic_care_or_404(vk_id, db)
+    event = admin_advance_care(db, care)
+    kind = event.get("event")
+    if kind == "finale":
+        from bot.handlers.epic_care import _finale
+
+        def _upload(filepath, peer_id=0, log_error=None):
+            return _upload_vk_image(os.path.abspath(filepath), peer_id=peer_id)
+
+        def _send(message, attachment="", keyboard=None):
+            _notify_user(vk_id, message, attachment or "", keyboard=keyboard)
+        _finale(user, db, _send, _upload, event)
+    else:
+        _notify_user(vk_id, "🔧 Администратор перевёл заботу на следующее действие.")
+        _push_epic_care_screen(vk_id)
+    return {"ok": True, "event": kind}
+
+
+@router.post("/users/{vk_id}/epic-care/goto")
+async def epic_care_goto(vk_id: int, request: Request, db: Session = Depends(get_db)):
+    from services.epic_service import admin_goto
+    user, care = _epic_care_or_404(vk_id, db)
+    body = {}
+    try:
+        body = json.loads(await request.body())
+    except Exception:
+        pass
+    ok = admin_goto(
+        db, care,
+        stage_id=body.get("stage_id"),
+        action_order=body.get("action_order"),
+        cycles_completed=body.get("cycles_completed"),
+    )
+    if not ok:
+        raise HTTPException(status_code=400, detail="Стадия не найдена у этого дракона")
+    _notify_user(vk_id, "🔧 Администратор изменил текущий этап ухода.")
+    _push_epic_care_screen(vk_id)
+    return {"ok": True}
+
+
+@router.post("/users/{vk_id}/epic-care/clear-sub")
+def epic_care_clear_sub(vk_id: int, db: Session = Depends(get_db)):
+    from services.epic_service import admin_clear_sub
+    user, care = _epic_care_or_404(vk_id, db)
+    admin_clear_sub(db, care)
+    _notify_user(vk_id, "🔧 Администратор сбросил выбор варианта.")
+    _push_epic_care_screen(vk_id)
+    return {"ok": True}
+
+
+@router.post("/users/{vk_id}/epic-care/restart")
+def epic_care_restart(vk_id: int, db: Session = Depends(get_db)):
+    from services.epic_service import admin_restart_care
+    user, care = _epic_care_or_404(vk_id, db)
+    if not admin_restart_care(db, care):
+        raise HTTPException(status_code=400, detail="У дракона нет настроенных стадий")
+    _notify_user(vk_id, "🔧 Администратор перезапустил уход с первой стадии.")
+    _push_epic_care_screen(vk_id)
     return {"ok": True}
 
 

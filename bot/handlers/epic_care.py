@@ -11,6 +11,34 @@ from bot.keyboard import epic_care_keyboard, epic_care_item_keyboard, epic_care_
 _IMAGES = os.path.join(os.path.dirname(__file__), "..", "..", "images", "dragons")
 
 
+def _care_fallback_keyboard(db, vk_id):
+    """Keyboard for care dead-ends so the player is never stuck without buttons."""
+    import json as j
+    kb = j.dumps({
+        "one_time": False,
+        "buttons": [
+            [{"action": {"type": "text", "label": "🔄🥚 Сменить яйцо дракона", "payload": j.dumps({"cmd": "garden"}, ensure_ascii=False)}, "color": "secondary"}],
+            [{"action": {"type": "text", "label": "❓ Помощь", "payload": j.dumps({"cmd": "help"}, ensure_ascii=False)}, "color": "secondary"}],
+            [{"action": {"type": "open_link", "label": "📖 Мой Бестиарий", "link": "https://vk.com/app54663330"}}],
+        ],
+    }, ensure_ascii=False)
+    try:
+        from bot.handlers.epic import user_has_epic
+        from bot.keyboard import keyboard_with_epics
+        if user_has_epic(db, vk_id):
+            kb = keyboard_with_epics(kb)
+    except Exception:
+        pass
+    try:
+        from bot.handlers.commands import user_has_legendary
+        from bot.keyboard import keyboard_with_legends
+        if user_has_legendary(db, vk_id):
+            kb = keyboard_with_legends(kb)
+    except Exception:
+        pass
+    return kb
+
+
 def _attach(upload_image, image_path, vk_id):
     if not upload_image or not image_path:
         return ""
@@ -60,7 +88,10 @@ def show_care_action(user, db, send_message, upload_image=None):
 
     action = get_current_action(db, care)
     if not action:
-        send_message(f"🐲 «{name}»: на стадии «{stage.name if stage else '?'}» нет действий ухода.")
+        send_message(
+            f"🐲 «{name}»: на стадии «{stage.name if stage else '?'}» нет действий ухода.",
+            keyboard=_care_fallback_keyboard(db, user.vk_id),
+        )
         return
 
     if getattr(action, "action_type", "simple") == "composite":
@@ -351,12 +382,15 @@ def _show_composite_action(user, db, send_message, upload_image, care, action, d
             msg += f"\n\n🎯 Норма крестиков: {sub_step.crosses_norm or 1000}\nВыбери режим:"
             action_img = getattr(sub_step, "image_path", "") or ""
             attachment = _attach(upload_image, action_img, user.vk_id)
-            send_message(msg, attachment=attachment, keyboard=sub_step_keyboard())
+            send_message(msg, attachment=attachment, keyboard=sub_step_keyboard(with_back=(care.current_step_order or 0) == 0))
             return
 
     sub_actions = get_sub_actions(db, action.id)
     if not sub_actions:
-        send_message(f"🐲 «{name}»: у действия «{action.action_label}» нет вариантов.")
+        send_message(
+            f"🐲 «{name}»: у действия «{action.action_label}» нет вариантов.",
+            keyboard=_care_fallback_keyboard(db, user.vk_id),
+        )
         return
 
     from services.epic_service import missing_sub_items
@@ -438,7 +472,7 @@ def handle_choose_sub(user, sub_id, db, send_message, upload_image=None):
     msg += f"\n\n🎯 Норма крестиков: {first_step.crosses_norm or 1000}\nВыбери режим:"
     action_img = getattr(first_step, "image_path", "") or ""
     attachment = _attach(upload_image, action_img, user.vk_id)
-    send_message(msg, attachment=attachment, keyboard=sub_step_keyboard())
+    send_message(msg, attachment=attachment, keyboard=sub_step_keyboard(with_back=True))
 
 
 def handle_confirm_sub(user, db, send_message, upload_image=None):
@@ -514,6 +548,39 @@ def handle_confirm_sub(user, db, send_message, upload_image=None):
         send_message(f"🌟 «{name}» перешёл на новую стадию: «{nxt.name}»!")
 
     show_care_action(user, db, send_message, upload_image)
+
+
+def handle_sub_back(user, db, send_message, upload_image=None):
+    from services.epic_service import (
+        get_care, get_current_action, get_epic_dragon, get_epic_name,
+        get_stage, restore_sub_items,
+    )
+    care = get_care(db, user.vk_id)
+    if not care or not care.current_sub_action_id:
+        show_care_action(user, db, send_message, upload_image)
+        return
+
+    if (care.current_step_order or 0) != 0:
+        send_message("Вернуться к выбору уже нельзя — задание начато.")
+        return
+
+    sub_id = care.current_sub_action_id
+    if not is_epic_care_sub_confirm(user.state):
+        restore_sub_items(db, user.vk_id, sub_id)
+
+    care.current_sub_action_id = None
+    care.current_step_order = 0
+    care.sub_had_penalty = False
+    db.commit()
+
+    action = get_current_action(db, care)
+    dragon = get_epic_dragon(db, user.vk_id)
+    name = get_epic_name(db, user.vk_id) or (dragon.name if dragon else "малыш")
+    stage = get_stage(db, care.stage_id)
+    if not action:
+        show_care_action(user, db, send_message, upload_image)
+        return
+    _show_composite_action(user, db, send_message, upload_image, care, action, dragon, name, stage)
 
 
 def handle_sub_mode(user, mode, db, send_message):

@@ -283,19 +283,23 @@ def sub_action_keyboard(sub_actions, missing_map):
     return _keyboard(buttons)
 
 
-def sub_step_keyboard():
-    return _keyboard([
+def sub_step_keyboard(with_back=False):
+    buttons = [
         [{"action": {"type": "text", "label": "🎯 Норма", "payload": json.dumps({"cmd": "norm"}, ensure_ascii=False)}, "color": "positive"}],
         [{"action": {"type": "text", "label": "⚡ Штраф (x2)", "payload": json.dumps({"cmd": "x2"}, ensure_ascii=False)}, "color": "negative"}],
-        garden_row(),
-        bestiary_link_row(),
-    ])
+    ]
+    if with_back:
+        buttons.append([{"action": {"type": "text", "label": "◀ Назад к выбору", "payload": json.dumps({"cmd": "sub_back"}, ensure_ascii=False)}, "color": "secondary"}])
+    buttons.append(garden_row())
+    buttons.append(bestiary_link_row())
+    return _keyboard(buttons)
 
 
 def sub_confirm_keyboard(button_label=""):
     label = (button_label or "✅ Подтвердить")[:40]
     return _keyboard([
         [{"action": {"type": "text", "label": label, "payload": json.dumps({"cmd": "confirm_sub"}, ensure_ascii=False)}, "color": "positive"}],
+        [{"action": {"type": "text", "label": "◀ Назад к выбору", "payload": json.dumps({"cmd": "sub_back"}, ensure_ascii=False)}, "color": "secondary"}],
         garden_row(),
         bestiary_link_row(),
     ])

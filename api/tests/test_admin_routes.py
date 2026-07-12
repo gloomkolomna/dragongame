@@ -951,3 +951,122 @@ def test_simple_action_confirm_fields(client):
 
     upd = client.put(f"/api/admin/epic/actions/{action['id']}", json={"confirm_button_label": "🍗 Дать корм"}).json()
     assert upd["confirm_button_label"] == "🍗 Дать корм"
+
+
+# ─── Epic care admin stepping ───
+
+def _setup_epic_care(client, db, vk_id=7777):
+    from models import User, Dragon, UserDragon, EpicStage, EpicStageAction, EpicCareState
+    d = Dragon(name="EpicCare", rarity=1, steps_count=1, is_active=True, is_epic=True, egg_type="Тень")
+    db.add(d)
+    db.flush()
+    u = User(vk_id=vk_id, state="idle", epic_unlocked=True, epic_dragon_id=d.id)
+    db.add(u)
+    ud = UserDragon(user_id=vk_id, dragon_id=d.id, completed_at="")
+    db.add(ud)
+    st1 = EpicStage(dragon_id=d.id, stage_number=1, name="Малыш", cycles_count=2)
+    st2 = EpicStage(dragon_id=d.id, stage_number=2, name="Подросток", cycles_count=1)
+    db.add_all([st1, st2])
+    db.flush()
+    db.add(EpicStageAction(dragon_id=d.id, stage_id=st1.id, action_label="кормить", order_in_cycle=0, crosses_norm=100))
+    db.add(EpicStageAction(dragon_id=d.id, stage_id=st1.id, action_label="играть", order_in_cycle=1, crosses_norm=100))
+    db.add(EpicStageAction(dragon_id=d.id, stage_id=st2.id, action_label="учить", order_in_cycle=0, crosses_norm=100))
+    care = EpicCareState(user_dragon_id=ud.id, stage_id=st1.id, current_action_order=0, cycles_completed=0)
+    db.add(care)
+    db.commit()
+    return d, st1, st2, ud
+
+
+def test_epic_care_overview(client, db):
+    d, st1, st2, ud = _setup_epic_care(client, db, vk_id=7701)
+    r = client.get("/api/admin/users/7701/epic-care")
+    assert r.status_code == 200
+    data = r.json()
+    assert data["has_care"] is True
+    assert data["stage_id"] == st1.id
+    assert data["current_action_label"] == "кормить"
+    assert len(data["stages"]) == 2
+    assert len(data["actions"]) == 2
+
+
+def test_epic_care_overview_none(client, db):
+    from models import User
+    db.add(User(vk_id=7702, state="idle"))
+    db.commit()
+    r = client.get("/api/admin/users/7702/epic-care")
+    assert r.json()["has_care"] is False
+
+
+def test_epic_care_advance(client, db):
+    from models import EpicCareState
+    d, st1, st2, ud = _setup_epic_care(client, db, vk_id=7703)
+    r = client.post("/api/admin/users/7703/epic-care/advance")
+    assert r.status_code == 200
+    care = db.query(EpicCareState).filter(EpicCareState.user_dragon_id == ud.id).first()
+    db.refresh(care)
+    assert care.current_action_order == 1
+
+
+def test_epic_care_goto(client, db):
+    from models import EpicCareState
+    d, st1, st2, ud = _setup_epic_care(client, db, vk_id=7704)
+    r = client.post("/api/admin/users/7704/epic-care/goto", json={"stage_id": st2.id, "action_order": 0, "cycles_completed": 0})
+    assert r.status_code == 200
+    care = db.query(EpicCareState).filter(EpicCareState.user_dragon_id == ud.id).first()
+    db.refresh(care)
+    assert care.stage_id == st2.id
+
+
+def test_epic_care_goto_wrong_stage(client, db):
+    from models import EpicStage, Dragon
+    d, st1, st2, ud = _setup_epic_care(client, db, vk_id=7705)
+    other = Dragon(name="Other", rarity=1, steps_count=1, is_active=True, is_epic=True)
+    db.add(other)
+    db.flush()
+    foreign = EpicStage(dragon_id=other.id, stage_number=1, name="X", cycles_count=1)
+    db.add(foreign)
+    db.commit()
+    r = client.post("/api/admin/users/7705/epic-care/goto", json={"stage_id": foreign.id})
+    assert r.status_code == 400
+
+
+def test_epic_care_clear_sub(client, db):
+    from models import EpicCareState, EpicSubAction, EpicStageAction
+    d, st1, st2, ud = _setup_epic_care(client, db, vk_id=7706)
+    care = db.query(EpicCareState).filter(EpicCareState.user_dragon_id == ud.id).first()
+    action = db.query(EpicStageAction).filter(EpicStageAction.stage_id == st1.id).first()
+    sa = EpicSubAction(action_id=action.id, label="вар")
+    db.add(sa)
+    db.flush()
+    care.current_sub_action_id = sa.id
+    care.current_step_order = 1
+    db.commit()
+    r = client.post("/api/admin/users/7706/epic-care/clear-sub")
+    assert r.status_code == 200
+    db.refresh(care)
+    assert care.current_sub_action_id is None
+    assert care.current_step_order == 0
+
+
+def test_epic_care_restart(client, db):
+    from models import EpicCareState
+    d, st1, st2, ud = _setup_epic_care(client, db, vk_id=7707)
+    care = db.query(EpicCareState).filter(EpicCareState.user_dragon_id == ud.id).first()
+    care.stage_id = st2.id
+    care.cycles_completed = 3
+    care.current_action_order = 2
+    db.commit()
+    r = client.post("/api/admin/users/7707/epic-care/restart")
+    assert r.status_code == 200
+    db.refresh(care)
+    assert care.stage_id == st1.id
+    assert care.cycles_completed == 0
+    assert care.current_action_order == 0
+
+
+def test_epic_care_advance_requires_care(client, db):
+    from models import User
+    db.add(User(vk_id=7708, state="idle"))
+    db.commit()
+    r = client.post("/api/admin/users/7708/epic-care/advance")
+    assert r.status_code == 400
