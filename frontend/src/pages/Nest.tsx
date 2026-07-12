@@ -144,7 +144,7 @@ function Nest() {
             <div style={{ color: 'var(--text-muted)', fontSize: 14 }}>Воспоминаний пока нет.</div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {data.moodlets.map((m) => (
+              {data.moodlets.filter((m) => m.image_path).map((m) => (
                 <div key={m.key}
                   onClick={() => setZoomMoodlet(m)}
                   style={{
