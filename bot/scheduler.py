@@ -139,6 +139,9 @@ def _check_expired(db, vk, logger, session_factory=None):
         if not user or not dragon:
             continue
 
+        if user.state == "await_epic_name":
+            continue
+
         completed_count = db.query(UserProgress).filter(
             UserProgress.user_id == ud.user_id,
             UserProgress.dragon_id == ud.dragon_id,
@@ -250,6 +253,11 @@ def _check_care_due(db, vk, logger, session_factory=None):
         care.care_notified = True
         db.commit()
         if not ud or ud.completed_at:
+            continue
+
+        from models import User
+        user = db.query(User).filter(User.vk_id == ud.user_id).first()
+        if user and user.state == "await_epic_name":
             continue
         from services.epic_service import get_epic_name
         epic_name = get_epic_name(db, ud.user_id) or "малыш"

@@ -1,6 +1,7 @@
 from models import User, Dragon, DragonStep, UserDragon, UserProgress, ShopItem, UserInventory
 from models import EpicStage, EpicStageAction, EpicActionItem, EpicCareState, EpicMoodlet
 from bot.handlers.epic import handle_epic_name, send_epic_spawn_notice
+from bot.handlers.epic import grown_epics, user_has_epic, handle_epics, handle_epics_pick, cancel_epics
 from bot.handlers.epic_care import handle_epic_restart, show_care_action, handle_care_mode, handle_care_message
 from services import epic_service
 
@@ -340,4 +341,72 @@ def test_choose_sub_without_items_skips_confirm(db):
     handle_choose_sub(u, sa.id, db, lambda m, **k: None)
     db.refresh(u)
     assert u.state == f"epic_care_{care.stage_id}_sub"
+
+
+def _grown_epic(db, vk, name, steps=1, egg_type="Тень"):
+    d = Dragon(name=name, rarity=1, steps_count=steps, is_active=True, is_epic=True, egg_type=egg_type)
+    db.add(d)
+    db.flush()
+    db.add(UserDragon(user_id=vk, dragon_id=d.id, completed_at=""))
+    for i in range(1, steps + 1):
+        db.add(UserProgress(user_id=vk, dragon_id=d.id, step_number=i, completed=True))
+    db.add(UserProgress(user_id=vk, dragon_id=d.id, step_number=0, completed=False, epic_name=name))
+    db.commit()
+    return d
+
+
+def test_user_has_epic_only_when_hatched(db):
+    u = User(vk_id=200, state="idle")
+    db.add(u)
+    d = Dragon(name="Egg", rarity=1, steps_count=2, is_active=True, is_epic=True, egg_type="Лунное")
+    db.add(d)
+    db.flush()
+    db.add(UserDragon(user_id=200, dragon_id=d.id, completed_at=""))
+    db.add(UserProgress(user_id=200, dragon_id=d.id, step_number=1, completed=True))
+    db.commit()
+    assert user_has_epic(db, 200) is False
+    db.add(UserProgress(user_id=200, dragon_id=d.id, step_number=2, completed=True))
+    db.commit()
+    assert user_has_epic(db, 200) is True
+
+
+def test_handle_epics_lists_and_pick_switches(db):
+    u = User(vk_id=201, state="idle", epic_unlocked=True)
+    db.add(u)
+    db.flush()
+    d1 = _grown_epic(db, 201, "Уголёк")
+    d2 = _grown_epic(db, 201, "Пепел")
+    u.epic_dragon_id = d1.id
+    db.commit()
+
+    msgs = []
+    handle_epics(u, db, lambda m, **k: msgs.append(m))
+    db.refresh(u)
+    assert u.state == "await_epics"
+    joined = " ".join(msgs)
+    assert "Уголёк" in joined and "Пепел" in joined
+
+    handle_epics_pick(u, 2, db, lambda m, **k: None)
+    db.refresh(u)
+    assert u.epic_dragon_id == d2.id
+
+
+def test_handle_epics_empty(db):
+    u = User(vk_id=202, state="idle")
+    db.add(u)
+    db.commit()
+    msgs = []
+    handle_epics(u, db, lambda m, **k: msgs.append(m))
+    db.refresh(u)
+    assert u.state == "idle"
+    assert "нет вылупленных эпических" in " ".join(msgs)
+
+
+def test_cancel_epics_restores_state(db):
+    u = User(vk_id=203, state="await_epics", current_dragon_id=77, current_step=2)
+    db.add(u)
+    db.commit()
+    cancel_epics(u, db, lambda m, **k: None)
+    db.refresh(u)
+    assert u.state == "grow_step_2"
 

@@ -325,6 +325,30 @@ def test_toggle_step_clears_timeout(client, db):
     assert ud.timeout_notified is False
 
 
+def test_toggle_uncomplete_last_step_resumes_completed_dragon(client, db):
+    dragon = Dragon(name="Done", rarity=1, steps_count=2, is_active=True, egg_type="e")
+    db.add(dragon)
+    db.flush()
+    db.add(DragonStep(dragon_id=dragon.id, step_number=1, crosses_norm=100))
+    db.add(DragonStep(dragon_id=dragon.id, step_number=2, crosses_norm=100))
+    user = User(vk_id=104, state="idle", current_dragon_id=None, current_step=0)
+    db.add(user)
+    db.add(UserDragon(user_id=104, dragon_id=dragon.id, completed_at="2026-07-01T10:00:00"))
+    db.add(UserProgress(user_id=104, dragon_id=dragon.id, step_number=1, completed=True))
+    db.add(UserProgress(user_id=104, dragon_id=dragon.id, step_number=2, completed=True))
+    db.commit()
+
+    resp = client.post("/api/admin/users/104/steps/2/toggle", json={"dragon_id": dragon.id})
+    assert resp.status_code == 200
+
+    db.refresh(user)
+    assert user.current_dragon_id == dragon.id
+    assert user.current_step == 2
+    assert user.state == "grow_step_2"
+    ud = db.query(UserDragon).filter(UserDragon.user_id == 104, UserDragon.dragon_id == dragon.id).first()
+    assert ud.completed_at == ""
+
+
 def test_get_user_steps_shows_timeout(client, db):
     fam = _create_family(client)
     dragon_resp = client.post(

@@ -2,15 +2,15 @@
 
 import os
 from bot.fsm import (
-    IDLE, AWAIT_EPIC_NAME, AWAIT_EPIC_RESTART,
+    IDLE, AWAIT_EPIC_NAME, AWAIT_EPIC_RESTART, AWAIT_EPICS,
     epic_egg_state, epic_egg_step_from_state, is_epic_egg_waiting,
-    epic_care_state, state_mode,
+    epic_care_state, state_mode, is_growing, grow_state,
 )
 from bot.services.grow_service import (
     get_dragon_step, get_total_steps, complete_step,
     credit_stitches, is_suspicious, create_suspicious_report, notify_admin,
 )
-from bot.keyboard import epic_egg_buttons_keyboard, idle_keyboard
+from bot.keyboard import epic_egg_buttons_keyboard, idle_keyboard, empty_keyboard
 
 _IMAGES = os.path.join(os.path.dirname(__file__), "..", "..", "images", "dragons")
 
@@ -99,6 +99,75 @@ def handle_epic_command(user, db, send_message, upload_image=None):
         _prompt_name(user, dragon, db, send_message)
         return
     _show_egg_step(user, dragon, db, send_message, upload_image)
+
+
+def grown_epics(db, vk_id):
+    from models import Dragon, UserDragon, UserProgress
+    rows = (
+        db.query(Dragon)
+        .join(UserDragon, UserDragon.dragon_id == Dragon.id)
+        .filter(UserDragon.user_id == vk_id, Dragon.is_epic == True)
+        .order_by(UserDragon.id)
+        .all()
+    )
+    result = []
+    for d in rows:
+        total = d.steps_count or 0
+        if total <= 0:
+            continue
+        done = db.query(UserProgress).filter(
+            UserProgress.user_id == vk_id,
+            UserProgress.dragon_id == d.id,
+            UserProgress.step_number > 0,
+            UserProgress.completed == True,
+        ).count()
+        if done >= total:
+            result.append(d)
+    return result
+
+
+def user_has_epic(db, vk_id):
+    return len(grown_epics(db, vk_id)) > 0
+
+
+def handle_epics(user, db, send_message):
+    from services.epic_service import get_epic_name_for
+    dragons = grown_epics(db, user.vk_id)
+    if not dragons:
+        send_message(
+            "🐉 У тебя пока нет вылупленных эпических драконов.\n"
+            "Они появятся здесь, когда ты вырастишь эпическое яйцо."
+        )
+        return
+    lines = ["🐉 Эпические драконы — выбери, к кому перейти:\n"]
+    for i, d in enumerate(dragons, start=1):
+        name = get_epic_name_for(db, user.vk_id, d.id) or d.egg_type or d.name or "?"
+        marker = " 👈 сейчас" if user.epic_dragon_id == d.id else ""
+        lines.append(f"{i}. 🐲 {name}{marker}")
+    lines.append("\nНапиши номер, чтобы перейти к дракону, или «0», чтобы вернуться.")
+    user.state = AWAIT_EPICS
+    db.commit()
+    send_message("\n".join(lines))
+
+
+def handle_epics_pick(user, num, db, send_message, upload_image=None):
+    dragons = grown_epics(db, user.vk_id)
+    if num < 1 or num > len(dragons):
+        send_message("❌ Неверный номер. Напиши номер из списка.")
+        return
+    dragon = dragons[num - 1]
+    user.epic_dragon_id = dragon.id
+    db.commit()
+    handle_epic_command(user, db, send_message, upload_image)
+
+
+def cancel_epics(user, db, send_message):
+    if user.current_dragon_id:
+        user.state = grow_state(user.current_step)
+    else:
+        user.state = IDLE
+    db.commit()
+    send_message("Хорошо, вернулись.")
 
 
 def _show_egg_step(user, dragon, db, send_message, upload_image):
@@ -192,7 +261,6 @@ def handle_epic_egg_message(user, text, attachments, db, send_message, upload_im
                   photo_before_id=photo_before_id, photo_after_id=photo_after_id)
 
     if is_egg_hatched(db, user.vk_id):
-        send_message(f"🎉🐲 Эпическое яйцо вылупилось!")
         _prompt_name(user, dragon, db, send_message)
     else:
         send_message(f"✅ Шаг {step} эпического яйца выполнен!")
@@ -205,7 +273,8 @@ def _prompt_name(user, dragon, db, send_message):
     db.commit()
     send_message(
         "🐲 Твой эпический дракон вылупился!\n"
-        "Как ты его назовёшь? Напиши имя одним сообщением."
+        "Как ты его назовёшь? Напиши имя одним сообщением.",
+        keyboard=empty_keyboard(),
     )
 
 

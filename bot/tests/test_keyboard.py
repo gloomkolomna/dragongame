@@ -81,3 +81,17 @@ def test_keyboard_with_legends_injects_once():
     legend_rows = [r for r in json.loads(again)["buttons"] if any(
         (b["action"].get("payload") and json.loads(b["action"]["payload"]).get("cmd") == "legends") for b in r)]
     assert len(legend_rows) == 1
+
+
+def test_keyboard_with_epics_injects_once():
+    base = keyboard.growing_keyboard()
+    assert "epics" not in _cmds(base)
+    injected = keyboard.keyboard_with_epics(base)
+    assert "epics" in _cmds(injected)
+    rows = json.loads(injected)["buttons"]
+    last = rows[-1]
+    assert any(b["action"].get("type") == "open_link" for b in last), "Bestiary row must stay last"
+    again = keyboard.keyboard_with_epics(injected)
+    epic_rows = [r for r in json.loads(again)["buttons"] if any(
+        (b["action"].get("payload") and json.loads(b["action"]["payload"]).get("cmd") == "epics") for b in r)]
+    assert len(epic_rows) == 1

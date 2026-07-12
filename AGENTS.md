@@ -198,6 +198,7 @@ api\venv\Scripts\python.exe -m pytest api/tests bot/tests -v --tb=short
 - `await_epic_name` — ожидание имени эпического дракона после вылупления
 - `epic_care_<stage_id>` / `..._norm` / `..._x2` — уход за эпическим на стадии; `is_epic_care`, `is_epic_care_waiting`, `epic_care_state(stage_id, suffix="")`
 - `await_epic_restart` — выбор после финала эпического (такого же / случайного)
+- `await_epics` — выбор эпического дракона из списка вылупленных (переключение активного `epic_dragon_id`)
 - Магазин работает без отдельного FSM-состояния (по payload-командам `shop`/`buy`)
 
 ## Клавиатуры бота
@@ -214,6 +215,7 @@ api\venv\Scripts\python.exe -m pytest api/tests bot/tests -v --tb=short
 - `epic_egg_buttons_keyboard()` — Норма / Штраф(x2) / Сменить яйцо / Бестиарий (яйцо эпического)
 - `epic_care_keyboard()` — Норма / Штраф(x2) / Магазин / Сменить яйцо / Бестиарий (уход)
 - `keyboard_with_legends(kb_json)` — вставляет кнопку «🐲 Легендарные драконы» если у юзера есть выращенные легендарные
+- `keyboard_with_epics(kb_json)` — вставляет кнопку «🐉 Эпические драконы» если у юзера есть вылупленные эпические (не показывается в состояниях `await_epics`, `await_epic_name`, `epic_egg_*`, `epic_care_*`)
 - Кнопка «🔄🥚 Сменить яйцо дракона» (garden) присутствует на всех клавиатурах, КРОМЕ `await_garden_keyboard` (не показывается внутри самого раздела смены)
 - `idle_keyboard()`/`growing_keyboard()` содержат кнопку «🛒 Магазин»
 - Бестиарий всегда самая нижняя строка (кроме complete-дракона)
@@ -234,6 +236,7 @@ api\venv\Scripts\python.exe -m pytest api/tests bot/tests -v --tb=short
 - `balance` / `копилка` / `баланс` — показать копилку крестиков
 - `shop` / `магазин` / `лавка` — магазин стадии; `buy` (payload `{"cmd":"buy","item_id":N}`) — покупка
 - `epic` / `эпический` / `пещера` — уход за эпическим (яйцо/имя/стадии)
+- `epics` / `эпические драконы` — список вылупленных эпических, выбор → переключение активного и переход к его заданиям; `0` — отмена
 - `legend` (payload `{"cmd":"legend","dragon_id":N}`) — рассказать легенду легендарного
 - `epic_restart` (payload `{"cmd":"epic_restart","mode":"same"|"random"}`) — после финала эпического
 

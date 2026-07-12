@@ -50,6 +50,10 @@ def legends_row():
     return row(("🐲 Легендарные драконы", "legends"))
 
 
+def epics_row():
+    return row(("🐉 Эпические драконы", "epics"))
+
+
 def keyboard_with_legends(kb_json):
     data = json.loads(kb_json)
     buttons = data.get("buttons", [])
@@ -68,6 +72,28 @@ def keyboard_with_legends(kb_json):
             insert_at = i
             break
     buttons.insert(insert_at, legends_row())
+    data["buttons"] = buttons
+    return json.dumps(data, ensure_ascii=False)
+
+
+def keyboard_with_epics(kb_json):
+    data = json.loads(kb_json)
+    buttons = data.get("buttons", [])
+    for r in buttons:
+        for b in r:
+            payload = b.get("action", {}).get("payload")
+            if payload:
+                try:
+                    if json.loads(payload).get("cmd") == "epics":
+                        return kb_json
+                except (json.JSONDecodeError, TypeError):
+                    pass
+    insert_at = len(buttons)
+    for i, r in enumerate(buttons):
+        if any(b.get("action", {}).get("type") == "open_link" for b in r):
+            insert_at = i
+            break
+    buttons.insert(insert_at, epics_row())
     data["buttons"] = buttons
     return json.dumps(data, ensure_ascii=False)
 

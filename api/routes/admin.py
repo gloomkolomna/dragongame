@@ -870,19 +870,35 @@ async def toggle_user_step(vk_id: int, step_number: int, request: Request, db: S
                 f"Напиши «эпический» чтобы начать уход за ним.",
                 attachment=e_attach)
     else:
-        user.current_step = completed_count + 1
-        user.state = f"grow_step_{user.current_step}"
+        if ud_toggle and ud_toggle.completed_at:
+            ud_toggle.completed_at = ""
+        resume_active = (user.current_dragon_id is None) or (user.current_dragon_id == dragon_id)
+        next_step = completed_count + 1
+        if resume_active:
+            user.current_dragon_id = dragon_id
+            user.current_step = next_step
+            user.state = f"grow_step_{next_step}"
         step_def = db.query(DragonStep).filter(
             DragonStep.dragon_id == dragon_id,
-            DragonStep.step_number == user.current_step,
+            DragonStep.step_number == next_step,
         ).first()
-        steps_msg = _format_step_text(step_def, user.current_step, total)
+        steps_msg = _format_step_text(step_def, next_step, total)
         header = f"🥚 {dragon.name}\n"
-        instruction = "\nПришли 2 фото (до и после) и напиши «вышито» когда выполнишь."
+        norm = step_def.crosses_norm if step_def else 1000
+        instruction = f"\n\n🎯 Норма крестиков: {norm}\nВыбери режим:"
+        attachment = ""
+        rel = (step_def.image_path if step_def and step_def.image_path else dragon.egg_path)
+        if rel:
+            img_path = os.path.join(os.path.dirname(__file__), "..", "..", "images", "dragons", os.path.basename(rel))
+            attachment = _upload_vk_image(os.path.abspath(img_path), peer_id=vk_id)
+        kb = None
+        if resume_active:
+            from bot.keyboard import step_buttons_keyboard
+            kb = step_buttons_keyboard()
         if progress.completed:
-            _notify_user(vk_id, f"{header}✅ Администратор отметил шаг {step_number} как выполненный.\n\n{steps_msg}{instruction}")
+            _notify_user(vk_id, f"{header}✅ Администратор отметил шаг {step_number} как выполненный.\n\n{steps_msg}{instruction}", attachment, keyboard=kb)
         else:
-            _notify_user(vk_id, f"{header}↩ Администратор отменил шаг {step_number}.\n\n{steps_msg}{instruction}")
+            _notify_user(vk_id, f"{header}↩ Администратор отменил шаг {step_number}.\n\n{steps_msg}{instruction}", attachment, keyboard=kb)
 
     db.commit()
     return {"ok": True, "completed": progress.completed, "current_step": user.current_step}
