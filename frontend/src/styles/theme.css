@@ -524,6 +524,11 @@ a:hover { color: var(--molten); }
   0%, 100% { opacity: 0.3; }
   50% { opacity: 0.6; }
 }
+
+@keyframes toastSlideIn {
+  from { opacity: 0; transform: translateX(-20px); }
+  to { opacity: 1; transform: translateX(0); }
+}
 .lair-skeleton {
   background: linear-gradient(135deg, var(--bronze), var(--chocolate));
   border-radius: var(--card-radius);

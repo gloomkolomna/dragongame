@@ -227,6 +227,8 @@ class EpicStageAction(Base):
     timeout_minutes = Column(Integer, default=0)
     random_outcome = Column(Boolean, default=True)
     character_axis_id = Column(Integer, ForeignKey("character_axes.id", ondelete="SET NULL"), nullable=True)
+    description = Column(Text, default="")
+    confirm_button_label = Column(String, default="")
 
 
 class EpicActionOutcome(Base):

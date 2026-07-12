@@ -143,18 +143,20 @@ def epic_care_keyboard():
     ])
 
 
-def epic_care_item_keyboard():
+def epic_care_item_keyboard(button_label=""):
+    label = (button_label or "🎒 Использовать")[:40]
     return _keyboard([
-        [{"action": {"type": "text", "label": "🎒 Использовать", "payload": json.dumps({"cmd": "use_item"}, ensure_ascii=False)}, "color": "positive"}],
+        [{"action": {"type": "text", "label": label, "payload": json.dumps({"cmd": "use_item"}, ensure_ascii=False)}, "color": "positive"}],
         row(("🛒 Магазин", "shop")),
         garden_row(),
         bestiary_link_row(),
     ])
 
 
-def epic_care_optional_item_keyboard():
+def epic_care_optional_item_keyboard(button_label=""):
+    label = (button_label or "🎒 Использовать")[:40]
     return _keyboard([
-        [{"action": {"type": "text", "label": "🎒 Использовать", "payload": json.dumps({"cmd": "use_item"}, ensure_ascii=False)}, "color": "positive"}],
+        [{"action": {"type": "text", "label": label, "payload": json.dumps({"cmd": "use_item"}, ensure_ascii=False)}, "color": "positive"}],
         [{"action": {"type": "text", "label": "⏭ Пропустить", "payload": json.dumps({"cmd": "skip_item"}, ensure_ascii=False)}, "color": "secondary"}],
         row(("🛒 Магазин", "shop")),
         garden_row(),

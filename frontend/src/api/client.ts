@@ -16,7 +16,16 @@ client.interceptors.request.use((config) => {
 });
 
 client.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    const method = (response.config.method || '').toLowerCase();
+    const url = response.config.url || '';
+    const isMutation = ['post', 'put', 'patch', 'delete'].includes(method);
+    const isSilent = url.includes('/upload-image') || url.includes('/auth');
+    if (isMutation && !isSilent) {
+      window.dispatchEvent(new CustomEvent('admin:saved'));
+    }
+    return response;
+  },
   (error) => {
     if (error.response?.status === 401) {
       localStorage.removeItem('token');

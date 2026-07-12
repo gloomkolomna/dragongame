@@ -1676,6 +1676,8 @@ def _action_dict(db, action: EpicStageAction) -> dict:
     else:
         result["random_outcome"] = bool(getattr(action, "random_outcome", True))
         result["character_axis_id"] = action.character_axis_id
+        result["description"] = getattr(action, "description", "") or ""
+        result["confirm_button_label"] = getattr(action, "confirm_button_label", "") or ""
         outcomes = db.query(EpicActionOutcome).filter(EpicActionOutcome.action_id == action.id).all()
         result["outcomes"] = [{
             "id": o.id,
@@ -1764,6 +1766,8 @@ async def create_epic_action(dragon_id: int, stage_id: int, request: Request, db
         timeout_minutes=max(0, min(59, int(b.get("timeout_minutes", 0) or 0))),
         random_outcome=bool(b.get("random_outcome", True)),
         character_axis_id=int(b["character_axis_id"]) if b.get("character_axis_id") else None,
+        description=b.get("description", ""),
+        confirm_button_label=b.get("confirm_button_label", ""),
     )
     db.add(action)
     db.commit()
@@ -1795,6 +1799,8 @@ async def update_epic_action(action_id: int, request: Request, db: Session = Dep
     if "timeout_minutes" in b: action.timeout_minutes = max(0, min(59, int(b["timeout_minutes"] or 0)))
     if "random_outcome" in b: action.random_outcome = bool(b["random_outcome"])
     if "character_axis_id" in b: action.character_axis_id = int(b["character_axis_id"]) if b["character_axis_id"] else None
+    if "description" in b: action.description = b["description"]
+    if "confirm_button_label" in b: action.confirm_button_label = b["confirm_button_label"]
     db.commit()
     db.refresh(action)
     atype = getattr(action, "action_type", "simple") or "simple"

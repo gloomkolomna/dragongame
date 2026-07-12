@@ -1,6 +1,7 @@
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import DragonLogo from '../components/DragonLogo';
+import SaveToast from '../components/SaveToast';
 
 const NAV_ITEMS = [
   { path: '/admin/dashboard', label: 'Дашборд', icon: '📊' },
@@ -61,6 +62,7 @@ function AdminLayout() {
       <div style={{ flex: 1, overflowY: 'auto' }}>
         <Outlet />
       </div>
+      <SaveToast />
     </div>
   );
 }

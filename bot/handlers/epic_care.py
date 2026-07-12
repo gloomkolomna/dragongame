@@ -104,13 +104,17 @@ def show_care_action(user, db, send_message, upload_image=None):
             else:
                 item_names_parts.append(it.name)
         item_names = ", ".join(item_names_parts)
-        msg = base_msg + f"\n📦 Товары: {item_names}\n"
+        msg = base_msg
+        if getattr(action, "description", ""):
+            msg += f"\n{action.description}\n"
+        msg += f"\n📦 Товары: {item_names}\n"
+        confirm_label = getattr(action, "confirm_button_label", "") or ""
         if only_optional:
-            msg += "Нажми «🎒 Использовать», если есть товары, или «⏭ Пропустить»."
-            kb = epic_care_optional_item_keyboard()
+            msg += f"Нажми «{confirm_label or '🎒 Использовать'}», если есть товары, или «⏭ Пропустить»."
+            kb = epic_care_optional_item_keyboard(confirm_label)
         else:
-            msg += "Нажми «🎒 Использовать», чтобы применить."
-            kb = epic_care_item_keyboard()
+            msg += f"Нажми «{confirm_label or '🎒 Использовать'}», чтобы подтвердить."
+            kb = epic_care_item_keyboard(confirm_label)
         action_img = getattr(action, "image_path", "") or ""
         attachment = _attach(upload_image, action_img or (stage.image_start if stage else ""), user.vk_id)
         send_message(msg, attachment=attachment, keyboard=kb)

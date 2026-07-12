@@ -2,7 +2,7 @@ import { useEffect, useState, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import client from '../../api/client';
 
-interface Action { id: number; dragon_id: number; stage_id: number; action_label: string; order_in_cycle: number; task: string; hint: string; crosses_norm: number; image_path: string; action_type: string; timeout_hours: number; timeout_minutes: number; item_ids: number[]; random_outcome?: boolean; character_axis_id?: number | null; outcomes?: Outcome[]; sub_actions?: SubAction[]; }
+interface Action { id: number; dragon_id: number; stage_id: number; action_label: string; order_in_cycle: number; task: string; hint: string; crosses_norm: number; image_path: string; action_type: string; timeout_hours: number; timeout_minutes: number; item_ids: number[]; random_outcome?: boolean; character_axis_id?: number | null; description?: string; confirm_button_label?: string; outcomes?: Outcome[]; sub_actions?: SubAction[]; }
 interface ShopItem { id: number; name: string; }
 interface Axis { id: number; positive_label: string; negative_label: string; }
 interface SubAction { id: number; label: string; description: string; order_in_sub: number; image_path: string; character_axis_id: number | null; item_ids: number[]; steps: SubStep[]; outcomes: Outcome[]; }
@@ -22,7 +22,7 @@ function EpicActionEditor() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
-  const [edit, setEdit] = useState({ action_label: '', task: '', crosses_norm: 1000, hint: '', image_path: '', action_type: 'simple', timeout_hours: 24, timeout_minutes: 0, item_ids: [] as number[], random_outcome: true, character_axis_id: null as number | null });
+  const [edit, setEdit] = useState({ action_label: '', task: '', crosses_norm: 1000, hint: '', image_path: '', action_type: 'simple', timeout_hours: 24, timeout_minutes: 0, item_ids: [] as number[], random_outcome: true, character_axis_id: null as number | null, description: '', confirm_button_label: '' });
 
   useEffect(() => {
     client.get('/admin/shop-items').then((r) => setItems(r.data));
@@ -43,6 +43,7 @@ function EpicActionEditor() {
             timeout_hours: a.timeout_hours ?? 24, timeout_minutes: a.timeout_minutes ?? 0,
             item_ids: [...(a.item_ids || [])],
             random_outcome: a.random_outcome ?? true, character_axis_id: a.character_axis_id ?? null,
+            description: a.description || '', confirm_button_label: a.confirm_button_label || '',
           });
         }
         setLoading(false);
