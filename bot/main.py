@@ -207,7 +207,8 @@ def main():
                     keyboard = get_keyboard(user.state, user)
                 if keyboard:
                     try:
-                        if (user.state != AWAIT_LEGENDS and not is_legend(user.state)
+                        if (user.state not in (AWAIT_LEGENDS, AWAIT_EPIC_NAME)
+                                and not is_legend(user.state)
                                 and user_has_legendary(db, user.vk_id)):
                             keyboard = keyboard_with_legends(keyboard)
                     except Exception:
