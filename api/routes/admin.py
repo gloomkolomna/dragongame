@@ -1686,6 +1686,7 @@ def _sub_actions_list(db, action_id: int) -> list:
             "id": sa.id,
             "label": sa.label,
             "description": sa.description,
+            "confirm_button_label": sa.confirm_button_label or "",
             "order_in_sub": sa.order_in_sub,
             "image_path": sa.image_path or "",
             "character_axis_id": sa.character_axis_id,
@@ -1816,6 +1817,7 @@ async def create_sub_action(action_id: int, request: Request, db: Session = Depe
         action_id=action_id,
         label=b.get("label", ""),
         description=b.get("description", ""),
+        confirm_button_label=b.get("confirm_button_label", ""),
         order_in_sub=int(b.get("order_in_sub", 0) or 0),
         image_path=b.get("image_path", ""),
         character_axis_id=int(axis_id) if axis_id else None,
@@ -1840,6 +1842,7 @@ async def update_sub_action(sub_id: int, request: Request, db: Session = Depends
     b = await _json_body(request)
     if "label" in b: sa.label = b["label"]
     if "description" in b: sa.description = b["description"]
+    if "confirm_button_label" in b: sa.confirm_button_label = b["confirm_button_label"]
     if "order_in_sub" in b: sa.order_in_sub = int(b["order_in_sub"] or 0)
     if "image_path" in b: sa.image_path = b["image_path"]
     if "character_axis_id" in b: sa.character_axis_id = int(b["character_axis_id"] or 0) or None

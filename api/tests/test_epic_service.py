@@ -286,6 +286,36 @@ def test_roll_outcome_polarity_neutral(db):
         random.random = original
 
 
+def test_sub_has_items_and_select_no_consume(db):
+    db.add(User(vk_id=110, stitches_balance=500))
+    d = _epic_dragon(db)
+    epic_service.spawn_random_epic(db, 110)
+    st, _ = _stage(db, number=1, cycles=1, actions=0, dragon_id=d.id)
+    it = ShopItem(name="Щётка", is_active=True, is_consumable=True)
+    db.add(it)
+    db.flush()
+    action = EpicStageAction(dragon_id=d.id, stage_id=st.id, action_label="уход", order_in_cycle=0, action_type="composite")
+    db.add(action)
+    db.flush()
+    sa_with = EpicSubAction(action_id=action.id, label="СТоваром")
+    sa_without = EpicSubAction(action_id=action.id, label="БезТовара")
+    db.add(sa_with)
+    db.add(sa_without)
+    db.flush()
+    db.add(EpicSubActionItem(sub_action_id=sa_with.id, item_id=it.id))
+    db.add(UserInventory(user_id=110, item_id=it.id, quantity=1))
+    db.commit()
+
+    assert epic_service.sub_has_items(db, sa_with.id) is True
+    assert epic_service.sub_has_items(db, sa_without.id) is False
+
+    care = epic_service.start_care(db, 110)
+    epic_service.select_sub_action(db, care, sa_with.id)
+    assert care.current_sub_action_id == sa_with.id
+    inv = db.query(UserInventory).filter(UserInventory.user_id == 110, UserInventory.item_id == it.id).first()
+    assert inv is not None and inv.quantity == 1
+
+
 def test_consume_sub_items_respects_is_consumable(db):
     user = User(vk_id=102, stitches_balance=500)
     d = _epic_dragon(db)

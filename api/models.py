@@ -277,6 +277,7 @@ class EpicSubAction(Base):
     action_id = Column(Integer, ForeignKey("epic_stage_actions.id", ondelete="CASCADE"), nullable=False)
     label = Column(String, default="")
     description = Column(Text, default="")
+    confirm_button_label = Column(String, default="")
     order_in_sub = Column(Integer, default=0)
     image_path = Column(String, default="")
     character_axis_id = Column(Integer, ForeignKey("character_axes.id", ondelete="SET NULL"), nullable=True)

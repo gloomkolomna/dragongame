@@ -763,9 +763,18 @@ def test_composite_action_sub_crud(client):
     assert action["item_ids"] == []
 
     sa = client.post(f"/api/admin/epic/actions/{action['id']}/sub-actions", json={
-        "label": "На рыбалку", "character_axis_id": ax["id"]
+        "label": "На рыбалку", "character_axis_id": ax["id"],
+        "description": "Ты берёшь удочку…", "confirm_button_label": "🎣 На рыбалку"
     }).json()
     assert sa["label"] == "На рыбалку"
+
+    subs = client.get(f"/api/admin/epic/species/{dragon['id']}/stages/{stage['id']}/actions").json()[0]["sub_actions"]
+    assert subs[0]["description"] == "Ты берёшь удочку…"
+    assert subs[0]["confirm_button_label"] == "🎣 На рыбалку"
+
+    upd_sa = client.put(f"/api/admin/epic/sub-actions/{sa['id']}", json={"confirm_button_label": "🎣 Порыбачить"}).json()
+    subs2 = client.get(f"/api/admin/epic/species/{dragon['id']}/stages/{stage['id']}/actions").json()[0]["sub_actions"]
+    assert subs2[0]["confirm_button_label"] == "🎣 Порыбачить"
 
     outcomes = client.get(f"/api/admin/epic/sub-actions/{sa['id']}/outcomes").json()
     assert len(outcomes) == 2

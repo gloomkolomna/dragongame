@@ -324,6 +324,11 @@ def main():
                     handle_choose_sub(user, int(sub_id), db, send_message, upload_image)
                 continue
 
+            if cmd == "confirm_sub":
+                from bot.handlers.epic_care import handle_confirm_sub
+                handle_confirm_sub(user, db, send_message, upload_image)
+                continue
+
             if is_epic_care_sub(user.state) and cmd in ("norm", "x2"):
                 from bot.handlers.epic_care import handle_sub_mode
                 handle_sub_mode(user, cmd, db, send_message)

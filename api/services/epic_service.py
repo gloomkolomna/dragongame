@@ -431,6 +431,17 @@ def start_sub_action(db, care, sub_action_id, vk_id):
     db.commit()
 
 
+def sub_has_items(db, sub_id) -> bool:
+    return db.query(EpicSubActionItem).filter(EpicSubActionItem.sub_action_id == sub_id).first() is not None
+
+
+def select_sub_action(db, care, sub_action_id):
+    care.current_sub_action_id = sub_action_id
+    care.current_step_order = 0
+    care.sub_had_penalty = False
+    db.commit()
+
+
 def advance_sub_step(db, care):
     steps = get_sub_steps(db, care.current_sub_action_id)
     care.current_step_order = (care.current_step_order or 0) + 1

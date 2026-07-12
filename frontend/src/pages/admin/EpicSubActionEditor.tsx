@@ -6,6 +6,7 @@ interface Axis { id: number; positive_label: string; negative_label: string; }
 interface ShopItem { id: number; name: string; }
 interface SubAction {
   id: number; action_id: number; label: string; description: string;
+  confirm_button_label: string;
   order_in_sub: number; image_path: string; character_axis_id: number | null;
   item_ids: number[]; steps: SubStep[]; outcomes: Outcome[];
 }
@@ -32,6 +33,9 @@ function EpicSubActionEditor() {
 
   const [editLabel, setEditLabel] = useState('');
   const [editAxisId, setEditAxisId] = useState<number | null>(null);
+  const [editDescription, setEditDescription] = useState('');
+  const [editConfirmLabel, setEditConfirmLabel] = useState('');
+  const [editImagePath, setEditImagePath] = useState('');
 
   const load = () => {
     client.get('/admin/epic/species').then((r) => {
@@ -45,6 +49,9 @@ function EpicSubActionEditor() {
             setSa(found);
             setEditLabel(found.label);
             setEditAxisId(found.character_axis_id ?? null);
+            setEditDescription(found.description || '');
+            setEditConfirmLabel(found.confirm_button_label || '');
+            setEditImagePath(found.image_path || '');
           }
         }
         setLoading(false);
@@ -65,9 +72,13 @@ function EpicSubActionEditor() {
     return r.data.path;
   };
 
-  const saveMeta = () => {
+  const saveMeta = (extra: any = {}) => {
     if (!editLabel.trim()) { setError('Впиши название'); return; }
-    client.put(`/admin/epic/sub-actions/${suid}`, { label: editLabel, character_axis_id: editAxisId })
+    client.put(`/admin/epic/sub-actions/${suid}`, {
+      label: editLabel, character_axis_id: editAxisId,
+      description: editDescription, confirm_button_label: editConfirmLabel,
+      image_path: editImagePath, ...extra,
+    })
       .then(() => load())
       .catch((e: any) => setError(e.response?.data?.detail || 'Ошибка'));
   };
@@ -98,7 +109,32 @@ function EpicSubActionEditor() {
                 {axes.map((ax) => <option key={ax.id} value={ax.id}>{ax.positive_label} ⇄ {ax.negative_label}</option>)}
               </select>
             </div>
-            <button className="lair-btn" onClick={saveMeta}>💾 Сохранить</button>
+            <button className="lair-btn" onClick={() => saveMeta()}>💾 Сохранить</button>
+          </div>
+
+          <div style={{ marginBottom: 12 }}>
+            <label className="lair-label">Описание (показывается на экране подтверждения, если есть товар)</label>
+            <textarea className="lair-textarea" value={editDescription} onChange={(e) => setEditDescription(e.target.value)}
+                      placeholder="Например: Ты аккуратно расчёсываешь чешую малыша щёткой…" style={{ minHeight: 70 }} />
+          </div>
+
+          <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', flexWrap: 'wrap', marginBottom: 12 }}>
+            <div style={{ flex: 1, minWidth: 200 }}>
+              <label className="lair-label">Надпись на кнопке подтверждения</label>
+              <input className="lair-input" value={editConfirmLabel} onChange={(e) => setEditConfirmLabel(e.target.value)}
+                     placeholder="✅ Подтвердить" />
+            </div>
+            <label className="lair-file" style={{ margin: 0 }}>
+              <input type="file" accept="image/*" style={{ display: 'none' }}
+                     onChange={async (e) => { const f = e.target.files?.[0]; if (f) { const p = await uploadImage(f); setEditImagePath(p); saveMeta({ image_path: p }); } }} />
+              {editImagePath ? '🖼 Заменить фото' : '🖼 Фото поддействия'}
+            </label>
+            {editImagePath && (
+              <img src={`/dragons/api/static/images/${editImagePath}?t=${Date.now()}`} alt=""
+                   style={{ width: 48, height: 48, objectFit: 'cover', borderRadius: 6, border: '1px solid var(--bronze)', cursor: 'pointer' }}
+                   onClick={() => window.open(`/dragons/api/static/images/${editImagePath}`, '_blank')}
+                   onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+            )}
           </div>
 
           <div style={{ marginBottom: 10 }}>

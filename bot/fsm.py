@@ -113,6 +113,14 @@ def epic_care_sub_state(stage_id: int, suffix: str = "") -> str:
     return f"{base}_{suffix}" if suffix else base
 
 
+def epic_care_sub_confirm_state(stage_id: int) -> str:
+    return f"epic_care_{stage_id}_sub_confirm"
+
+
+def is_epic_care_sub_confirm(state: str) -> bool:
+    return state.startswith("epic_care_") and state.endswith("_sub_confirm")
+
+
 def is_epic_care_sub(state: str) -> bool:
     return state.startswith("epic_care_") and "_sub" in state
 

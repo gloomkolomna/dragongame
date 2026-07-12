@@ -2,7 +2,7 @@
 
 import os
 import re
-from bot.fsm import IDLE, AWAIT_EPIC_RESTART, epic_care_state, epic_care_sub_state, state_mode, is_epic_care_sub, is_epic_care_sub_waiting
+from bot.fsm import IDLE, AWAIT_EPIC_RESTART, epic_care_state, epic_care_sub_state, epic_care_sub_confirm_state, state_mode, is_epic_care_sub, is_epic_care_sub_waiting, is_epic_care_sub_confirm
 from bot.services.grow_service import (
     credit_stitches, is_suspicious, create_suspicious_report, notify_admin,
 )
@@ -318,10 +318,22 @@ def handle_care_message(user, text, attachments, db, send_message, upload_image=
 # ─── Composite action handlers ───
 
 def _show_composite_action(user, db, send_message, upload_image, care, action, dragon, name, stage):
-    from services.epic_service import get_sub_actions, get_current_sub_step, get_sub_steps
-    from bot.keyboard import sub_action_keyboard, sub_step_keyboard
+    from services.epic_service import get_sub_actions, get_current_sub_step, get_sub_steps, sub_has_items, get_sub_action
+    from bot.keyboard import sub_action_keyboard, sub_step_keyboard, sub_confirm_keyboard
 
     if care.current_sub_action_id:
+        if is_epic_care_sub_confirm(user.state) and sub_has_items(db, care.current_sub_action_id):
+            sub_action = get_sub_action(db, care.current_sub_action_id)
+            if sub_action:
+                user.state = epic_care_sub_confirm_state(care.stage_id)
+                db.commit()
+                msg = f"🐲 «{name}» — «{sub_action.label}»\n"
+                if sub_action.description:
+                    msg += f"\n{sub_action.description}\n"
+                action_img = getattr(sub_action, "image_path", "") or ""
+                attachment = _attach(upload_image, action_img, user.vk_id)
+                send_message(msg, attachment=attachment, keyboard=sub_confirm_keyboard(sub_action.confirm_button_label))
+                return
         sub_step = get_current_sub_step(db, care)
         if sub_step:
             user.state = epic_care_sub_state(care.stage_id)
@@ -357,7 +369,7 @@ def _show_composite_action(user, db, send_message, upload_image, care, action, d
 
 def handle_choose_sub(user, sub_id, db, send_message, upload_image=None):
     from services.epic_service import (
-        get_care, get_sub_action, start_sub_action,
+        get_care, get_sub_action, start_sub_action, select_sub_action, sub_has_items,
         get_current_sub_step, get_sub_steps, missing_sub_items,
         get_epic_dragon, get_epic_name, get_stage,
     )
@@ -382,6 +394,22 @@ def handle_choose_sub(user, sub_id, db, send_message, upload_image=None):
         )
         return
 
+    dragon = get_epic_dragon(db, user.vk_id)
+    name = get_epic_name(db, user.vk_id) or (dragon.name if dragon else "малыш")
+
+    if sub_has_items(db, sub_id):
+        select_sub_action(db, care, sub_id)
+        user.state = epic_care_sub_confirm_state(care.stage_id)
+        db.commit()
+        msg = f"🐲 «{name}» — «{sub_action.label}»\n"
+        if sub_action.description:
+            msg += f"\n{sub_action.description}\n"
+        from bot.keyboard import sub_confirm_keyboard
+        action_img = getattr(sub_action, "image_path", "") or ""
+        attachment = _attach(upload_image, action_img, user.vk_id)
+        send_message(msg, attachment=attachment, keyboard=sub_confirm_keyboard(sub_action.confirm_button_label))
+        return
+
     start_sub_action(db, care, sub_id, user.vk_id)
     steps = get_sub_steps(db, sub_id)
     if not steps:
@@ -392,8 +420,6 @@ def handle_choose_sub(user, sub_id, db, send_message, upload_image=None):
         return
 
     first_step = steps[0]
-    dragon = get_epic_dragon(db, user.vk_id)
-    name = get_epic_name(db, user.vk_id) or (dragon.name if dragon else "малыш")
     stage = get_stage(db, care.stage_id)
 
     user.state = epic_care_sub_state(care.stage_id)
@@ -406,6 +432,81 @@ def handle_choose_sub(user, sub_id, db, send_message, upload_image=None):
     action_img = getattr(first_step, "image_path", "") or ""
     attachment = _attach(upload_image, action_img, user.vk_id)
     send_message(msg, attachment=attachment, keyboard=sub_step_keyboard())
+
+
+def handle_confirm_sub(user, db, send_message, upload_image=None):
+    from services.epic_service import (
+        get_care, get_sub_action, consume_sub_items, missing_sub_items,
+        get_sub_steps, get_epic_dragon, get_epic_name, get_stage,
+        advance_care, resolve_outcome,
+    )
+    care = get_care(db, user.vk_id)
+    if not care or not care.current_sub_action_id:
+        user.state = IDLE
+        db.commit()
+        send_message("Уход не активен.")
+        return
+
+    sub_id = care.current_sub_action_id
+    sub_action = get_sub_action(db, sub_id)
+    if not sub_action:
+        send_message("Вариант не найден.")
+        return
+
+    missing = missing_sub_items(db, user.vk_id, sub_id)
+    if missing:
+        names = ", ".join(f"«{m.name}»" for m in missing)
+        from bot.keyboard import _keyboard, row, bestiary_link_row
+        kb = _keyboard([row(("🛒 Магазин", "shop")), bestiary_link_row()])
+        send_message(f"❌ У тебя нет {names}. Купи их в магазине!", keyboard=kb)
+        return
+
+    consume_sub_items(db, user.vk_id, sub_id)
+
+    dragon = get_epic_dragon(db, user.vk_id)
+    name = get_epic_name(db, user.vk_id) or (dragon.name if dragon else "малыш")
+
+    steps = get_sub_steps(db, sub_id)
+    if steps:
+        first_step = steps[0]
+        user.state = epic_care_sub_state(care.stage_id)
+        db.commit()
+        send_message(f"✅ «{sub_action.label}» — можно приступать!")
+        msg = f"🐲 «{name}»\n📝 {first_step.task or first_step.step_label}"
+        if first_step.hint:
+            msg += f"\n💡 {first_step.hint}"
+        msg += f"\n\n🎯 Норма крестиков: {first_step.crosses_norm or 1000}\nВыбери режим:"
+        action_img = getattr(first_step, "image_path", "") or ""
+        attachment = _attach(upload_image, action_img, user.vk_id)
+        send_message(msg, attachment=attachment, keyboard=sub_step_keyboard())
+        return
+
+    outcome, polarity = resolve_outcome(db, user.vk_id, care, sub_action)
+    if outcome:
+        pol_label = "🌟" if polarity == "positive" else "💔"
+        msg = f"{pol_label} «{sub_action.label}» — {outcome.moodlet_title or outcome.label}"
+        if outcome.moodlet_text:
+            msg += f"\n\n{outcome.moodlet_text}"
+        if outcome.image_path:
+            attachment = _attach(upload_image, outcome.image_path, user.vk_id)
+            send_message(msg, attachment=attachment)
+        else:
+            send_message(msg)
+
+    send_message(f"✅ Забота о «{name}» завершена!")
+
+    event = advance_care(db, care)
+    kind = event.get("event")
+
+    if kind == "finale":
+        _finale(user, db, send_message, upload_image, event)
+        return
+
+    if kind == "stage_up":
+        nxt = event["stage"]
+        send_message(f"🌟 «{name}» перешёл на новую стадию: «{nxt.name}»!")
+
+    show_care_action(user, db, send_message, upload_image)
 
 
 def handle_sub_mode(user, mode, db, send_message):

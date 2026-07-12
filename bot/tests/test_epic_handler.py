@@ -165,3 +165,92 @@ def test_epic_care_stage_up_via_handlers(db):
     assert u.state == f"epic_care_{st2.id}"
     assert any("Подросток" in m for m in msgs)
 
+
+def _composite_setup(db, vk, with_steps, with_items):
+    from models import EpicSubAction, EpicSubActionItem, EpicSubActionStep, EpicSubActionOutcome
+    u, d = _epic(db, vk=vk)
+    u.epic_unlocked = True
+    u.epic_dragon_id = d.id
+    db.commit()
+    st = EpicStage(stage_number=1, name="S1", cycles_count=1)
+    db.add(st)
+    db.flush()
+    action = EpicStageAction(dragon_id=d.id, stage_id=st.id, action_label="уход", order_in_cycle=0,
+                             action_type="composite", timeout_hours=0)
+    db.add(action)
+    db.flush()
+    sa = EpicSubAction(action_id=action.id, label="Расчесать", description="Ты берёшь щётку…",
+                       confirm_button_label="🪮 Расчесать")
+    db.add(sa)
+    db.flush()
+    for polarity in ("positive", "negative"):
+        db.add(EpicSubActionOutcome(sub_action_id=sa.id, polarity=polarity, moodlet_title=f"m-{polarity}"))
+    if with_items:
+        it = ShopItem(name="Щётка", is_active=True, is_consumable=True)
+        db.add(it)
+        db.flush()
+        db.add(EpicSubActionItem(sub_action_id=sa.id, item_id=it.id))
+        db.add(UserInventory(user_id=vk, item_id=it.id, quantity=1))
+    if with_steps:
+        db.add(EpicSubActionStep(sub_action_id=sa.id, step_label="Шаг 1", order=0, crosses_norm=100))
+    db.commit()
+    epic_service.set_epic_name(db, vk, "Уголёк")
+    epic_service.start_care(db, vk)
+    return u, d, sa
+
+
+def test_choose_sub_with_items_shows_confirm(db):
+    from bot.handlers.epic_care import handle_choose_sub
+    u, d, sa = _composite_setup(db, vk=40, with_steps=True, with_items=True)
+    care = epic_service.get_care(db, 40)
+    msgs = []
+    sent = {}
+
+    def send(m, **k):
+        msgs.append(m)
+        sent.update(k)
+
+    handle_choose_sub(u, sa.id, db, send)
+    db.refresh(u)
+    assert u.state == f"epic_care_{care.stage_id}_sub_confirm"
+    assert any("щётку" in m or "щётк" in m for m in msgs)
+    assert "confirm_sub" in sent.get("keyboard", "")
+    assert "🪮 Расчесать" in sent.get("keyboard", "")
+    inv = db.query(UserInventory).filter(UserInventory.user_id == 40).first()
+    assert inv is not None and inv.quantity == 1
+
+
+def test_confirm_sub_consumes_and_goes_to_steps(db):
+    from bot.handlers.epic_care import handle_choose_sub, handle_confirm_sub
+    u, d, sa = _composite_setup(db, vk=41, with_steps=True, with_items=True)
+    care = epic_service.get_care(db, 41)
+    handle_choose_sub(u, sa.id, db, lambda m, **k: None)
+    handle_confirm_sub(u, db, lambda m, **k: None)
+    db.refresh(u)
+    assert u.state == f"epic_care_{care.stage_id}_sub"
+    inv = db.query(UserInventory).filter(UserInventory.user_id == 41).first()
+    assert inv is None
+
+
+def test_confirm_sub_no_steps_resolves_outcome(db):
+    from bot.handlers.epic_care import handle_choose_sub, handle_confirm_sub
+    u, d, sa = _composite_setup(db, vk=42, with_steps=False, with_items=True)
+    handle_choose_sub(u, sa.id, db, lambda m, **k: None)
+    msgs = []
+    handle_confirm_sub(u, db, lambda m, **k: msgs.append(m))
+    db.refresh(u)
+    assert u.state == "await_epic_restart"
+    care = epic_service.get_care(db, 42)
+    assert care.current_sub_action_id is None
+    inv = db.query(UserInventory).filter(UserInventory.user_id == 42).first()
+    assert inv is None
+
+
+def test_choose_sub_without_items_skips_confirm(db):
+    from bot.handlers.epic_care import handle_choose_sub
+    u, d, sa = _composite_setup(db, vk=43, with_steps=True, with_items=False)
+    care = epic_service.get_care(db, 43)
+    handle_choose_sub(u, sa.id, db, lambda m, **k: None)
+    db.refresh(u)
+    assert u.state == f"epic_care_{care.stage_id}_sub"
+

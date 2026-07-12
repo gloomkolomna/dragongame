@@ -243,6 +243,15 @@ def sub_step_keyboard():
     ])
 
 
+def sub_confirm_keyboard(button_label=""):
+    label = (button_label or "✅ Подтвердить")[:40]
+    return _keyboard([
+        [{"action": {"type": "text", "label": label, "payload": json.dumps({"cmd": "confirm_sub"}, ensure_ascii=False)}, "color": "positive"}],
+        garden_row(),
+        bestiary_link_row(),
+    ])
+
+
 def outcome_keyboard():
     return _keyboard([
         row(("▶ Продолжить", "grow")),
