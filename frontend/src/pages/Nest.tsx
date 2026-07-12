@@ -143,10 +143,9 @@ function Nest() {
           {!data.moodlets || data.moodlets.length === 0 ? (
             <div style={{ color: 'var(--text-muted)', fontSize: 14 }}>Воспоминаний пока нет.</div>
           ) : (
-            (() => {
-              const m = data.moodlets[data.moodlets.length - 1];
-              return (
-                <div
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {data.moodlets.map((m) => (
+                <div key={m.key}
                   onClick={() => setZoomMoodlet(m)}
                   style={{
                     cursor: 'pointer',
@@ -167,8 +166,8 @@ function Nest() {
                     {m.text && <div style={{ color: 'var(--parchment-dim)', fontSize: 14, marginTop: 6 }}>{m.text}</div>}
                   </div>
                 </div>
-              );
-            })()
+              ))}
+            </div>
           )}
         </div>
       )}
