@@ -202,6 +202,7 @@ class UserInventory(Base):
 class EpicStage(Base):
     __tablename__ = "epic_stages"
     id = Column(Integer, primary_key=True, autoincrement=True)
+    dragon_id = Column(Integer, ForeignKey("dragons.id", ondelete="CASCADE"), nullable=False)
     stage_number = Column(Integer, nullable=False)
     name = Column(String, default="")
     description = Column(Text, default="")

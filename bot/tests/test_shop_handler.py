@@ -13,7 +13,7 @@ def _bind_item(db, name="Food", cost=100):
     it = ShopItem(name=name, cost_stitches=cost, is_active=True)
     db.add(it)
     db.flush()
-    db.add(StageShopItem(stage_key="epic:egg", item_id=it.id))
+    db.add(StageShopItem(stage_key="epic:50:egg", item_id=it.id))
     db.commit()
     return it
 
@@ -72,7 +72,7 @@ def test_buy_ok_returns_to_epic(db):
     it = ShopItem(name="Food", cost_stitches=100, is_active=True)
     db.add(it)
     db.flush()
-    db.add(StageShopItem(stage_key="epic:egg", item_id=it.id))
+    db.add(StageShopItem(stage_key=f"epic:{d.id}:egg", item_id=it.id))
     db.commit()
     u = db.query(User).filter(User.vk_id == 5).first()
 

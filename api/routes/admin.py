@@ -1556,17 +1556,26 @@ def list_epic_species(db: Session = Depends(get_db)):
     return db.query(Dragon).filter(Dragon.is_epic == True).order_by(Dragon.id).all()
 
 
-# ─── Epic stages (общий конвейер) ───
+# ─── Epic stages (per-dragon конвейер) ───
 
 @router.get("/epic/stages")
-def list_epic_stages(db: Session = Depends(get_db)):
-    return db.query(EpicStage).order_by(EpicStage.stage_number, EpicStage.id).all()
+def list_epic_stages(dragon_id: Optional[int] = Query(None), db: Session = Depends(get_db)):
+    q = db.query(EpicStage)
+    if dragon_id is not None:
+        q = q.filter(EpicStage.dragon_id == dragon_id)
+    return q.order_by(EpicStage.stage_number, EpicStage.id).all()
 
 
 @router.post("/epic/stages")
 async def create_epic_stage(request: Request, db: Session = Depends(get_db)):
     b = await _json_body(request)
+    dragon_id = b.get("dragon_id")
+    if not dragon_id:
+        raise HTTPException(status_code=400, detail="dragon_id required")
+    if not db.query(Dragon).filter(Dragon.id == dragon_id, Dragon.is_epic == True).first():
+        raise HTTPException(status_code=404, detail="Epic dragon not found")
     stage = EpicStage(
+        dragon_id=int(dragon_id),
         stage_number=int(b.get("stage_number", 0) or 0),
         name=b.get("name", ""),
         description=b.get("description", ""),
@@ -1662,7 +1671,7 @@ def _resync_stage_items(db, stage_id: int):
     stage = db.query(EpicStage).filter(EpicStage.id == stage_id).first()
     if not stage:
         return
-    key = f"epic:{stage.stage_number}"
+    key = f"epic:{stage.dragon_id}:{stage.stage_number}"
     action_ids = [a.id for a in db.query(EpicStageAction).filter(EpicStageAction.stage_id == stage_id).all()]
     want = set()
     if action_ids:

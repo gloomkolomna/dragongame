@@ -30,7 +30,7 @@ def test_epic_name_sets_and_triggers_care(db):
     u.epic_unlocked = True
     u.epic_dragon_id = d.id
     db.commit()
-    st = EpicStage(stage_number=1, name="S1", cycles_count=1)
+    st = EpicStage(dragon_id=d.id, stage_number=1, name="S1", cycles_count=1)
     db.add(st)
     db.flush()
     a = EpicStageAction(stage_id=st.id, dragon_id=d.id, action_label="кормить", order_in_cycle=0, crosses_norm=1000)
@@ -66,7 +66,7 @@ def test_epic_name_shows_description_after_hatch(db):
     u.epic_unlocked = True
     u.epic_dragon_id = d.id
     db.commit()
-    st = EpicStage(stage_number=1, name="S1", cycles_count=1)
+    st = EpicStage(dragon_id=d.id, stage_number=1, name="S1", cycles_count=1)
     db.add(st)
     db.flush()
     db.add(EpicStageAction(stage_id=st.id, dragon_id=d.id, action_label="кормить", order_in_cycle=0, crosses_norm=1000))
@@ -132,7 +132,7 @@ def test_epic_care_full_cycle_via_handlers(db):
     u.epic_unlocked = True
     u.epic_dragon_id = d.id
     db.commit()
-    st = EpicStage(stage_number=1, name="S1", cycles_count=1)
+    st = EpicStage(dragon_id=d.id, stage_number=1, name="S1", cycles_count=1)
     db.add(st)
     db.flush()
     db.add(EpicStageAction(dragon_id=d.id, stage_id=st.id, action_label="кормить", order_in_cycle=0, crosses_norm=500))
@@ -163,8 +163,8 @@ def test_epic_care_stage_up_via_handlers(db):
     u.epic_unlocked = True
     u.epic_dragon_id = d.id
     db.commit()
-    st1 = EpicStage(stage_number=1, name="Малыш", cycles_count=1)
-    st2 = EpicStage(stage_number=2, name="Подросток", cycles_count=1)
+    st1 = EpicStage(dragon_id=d.id, stage_number=1, name="Малыш", cycles_count=1)
+    st2 = EpicStage(dragon_id=d.id, stage_number=2, name="Подросток", cycles_count=1)
     db.add_all([st1, st2])
     db.flush()
     db.add(EpicStageAction(stage_id=st1.id, dragon_id=d.id, action_label="кормить", order_in_cycle=0, crosses_norm=100, timeout_hours=0))
@@ -192,7 +192,7 @@ def test_simple_action_shows_outcome(db):
     u.epic_unlocked = True
     u.epic_dragon_id = d.id
     db.commit()
-    st = EpicStage(stage_number=1, name="S1", cycles_count=1)
+    st = EpicStage(dragon_id=d.id, stage_number=1, name="S1", cycles_count=1)
     db.add(st)
     db.flush()
     action = EpicStageAction(dragon_id=d.id, stage_id=st.id, action_label="кормить", order_in_cycle=0,
@@ -222,7 +222,7 @@ def test_simple_action_with_item_shows_confirm(db):
     u.epic_unlocked = True
     u.epic_dragon_id = d.id
     db.commit()
-    st = EpicStage(stage_number=1, name="S1", cycles_count=1)
+    st = EpicStage(dragon_id=d.id, stage_number=1, name="S1", cycles_count=1)
     db.add(st)
     db.flush()
     action = EpicStageAction(dragon_id=d.id, stage_id=st.id, action_label="кормить", order_in_cycle=0,
@@ -260,7 +260,7 @@ def _composite_setup(db, vk, with_steps, with_items):
     u.epic_unlocked = True
     u.epic_dragon_id = d.id
     db.commit()
-    st = EpicStage(stage_number=1, name="S1", cycles_count=1)
+    st = EpicStage(dragon_id=d.id, stage_number=1, name="S1", cycles_count=1)
     db.add(st)
     db.flush()
     action = EpicStageAction(dragon_id=d.id, stage_id=st.id, action_label="уход", order_in_cycle=0,

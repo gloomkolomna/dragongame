@@ -21,7 +21,7 @@ def _epic_dragon(db, name="Epic", steps=2):
 
 
 def _stage(db, number=1, cycles=1, actions=1, action_timeout_h=0, dragon_id=None):
-    st = EpicStage(stage_number=number, name=f"S{number}", cycles_count=cycles)
+    st = EpicStage(dragon_id=dragon_id, stage_number=number, name=f"S{number}", cycles_count=cycles)
     db.add(st)
     db.flush()
     acts = []
@@ -174,7 +174,7 @@ def test_actions_unique_per_dragon(db):
     db.add(User(vk_id=9))
     d1 = _epic_dragon(db, name="D1")
     d2 = _epic_dragon(db, name="D2")
-    st = EpicStage(stage_number=1, name="S1", cycles_count=1)
+    st = EpicStage(dragon_id=d1.id, stage_number=1, name="S1", cycles_count=1)
     db.add(st)
     db.flush()
     db.add(EpicStageAction(dragon_id=d1.id, stage_id=st.id, action_label="d1act", order_in_cycle=0, crosses_norm=100))

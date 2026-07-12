@@ -156,7 +156,10 @@ def test_suspicious_report(db):
 
 
 def test_epic_stage_crud(db):
-    stage = EpicStage(stage_number=1, name="Вылупленное чудо", cycles_count=3)
+    dragon = Dragon(name="E", rarity=1, steps_count=1, is_active=True, is_epic=True)
+    db.add(dragon)
+    db.flush()
+    stage = EpicStage(dragon_id=dragon.id, stage_number=1, name="Вылупленное чудо", cycles_count=3)
     db.add(stage)
     db.commit()
     assert stage.id is not None
@@ -166,7 +169,8 @@ def test_epic_stage_crud(db):
 def test_epic_stage_action(db):
     dragon = Dragon(name="E", rarity=1, steps_count=1, is_active=True, is_epic=True)
     db.add(dragon)
-    stage = EpicStage(stage_number=1, name="Stage 1")
+    db.flush()
+    stage = EpicStage(dragon_id=dragon.id, stage_number=1, name="Stage 1")
     db.add(stage)
     db.flush()
     action = EpicStageAction(dragon_id=dragon.id, stage_id=stage.id, action_label="Кормить", order_in_cycle=1)
@@ -178,7 +182,7 @@ def test_epic_stage_action(db):
 def test_epic_care_state(db):
     user = User(vk_id=4000)
     dragon = Dragon(name="E", rarity=1, steps_count=1, is_active=True)
-    stage = EpicStage(stage_number=1, name="S1")
+    stage = EpicStage(dragon_id=1, stage_number=1, name="S1")
     db.add(user)
     db.add(dragon)
     db.add(stage)
@@ -194,7 +198,7 @@ def test_epic_care_state(db):
 
 
 def test_stage_choice_block(db):
-    stage = EpicStage(stage_number=1, name="S1")
+    stage = EpicStage(dragon_id=1, stage_number=1, name="S1")
     db.add(stage)
     db.flush()
     block = StageChoiceBlock(stage_id=stage.id, block_key="diet", choice_type="single", min_picks=1, max_picks=1)
@@ -205,7 +209,7 @@ def test_stage_choice_block(db):
 
 
 def test_stage_choice_option(db):
-    stage = EpicStage(stage_number=1, name="S1")
+    stage = EpicStage(dragon_id=1, stage_number=1, name="S1")
     db.add(stage)
     db.flush()
     block = StageChoiceBlock(stage_id=stage.id, block_key="diet", choice_type="single")
@@ -220,7 +224,7 @@ def test_stage_choice_option(db):
 def test_user_stage_choice(db):
     user = User(vk_id=5000)
     dragon = Dragon(name="E", rarity=1, steps_count=1, is_active=True)
-    stage = EpicStage(stage_number=1, name="S1")
+    stage = EpicStage(dragon_id=1, stage_number=1, name="S1")
     db.add(user)
     db.add(dragon)
     db.add(stage)
@@ -243,7 +247,7 @@ def test_user_stage_choice(db):
 def test_epic_moodlet(db):
     user = User(vk_id=6000)
     dragon = Dragon(name="E", rarity=1, steps_count=1, is_active=True)
-    stage = EpicStage(stage_number=1, name="S1")
+    stage = EpicStage(dragon_id=1, stage_number=1, name="S1")
     db.add(user)
     db.add(dragon)
     db.add(stage)
@@ -288,7 +292,7 @@ def test_character_balance(db):
 def test_epic_sub_action(db):
     user = User(vk_id=8000)
     dragon = Dragon(name="G", rarity=1, steps_count=1, is_active=True, is_epic=True)
-    stage = EpicStage(stage_number=1, name="S1")
+    stage = EpicStage(dragon_id=1, stage_number=1, name="S1")
     db.add(user)
     db.add(dragon)
     db.add(stage)
@@ -368,7 +372,7 @@ def test_epic_care_state_sub_fields(db):
 def _epic_fixture(db):
     user = User(vk_id=9000)
     dragon = Dragon(name="H", rarity=1, steps_count=1, is_active=True, is_epic=True)
-    stage = EpicStage(stage_number=1, name="S1")
+    stage = EpicStage(dragon_id=1, stage_number=1, name="S1")
     for obj in [user, dragon, stage]:
         db.add(obj)
     db.flush()

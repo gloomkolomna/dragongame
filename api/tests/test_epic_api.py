@@ -34,7 +34,7 @@ def test_epic_view_care(client, db):
     db.add(User(vk_id=3))
     d = _epic_dragon(db, steps=1)
     epic_service.spawn_random_epic(db, 3)
-    st = EpicStage(stage_number=1, name="Малыш", cycles_count=2)
+    st = EpicStage(dragon_id=d.id, stage_number=1, name="Малыш", cycles_count=2)
     db.add(st)
     db.flush()
     it = ShopItem(name="Молоко", is_active=True)
@@ -103,7 +103,7 @@ def test_epic_view_moodlets_exclude_first_time_markers(client, db):
     db.add(User(vk_id=30))
     d = _epic_dragon(db, steps=1)
     epic_service.spawn_random_epic(db, 30)
-    st = EpicStage(stage_number=1, name="Малыш", cycles_count=1)
+    st = EpicStage(dragon_id=d.id, stage_number=1, name="Малыш", cycles_count=1)
     db.add(st)
     db.flush()
     a = EpicStageAction(dragon_id=d.id, stage_id=st.id, action_label="кормить", order_in_cycle=0, crosses_norm=500)
@@ -130,7 +130,7 @@ def test_epic_view_moodlets_exclude_first_time_markers(client, db):
 def test_admin_actions_scoped_by_dragon(client, db):
     d1 = _epic_dragon(db, steps=1)
     d2 = _epic_dragon(db, steps=1)
-    st = EpicStage(stage_number=1, name="S1", cycles_count=1)
+    st = EpicStage(dragon_id=d1.id, stage_number=1, name="S1", cycles_count=1)
     db.add(st)
     db.commit()
 

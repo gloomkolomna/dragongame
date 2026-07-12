@@ -526,19 +526,26 @@ def test_create_normal_dragon_without_family_ok_on_backend(client):
 
 
 def test_epic_stage_crud(client):
-    resp = client.post("/api/admin/epic/stages", json={"stage_number": 1, "name": "Вылупленное чудо", "cycles_count": 3, "image_start": "dragons/s1.png", "image_end": "dragons/s1_end.png"})
+    dragon = client.post("/api/admin/dragons", data={"name": "EpicSt", "rarity": 1, "is_epic": True}).json()
+    resp = client.post("/api/admin/epic/stages", json={"dragon_id": dragon["id"], "stage_number": 1, "name": "Вылупленное чудо", "cycles_count": 3, "image_start": "dragons/s1.png", "image_end": "dragons/s1_end.png"})
     assert resp.status_code == 200
     stage_id = resp.json()["id"]
     assert resp.json()["image_start"] == "dragons/s1.png"
     assert resp.json()["image_end"] == "dragons/s1_end.png"
+    assert resp.json()["dragon_id"] == dragon["id"]
 
-    assert len(client.get("/api/admin/epic/stages").json()) == 1
+    assert len(client.get("/api/admin/epic/stages", params={"dragon_id": dragon["id"]}).json()) == 1
     assert client.delete(f"/api/admin/epic/stages/{stage_id}").status_code == 200
+
+
+def test_epic_stage_requires_dragon(client):
+    resp = client.post("/api/admin/epic/stages", json={"stage_number": 1, "name": "NoDragon"})
+    assert resp.status_code == 400
 
 
 def test_epic_stage_action_crud(client):
     dragon = client.post("/api/admin/dragons", data={"name": "Epic1", "rarity": 1, "egg_type": "e", "description": "", "is_epic": True}).json()
-    stage = client.post("/api/admin/epic/stages", json={"stage_number": 1, "name": "S1"}).json()
+    stage = client.post("/api/admin/epic/stages", json={"dragon_id": dragon["id"], "stage_number": 1, "name": "S1"}).json()
     item = client.post("/api/admin/shop-items", json={"name": "Смесь", "cost_stitches": 100}).json()
     resp = client.post(f"/api/admin/epic/species/{dragon['id']}/stages/{stage['id']}/actions",
                        json={"action_label": "Кормить", "order_in_cycle": 1, "crosses_norm": 300, "item_ids": [item["id"]]})
@@ -569,20 +576,21 @@ def test_shop_item_is_consumable(client):
 
 def test_stage_shop_binding_synced_from_care_action(client):
     dragon = client.post("/api/admin/dragons", data={"name": "Epic2", "rarity": 1, "egg_type": "e", "description": "", "is_epic": True}).json()
-    stage = client.post("/api/admin/epic/stages", json={"stage_number": 2, "name": "S2"}).json()
+    stage = client.post("/api/admin/epic/stages", json={"dragon_id": dragon["id"], "stage_number": 2, "name": "S2"}).json()
     item1 = client.post("/api/admin/shop-items", json={"name": "Смесь", "cost_stitches": 100}).json()
     item2 = client.post("/api/admin/shop-items", json={"name": "Ванночка", "cost_stitches": 150}).json()
 
-    # care action with multiple items → bindings auto-created for epic:2
+    key = f"epic:{dragon['id']}:2"
+    # care action with multiple items → bindings auto-created for the stage key
     act = client.post(f"/api/admin/epic/species/{dragon['id']}/stages/{stage['id']}/actions",
                       json={"action_label": "Кормить", "item_ids": [item1["id"], item2["id"]], "order_in_cycle": 1}).json()
     assert sorted(act["item_ids"]) == sorted([item1["id"], item2["id"]])
-    links = client.get("/api/admin/stage-shop-items", params={"stage_key": "epic:2"}).json()
+    links = client.get("/api/admin/stage-shop-items", params={"stage_key": key}).json()
     assert {l["item_id"] for l in links} == {item1["id"], item2["id"]}
 
     # deleting the action → bindings auto-removed
     client.delete(f"/api/admin/epic/actions/{act['id']}")
-    links2 = client.get("/api/admin/stage-shop-items", params={"stage_key": "epic:2"}).json()
+    links2 = client.get("/api/admin/stage-shop-items", params={"stage_key": key}).json()
     assert len(links2) == 0
 
 
@@ -816,7 +824,7 @@ def test_character_axes_crud(client):
 def test_composite_action_sub_crud(client):
     fam = client.post("/api/admin/families", data={"name": "Fsub"}).json()
     dragon = client.post("/api/admin/dragons", data={"name": "SubDragon", "rarity": 1, "family_id": fam["id"], "is_epic": True}).json()
-    stage = client.post("/api/admin/epic/stages", json={"stage_number": 1, "name": "S1"}).json()
+    stage = client.post("/api/admin/epic/stages", json={"dragon_id": dragon["id"], "stage_number": 1, "name": "S1"}).json()
     ax = client.post("/api/admin/character-axes", json={"positive_label": "Храбрый", "negative_label": "Боязливый"}).json()
 
     action = client.post(f"/api/admin/epic/species/{dragon['id']}/stages/{stage['id']}/actions", json={
@@ -864,7 +872,7 @@ def test_composite_action_sub_crud(client):
 def test_composite_action_rejects_item_ids(client):
     fam = client.post("/api/admin/families", data={"name": "Fval"}).json()
     dragon = client.post("/api/admin/dragons", data={"name": "ValDragon", "rarity": 1, "family_id": fam["id"], "is_epic": True}).json()
-    stage = client.post("/api/admin/epic/stages", json={"stage_number": 1, "name": "S1"}).json()
+    stage = client.post("/api/admin/epic/stages", json={"dragon_id": dragon["id"], "stage_number": 1, "name": "S1"}).json()
     item = client.post("/api/admin/shop-items", json={"name": "Меч", "cost_stitches": 100}).json()
 
     r = client.post(f"/api/admin/epic/species/{dragon['id']}/stages/{stage['id']}/actions", json={
@@ -876,7 +884,7 @@ def test_composite_action_rejects_item_ids(client):
 def test_simple_action_has_outcomes(client):
     fam = client.post("/api/admin/families", data={"name": "Fout"}).json()
     dragon = client.post("/api/admin/dragons", data={"name": "OutDragon", "rarity": 1, "family_id": fam["id"], "is_epic": True}).json()
-    stage = client.post("/api/admin/epic/stages", json={"stage_number": 1, "name": "S1"}).json()
+    stage = client.post("/api/admin/epic/stages", json={"dragon_id": dragon["id"], "stage_number": 1, "name": "S1"}).json()
     ax = client.post("/api/admin/character-axes", json={"positive_label": "Сытый", "negative_label": "Голодный"}).json()
 
     action = client.post(f"/api/admin/epic/species/{dragon['id']}/stages/{stage['id']}/actions", json={
@@ -901,7 +909,7 @@ def test_simple_action_has_outcomes(client):
 def test_epic_action_timeout_zero_preserved(client):
     fam = client.post("/api/admin/families", data={"name": "Ftmz"}).json()
     dragon = client.post("/api/admin/dragons", data={"name": "TmzDragon", "rarity": 1, "family_id": fam["id"], "is_epic": True}).json()
-    stage = client.post("/api/admin/epic/stages", json={"stage_number": 1, "name": "S1"}).json()
+    stage = client.post("/api/admin/epic/stages", json={"dragon_id": dragon["id"], "stage_number": 1, "name": "S1"}).json()
 
     action = client.post(f"/api/admin/epic/species/{dragon['id']}/stages/{stage['id']}/actions", json={
         "action_label": "Кормить", "action_type": "simple", "order_in_cycle": 1,
@@ -917,7 +925,7 @@ def test_epic_action_timeout_zero_preserved(client):
 def test_sub_step_timeout_zero_preserved(client):
     fam = client.post("/api/admin/families", data={"name": "Ftmz2"}).json()
     dragon = client.post("/api/admin/dragons", data={"name": "Tmz2Dragon", "rarity": 1, "family_id": fam["id"], "is_epic": True}).json()
-    stage = client.post("/api/admin/epic/stages", json={"stage_number": 1, "name": "S1"}).json()
+    stage = client.post("/api/admin/epic/stages", json={"dragon_id": dragon["id"], "stage_number": 1, "name": "S1"}).json()
     action = client.post(f"/api/admin/epic/species/{dragon['id']}/stages/{stage['id']}/actions", json={
         "action_label": "Уход", "action_type": "composite"
     }).json()
@@ -932,7 +940,7 @@ def test_sub_step_timeout_zero_preserved(client):
 def test_simple_action_confirm_fields(client):
     fam = client.post("/api/admin/families", data={"name": "Fconf"}).json()
     dragon = client.post("/api/admin/dragons", data={"name": "ConfDragon", "rarity": 1, "family_id": fam["id"], "is_epic": True}).json()
-    stage = client.post("/api/admin/epic/stages", json={"stage_number": 1, "name": "S1"}).json()
+    stage = client.post("/api/admin/epic/stages", json={"dragon_id": dragon["id"], "stage_number": 1, "name": "S1"}).json()
 
     action = client.post(f"/api/admin/epic/species/{dragon['id']}/stages/{stage['id']}/actions", json={
         "action_label": "Кормить", "action_type": "simple", "order_in_cycle": 1,

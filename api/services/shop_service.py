@@ -20,8 +20,8 @@ def get_current_stage_key(db, vk_id: int):
     if care and care.stage_id:
         stage = db.query(EpicStage).filter(EpicStage.id == care.stage_id).first()
         if stage:
-            return f"epic:{stage.stage_number}"
-    return "epic:egg"
+            return f"epic:{stage.dragon_id}:{stage.stage_number}"
+    return f"epic:{user.epic_dragon_id}:egg"
 
 
 def get_stage_items(db, stage_key):

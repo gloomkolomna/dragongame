@@ -11,26 +11,35 @@ interface Stage {
 function EpicDragons() {
   const [species, setSpecies] = useState<Species[]>([]);
   const [stages, setStages] = useState<Stage[]>([]);
+  const [selSpecies, setSelSpecies] = useState<number | null>(null);
   const [dragIdx, setDragIdx] = useState<number | null>(null);
   const nav = useNavigate();
 
+  const loadStages = (did: number | null) => {
+    if (!did) { setStages([]); return; }
+    client.get('/admin/epic/stages', { params: { dragon_id: did } }).then((r) => setStages(r.data));
+  };
+
   const reload = () => {
-    client.get('/admin/epic/species').then((r) => setSpecies(r.data));
-    client.get('/admin/epic/stages').then((r) => setStages(r.data));
+    client.get('/admin/epic/species').then((r) => {
+      setSpecies(r.data);
+      setSelSpecies((prev) => prev ?? (r.data[0]?.id ?? null));
+    });
   };
   useEffect(() => { reload(); }, []);
+  useEffect(() => { loadStages(selSpecies); }, [selSpecies]);
 
   const delStage = async (id: number) => {
     if (!window.confirm('Удалить стадию со всеми действиями и выборами?')) return;
     await client.delete(`/admin/epic/stages/${id}`);
-    reload();
+    loadStages(selSpecies);
   };
 
   const persistOrder = async (list: Stage[]) => {
     await Promise.all(list.map((s, i) =>
       s.stage_number === i + 1 ? Promise.resolve() : client.put(`/admin/epic/stages/${s.id}`, { stage_number: i + 1 })
     ));
-    reload();
+    loadStages(selSpecies);
   };
   const onDrop = (targetIdx: number) => {
     if (dragIdx === null || dragIdx === targetIdx) { setDragIdx(null); return; }
@@ -66,9 +75,13 @@ function EpicDragons() {
         </div>
 
         <div className="lair-card" style={{ padding: 0, overflow: 'hidden' }}>
-          <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--bronze)', display: 'flex', alignItems: 'center' }}>
-            <h4 style={{ color: 'var(--gold)', margin: 0 }}>Этапы выращивания (общие)</h4>
-            <button className="lair-btn lair-btn-sm" style={{ marginLeft: 'auto' }} onClick={() => nav('/admin/epic/stages/new')}>+ Стадия</button>
+          <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--bronze)', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            <h4 style={{ color: 'var(--gold)', margin: 0 }}>Этапы выращивания</h4>
+            <select className="lair-input" value={selSpecies ?? ''} onChange={(e) => setSelSpecies(Number(e.target.value) || null)} style={{ maxWidth: 240 }}>
+              {species.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+            </select>
+            <button className="lair-btn lair-btn-sm" style={{ marginLeft: 'auto' }} disabled={!selSpecies}
+                    onClick={() => nav(`/admin/epic/species/${selSpecies}/stages/new`)}>+ Стадия</button>
           </div>
           <table className="lair-table">
             <thead><tr><th style={{ width: 40 }}></th><th style={{ width: 40 }}>№</th><th>Название</th><th>Циклы</th><th style={{ width: 200 }}></th></tr></thead>

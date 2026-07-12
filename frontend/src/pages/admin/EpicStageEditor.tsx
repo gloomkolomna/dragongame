@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import client from '../../api/client';
 
-interface Stage { id: number; stage_number: number; name: string; }
+interface Stage { id: number; dragon_id: number; stage_number: number; name: string; }
 interface Action { id: number; dragon_id: number; stage_id: number; action_label: string; order_in_cycle: number; task: string; hint: string; crosses_norm: number; image_path: string; action_type: string; timeout_hours: number; timeout_minutes: number; item_ids: number[]; sub_actions?: { id: number; label: string; order_in_sub: number }[]; }
 interface Species { id: number; name: string; }
 
@@ -27,11 +27,12 @@ function EpicStageEditor() {
   };
 
   useEffect(() => {
-    client.get('/admin/epic/stages').then((r) => setStage(r.data.find((s: Stage) => s.id === sid) || null));
-    client.get('/admin/epic/species').then((r) => {
-      setSpecies(r.data);
-      setDid((prev) => prev ?? (r.data[0]?.id ?? null));
+    client.get('/admin/epic/stages').then((r) => {
+      const s = r.data.find((x: Stage) => x.id === sid) || null;
+      setStage(s);
+      if (s) setDid(s.dragon_id);
     });
+    client.get('/admin/epic/species').then((r) => setSpecies(r.data));
   }, [sid]);
 
   useEffect(() => { loadActions(); }, [sid, did]);
@@ -86,13 +87,11 @@ function EpicStageEditor() {
         {error && <div style={{ padding: '8px 12px', marginBottom: 12, borderRadius: 8, background: 'rgba(212,116,160,0.1)', color: '#d474a0', fontSize: 13 }}>{error}</div>}
         <div className="lair-card" style={{ marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
           <label className="lair-label" style={{ margin: 0 }}>Эпический дракон:</label>
-          <select className="lair-input" value={did ?? ''} onChange={(e) => setDid(Number(e.target.value) || null)} style={{ maxWidth: 260 }}>
-            {species.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-          </select>
-          <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Действия уникальны для каждого дракона</span>
+          <span style={{ fontWeight: 600, color: 'var(--gold)' }}>{species.find((s) => s.id === did)?.name || '—'}</span>
+          <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Стадия и действия уникальны для этого дракона</span>
         </div>
-        {species.length === 0 ? (
-          <div className="lair-card" style={{ color: 'var(--text-muted)', fontSize: 14 }}>Сначала создай эпический вид дракона.</div>
+        {!did ? (
+          <div className="lair-card" style={{ color: 'var(--text-muted)', fontSize: 14 }}>Стадия не найдена.</div>
         ) : (
           <ActionsList did={did} sid={sid} rows={rows} actions={actions} dragIdx={dragIdx} setDragIdx={setDragIdx}
                         onDrop={onDrop} nav={nav} del={del} nextOrder={nextOrder}

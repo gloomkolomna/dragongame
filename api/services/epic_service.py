@@ -158,12 +158,17 @@ def get_care(db, vk_id):
     return db.query(EpicCareState).filter(EpicCareState.user_dragon_id == ud.id).first()
 
 
-def first_stage(db):
-    return db.query(EpicStage).order_by(EpicStage.stage_number, EpicStage.id).first()
+def first_stage(db, dragon_id):
+    return (
+        db.query(EpicStage)
+        .filter(EpicStage.dragon_id == dragon_id)
+        .order_by(EpicStage.stage_number, EpicStage.id)
+        .first()
+    )
 
 
-def max_stage_number(db):
-    stages = db.query(EpicStage).all()
+def max_stage_number(db, dragon_id):
+    stages = db.query(EpicStage).filter(EpicStage.dragon_id == dragon_id).all()
     return max((s.stage_number for s in stages), default=0)
 
 
@@ -174,7 +179,7 @@ def start_care(db, vk_id):
     existing = db.query(EpicCareState).filter(EpicCareState.user_dragon_id == ud.id).first()
     if existing:
         return existing
-    stage = first_stage(db)
+    stage = first_stage(db, ud.dragon_id)
     if not stage:
         return None
     care = EpicCareState(
@@ -331,7 +336,10 @@ def advance_care(db, care):
         if stage and care.cycles_completed >= (stage.cycles_count or 1):
             nxt = (
                 db.query(EpicStage)
-                .filter(EpicStage.stage_number > stage.stage_number)
+                .filter(
+                    EpicStage.dragon_id == stage.dragon_id,
+                    EpicStage.stage_number > stage.stage_number,
+                )
                 .order_by(EpicStage.stage_number, EpicStage.id)
                 .first()
             )

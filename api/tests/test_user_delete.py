@@ -34,7 +34,7 @@ def _setup_user_with_full_progress(db):
                             declared_crosses=99999, normal_crosses=1000, mode="norm",
                             status="pending"))
 
-    stage = EpicStage(stage_number=1, name="Stage1", description="", cycles_count=1)
+    stage = EpicStage(dragon_id=epic.id, stage_number=1, name="Stage1", description="", cycles_count=1)
     db.add(stage)
     db.flush()
     db.add(EpicCareState(user_dragon_id=ud_epic.id, stage_id=stage.id, current_action_order=0))

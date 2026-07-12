@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import client from '../../api/client';
 
 interface StageLink { id: number; stage_key: string; item_id: number; }
-interface Stage { id: number; stage_number: number; name: string; }
+interface Stage { id: number; dragon_id: number; stage_number: number; name: string; }
 
 const imgUrl = (p: string) => `/dragons/api/static/images/${p}?t=${Date.now()}`;
 
@@ -61,9 +61,9 @@ function ShopForm() {
   };
 
   const stageForKey = (key: string): Stage | undefined => {
-    const m = key.match(/^epic:(\d+)$/);
+    const m = key.match(/^epic:(\d+):(\d+)$/);
     if (!m) return undefined;
-    return stages.find((s) => s.stage_number === Number(m[1]));
+    return stages.find((s) => s.dragon_id === Number(m[1]) && s.stage_number === Number(m[2]));
   };
 
   if (load) return <div className="lair-content"><div className="lair-skeleton" /></div>;

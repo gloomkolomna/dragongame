@@ -145,7 +145,7 @@ function App() {
           <Route path="epic" element={<EpicDragons />} />
           <Route path="epic/species/new" element={<EpicSpeciesForm />} />
           <Route path="epic/species/:id/edit" element={<EpicSpeciesForm />} />
-          <Route path="epic/stages/new" element={<EpicStageForm />} />
+          <Route path="epic/species/:dragonId/stages/new" element={<EpicStageForm />} />
           <Route path="epic/stages/:stageId/edit" element={<EpicStageForm />} />
           <Route path="epic/stages/:stageId" element={<EpicStageEditor />} />
           <Route path="epic/stages/:stageId/actions/:actionId" element={<EpicActionEditor />} />

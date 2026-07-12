@@ -3,13 +3,14 @@ import { useNavigate, useParams } from 'react-router-dom';
 import client from '../../api/client';
 
 function EpicStageForm() {
-  const { stageId } = useParams<{ stageId: string }>();
+  const { stageId, dragonId } = useParams<{ stageId: string; dragonId: string }>();
   const isEdit = !!stageId;
   const nav = useNavigate();
-  const [load, setLoad] = useState(isEdit);
+  const [load, setLoad] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
+  const [dragon, setDragon] = useState<number | null>(dragonId ? Number(dragonId) : null);
   const [stageNumber, setStageNumber] = useState(1);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -18,16 +19,24 @@ function EpicStageForm() {
   const [imageEnd, setImageEnd] = useState('');
 
   useEffect(() => {
-    client.get('/admin/epic/stages').then((r) => {
-      if (isEdit) {
+    if (isEdit) {
+      client.get('/admin/epic/stages').then((r) => {
         const s = r.data.find((x: any) => x.id === Number(stageId));
-        if (s) { setStageNumber(s.stage_number); setName(s.name); setDescription(s.description); setCycles(s.cycles_count); setImageStart(s.image_start || ''); setImageEnd(s.image_end || ''); }
-      } else {
+        if (s) {
+          setDragon(s.dragon_id);
+          setStageNumber(s.stage_number); setName(s.name); setDescription(s.description);
+          setCycles(s.cycles_count); setImageStart(s.image_start || ''); setImageEnd(s.image_end || '');
+        }
+      }).finally(() => setLoad(false));
+    } else {
+      const did = dragonId ? Number(dragonId) : null;
+      setDragon(did);
+      client.get('/admin/epic/stages', { params: did ? { dragon_id: did } : {} }).then((r) => {
         const maxNum = r.data.length ? Math.max(...r.data.map((x: any) => x.stage_number)) : 0;
         setStageNumber(maxNum + 1);
-      }
-    }).finally(() => setLoad(false));
-  }, [stageId]);
+      }).finally(() => setLoad(false));
+    }
+  }, [stageId, dragonId]);
 
   const uploadImage = async (file: File): Promise<string> => {
     const form = new FormData();
@@ -46,11 +55,12 @@ function EpicStageForm() {
 
   const save = async () => {
     if (!name.trim()) { setError('Название стадии обязательно'); return; }
+    if (!isEdit && !dragon) { setError('Не указан эпический дракон'); return; }
     setSaving(true); setError('');
-    const payload = { stage_number: stageNumber, name, description, cycles_count: cycles, image_start: imageStart, image_end: imageEnd };
+    const payload: any = { stage_number: stageNumber, name, description, cycles_count: cycles, image_start: imageStart, image_end: imageEnd };
     try {
       if (isEdit) await client.put(`/admin/epic/stages/${stageId}`, payload);
-      else await client.post('/admin/epic/stages', payload);
+      else await client.post('/admin/epic/stages', { ...payload, dragon_id: dragon });
       nav('/admin/epic');
     } catch (e: any) { setError(e.response?.data?.detail || 'Ошибка'); }
     finally { setSaving(false); }
