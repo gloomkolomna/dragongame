@@ -39,6 +39,7 @@ function Nest() {
   const [load, setLoad] = useState(true);
   const [tab, setTab] = useState<'nest' | 'memories'>('nest');
   const [zoomMoodlet, setZoomMoodlet] = useState<Moodlet | null>(null);
+  const [memPage, setMemPage] = useState(0);
 
   useEffect(() => {
     if (bl || !vkUserId) { setLoad(false); return; }
@@ -143,31 +144,47 @@ function Nest() {
           {!data.moodlets || data.moodlets.length === 0 ? (
             <div style={{ color: 'var(--text-muted)', fontSize: 14 }}>Воспоминаний пока нет.</div>
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {data.moodlets.filter((m) => m.image_path).map((m) => (
-                <div key={m.key}
-                  onClick={() => setZoomMoodlet(m)}
-                  style={{
-                    cursor: 'pointer',
-                    borderRadius: 8,
-                    overflow: 'hidden',
-                    border: '2px solid var(--bronze)',
-                    background: m.polarity === 'negative' ? 'rgba(212,116,160,0.08)' : 'rgba(111,207,151,0.06)',
-                    textAlign: 'center',
-                  }}
-                >
-                  {m.image_path ? (
-                    <img src={mediaUrl(m.image_path)} alt={m.title} style={{ width: '100%', maxHeight: 260, objectFit: 'contain', display: 'block' }} />
-                  ) : (
-                    <div style={{ fontSize: 64, padding: 32 }}>{m.polarity === 'negative' ? '💔' : '🌟'}</div>
-                  )}
-                  <div style={{ padding: '10px 16px 14px' }}>
-                    <div style={{ color: 'var(--gold)', fontWeight: 600, fontSize: 16 }}>{m.title}</div>
-                    {m.text && <div style={{ color: 'var(--parchment-dim)', fontSize: 14, marginTop: 6 }}>{m.text}</div>}
+            (() => {
+              const PER_PAGE = 9;
+              const totalPages = Math.max(1, Math.ceil(data.moodlets.length / PER_PAGE));
+              const p = Math.min(memPage, totalPages - 1);
+              const pageItems = data.moodlets.slice(p * PER_PAGE, p * PER_PAGE + PER_PAGE);
+              return (
+                <>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+                    {pageItems.map((m) => (
+                      <div key={m.key}
+                        onClick={() => setZoomMoodlet(m)}
+                        style={{
+                          cursor: 'pointer',
+                          borderRadius: 8,
+                          overflow: 'hidden',
+                          border: '2px solid var(--bronze)',
+                          background: m.polarity === 'negative' ? 'rgba(212,116,160,0.08)' : 'rgba(111,207,151,0.06)',
+                          aspectRatio: '1 / 1',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }}
+                      >
+                        {m.image_path ? (
+                          <img src={mediaUrl(m.image_path)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        ) : (
+                          <span style={{ fontSize: 32 }}>{m.polarity === 'negative' ? '💔' : '🌟'}</span>
+                        )}
+                      </div>
+                    ))}
                   </div>
-                </div>
-              ))}
-            </div>
+                  {totalPages > 1 && (
+                    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 12, marginTop: 12 }}>
+                      <button className="lair-btn lair-btn-sm" disabled={p === 0} onClick={() => setMemPage(p - 1)} style={{ opacity: p === 0 ? 0.4 : 1 }}>← Назад</button>
+                      <span style={{ color: 'var(--parchment-dim)', fontSize: 14 }}>{p + 1} / {totalPages}</span>
+                      <button className="lair-btn lair-btn-sm" disabled={p >= totalPages - 1} onClick={() => setMemPage(p + 1)} style={{ opacity: p >= totalPages - 1 ? 0.4 : 1 }}>Вперёд →</button>
+                    </div>
+                  )}
+                </>
+              );
+            })()
           )}
         </div>
       )}
@@ -179,17 +196,11 @@ function Nest() {
         >
           <div className="lair-card" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 360, width: '100%', padding: 0, overflow: 'hidden', cursor: 'default', textAlign: 'center' }}>
             {zoomMoodlet.image_path ? (
-              <img src={mediaUrl(zoomMoodlet.image_path)} alt={zoomMoodlet.title}
+              <img src={mediaUrl(zoomMoodlet.image_path)} alt=""
                    style={{ width: '100%', maxHeight: 340, objectFit: 'contain', display: 'block', background: 'rgba(0,0,0,0.3)' }} />
             ) : (
               <div style={{ fontSize: 64, padding: 32 }}>{zoomMoodlet.polarity === 'negative' ? '💔' : '🌟'}</div>
             )}
-            <div style={{ padding: '16px 20px 20px' }}>
-              <div style={{ color: 'var(--gold)', fontFamily: 'var(--font-title)', fontSize: 18, fontWeight: 700 }}>{zoomMoodlet.title}</div>
-              {zoomMoodlet.text && (
-                <div style={{ color: 'var(--parchment-dim)', fontSize: 15, marginTop: 10, lineHeight: 1.6 }}>{zoomMoodlet.text}</div>
-              )}
-            </div>
             <button onClick={() => setZoomMoodlet(null)}
                     style={{ position: 'absolute', top: 8, right: 8, width: 36, height: 36, borderRadius: '50%', border: '2px solid var(--bronze)', background: 'rgba(21,15,26,0.85)', color: 'var(--gold)', fontSize: 18, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1 }}>
               ✕

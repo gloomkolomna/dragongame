@@ -1,6 +1,6 @@
 from models import (
     User, Dragon, DragonStep, UserDragon, UserLegendProgress,
-    EpicStage, EpicStageAction, EpicActionItem, ShopItem,
+    EpicStage, EpicStageAction, EpicActionItem, ShopItem, EpicMoodlet,
 )
 from services import epic_service
 
@@ -97,6 +97,34 @@ def test_legend_view_all_completed_shows_full_text(client, db):
     assert r["all_completed"] is True
     assert r["full_text"] == "Полная история."
     assert r["name"] == "Leg2"
+
+
+def test_epic_view_moodlets_exclude_first_time_markers(client, db):
+    db.add(User(vk_id=30))
+    d = _epic_dragon(db, steps=1)
+    epic_service.spawn_random_epic(db, 30)
+    st = EpicStage(stage_number=1, name="Малыш", cycles_count=1)
+    db.add(st)
+    db.flush()
+    a = EpicStageAction(dragon_id=d.id, stage_id=st.id, action_label="кормить", order_in_cycle=0, crosses_norm=500)
+    db.add(a)
+    db.flush()
+    db.commit()
+    epic_service.set_epic_name(db, 30, "Уголёк")
+    epic_service.start_care(db, 30)
+    ud = epic_service.get_epic_user_dragon(db, 30)
+
+    # "Впервые" marker (задание) — не должен показываться
+    db.add(EpicMoodlet(user_dragon_id=ud.id, key=f"action:{a.id}", title="Впервые: кормить"))
+    # реальный выданный мудлет — должен показываться
+    db.add(EpicMoodlet(user_dragon_id=ud.id, key=f"action_outcome:{a.id}:positive", title="Сыт", text="Наелся", image_path="dragons/full.png", polarity="positive"))
+    db.commit()
+
+    r = client.get("/api/collection/30/epic").json()
+    keys = [m["key"] for m in r["moodlets"]]
+    assert keys == [f"action_outcome:{a.id}:positive"]
+    assert r["moodlets"][0]["title"] == "Сыт"
+    assert r["moodlets"][0]["image_path"].endswith("dragons/full.png")
 
 
 def test_admin_actions_scoped_by_dragon(client, db):

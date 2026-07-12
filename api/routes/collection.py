@@ -206,9 +206,12 @@ def get_epic_view(vk_id: int, db: Session = Depends(get_db)):
     _action_outcome_cache = {}
     moodlets = []
     for m in epic_service.get_moodlets(db, vk_id):
+        sub_m = re.match(r"^sub:(\d+):(.+)$", m.key)
+        action_m = re.match(r"^action_outcome:(\d+):(.+)$", m.key)
+        if not sub_m and not action_m:
+            continue
         img = m.image_path
         if not img:
-            sub_m = re.match(r"^sub:(\d+):(.+)$", m.key)
             if sub_m:
                 sub_id = int(sub_m.group(1))
                 pol = sub_m.group(2)
@@ -221,7 +224,6 @@ def get_epic_view(vk_id: int, db: Session = Depends(get_db)):
                 outcome = _sub_outcome_cache.get((sub_id, pol))
                 if outcome and outcome.image_path:
                     img = outcome.image_path
-            action_m = re.match(r"^action_outcome:(\d+):(.+)$", m.key)
             if action_m:
                 act_id = int(action_m.group(1))
                 pol = action_m.group(2)
