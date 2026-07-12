@@ -1,6 +1,29 @@
 """Shop handler — browse stage items and buy (bot-only purchase)."""
 
+import os
+
 PAGE_SIZE = 5
+
+_IMAGES = os.path.join(os.path.dirname(__file__), "..", "..", "images", "dragons")
+
+
+def _attach(upload_image, image_path, vk_id):
+    if not upload_image or not image_path:
+        return ""
+    filepath = os.path.join(_IMAGES, os.path.basename(image_path))
+    if not os.path.isfile(filepath):
+        return ""
+    from bot.services.grow_service import log_to_db
+
+    def _log_err(msg, tb=""):
+        from db import SessionLocal
+        _db = SessionLocal()
+        try:
+            log_to_db("bot", "UPLOAD", f"{msg} (file={filepath})", tb, vk_id, _db)
+        finally:
+            _db.close()
+
+    return upload_image(filepath, peer_id=vk_id, log_error=_log_err)
 
 
 def handle_shop_command(user, db, send_message, page=0):
@@ -37,6 +60,15 @@ def handle_shop_command(user, db, send_message, page=0):
 
 def handle_buy(user, item_id, db, send_message, upload_image=None):
     from services.shop_service import purchase
+    from models import ShopItem
+
+    item = db.query(ShopItem).filter(ShopItem.id == item_id).first()
+    if item:
+        card = f"🛒 {item.name}"
+        if item.description:
+            card += f"\n\n{item.description}"
+        attachment = _attach(upload_image, item.image_path, user.vk_id)
+        send_message(card, attachment=attachment)
 
     res = purchase(db, user.vk_id, item_id)
     status = res.get("status")

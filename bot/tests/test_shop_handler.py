@@ -61,6 +61,23 @@ def test_buy_insufficient(db):
     assert u.stitches_balance == 50
 
 
+def test_buy_sends_item_card_before_purchase(db):
+    from models import ShopItem
+    u = _epic_egg_user(db, balance=500)
+    it = ShopItem(name="Мячик", description="Любимая игрушка малыша", cost_stitches=100, is_active=True)
+    db.add(it)
+    db.flush()
+    from models import StageShopItem
+    db.add(StageShopItem(stage_key="epic:50:egg", item_id=it.id))
+    db.commit()
+    msgs = []
+    handle_buy(u, it.id, db, lambda m, **k: msgs.append(m))
+    assert any("Мячик" in m and "Любимая игрушка малыша" in m for m in msgs)
+    card_idx = next(i for i, m in enumerate(msgs) if "Любимая игрушка малыша" in m)
+    bought_idx = next(i for i, m in enumerate(msgs) if "Куплено" in m)
+    assert card_idx < bought_idx
+
+
 def test_buy_ok_returns_to_epic(db):
     from models import Dragon, DragonStep
     d = Dragon(name="Epi", rarity=1, steps_count=1, is_active=True, is_epic=True, egg_type="Тень")
