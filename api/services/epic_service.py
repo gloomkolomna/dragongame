@@ -113,6 +113,15 @@ def get_epic_name(db, vk_id):
     return row.epic_name if row and row.epic_name else ""
 
 
+def get_epic_name_for(db, vk_id, dragon_id):
+    row = db.query(UserProgress).filter(
+        UserProgress.user_id == vk_id,
+        UserProgress.dragon_id == dragon_id,
+        UserProgress.step_number == 0,
+    ).first()
+    return row.epic_name if row and row.epic_name else ""
+
+
 # ─── Egg / hatch ───
 
 def egg_completed_count(db, vk_id):

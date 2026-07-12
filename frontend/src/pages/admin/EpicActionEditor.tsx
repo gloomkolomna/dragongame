@@ -241,7 +241,7 @@ function SubActionsEditor({ actionId, subActions, axes, reload, setError, sid, a
           <span style={{ fontSize: 12, color: 'var(--parchment-dim)' }}>{sa.steps?.length || 0} шагов</span>
           <button className="lair-btn lair-btn-sm lair-btn-outline"
                   onClick={() => nav(`/admin/epic/stages/${sid}/actions/${aid}/sub-actions/${sa.id}`)}
-                  style={{ fontSize: 12 }}>⚙ Настроить</button>
+                  style={{ fontSize: 12 }}>✏ Редактировать</button>
           <button className="lair-btn lair-btn-sm lair-btn-danger" onClick={() => delSub(sa.id)} style={{ fontSize: 11 }}>✕</button>
         </div>
       ))}

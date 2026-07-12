@@ -542,6 +542,7 @@ def get_user_detail(vk_id: int, db: Session = Depends(get_db)):
     pins = []
 
     dragons_list = []
+    from services.epic_service import get_epic_name_for
     for d in db.query(Dragon).filter(Dragon.is_active == True).all():
         collected = db.query(UserDragon).filter(UserDragon.user_id == vk_id, UserDragon.dragon_id == d.id).first()
         progress = db.query(UserProgress).filter(
@@ -562,10 +563,13 @@ def get_user_detail(vk_id: int, db: Session = Depends(get_db)):
         else:
             status = "locked"
             pct = 0
+        epic_custom_name = get_epic_name_for(db, vk_id, d.id) if d.is_epic else ""
         dragons_list.append({
             "dragon_id": d.id,
             "name": d.name if status == "completed" else None,
             "egg_type": d.egg_type,
+            "is_epic": bool(d.is_epic),
+            "epic_name": epic_custom_name,
             "status": status,
             "progress_pct": pct,
             "completed_at": collected.completed_at if collected else None,
@@ -592,6 +596,9 @@ def get_user_detail(vk_id: int, db: Session = Depends(get_db)):
         .all()
     )
 
+    from services.epic_service import get_epic_name
+    epic_name = get_epic_name(db, vk_id)
+
     return {
         "vk_id": user.vk_id,
         "first_name": vk_nm.get("first_name", ""),
@@ -600,6 +607,7 @@ def get_user_detail(vk_id: int, db: Session = Depends(get_db)):
         "stitches_balance": user.stitches_balance,
         "epic_unlocked": user.epic_unlocked,
         "epic_dragon_id": user.epic_dragon_id,
+        "epic_name": epic_name,
         "is_don": bool(donor.is_don) if donor else False,
         "don_since": donor.don_since if donor else None,
         "don_synced_at": donor.last_synced_at if donor else None,

@@ -277,7 +277,7 @@ a:hover { color: var(--molten); }
   border-radius: 8px;
   color: var(--parchment);
   font-family: var(--font-body);
-  font-size: 26px;
+  font-size: 21px !important;
   transition: all 0.2s;
   outline: none;
 }

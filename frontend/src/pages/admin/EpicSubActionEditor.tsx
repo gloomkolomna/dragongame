@@ -195,38 +195,36 @@ function StepCard({ step, reload, delStep, uploadImage }: any) {
   return (
     <div style={{ marginBottom: 10, padding: '10px 12px', background: 'rgba(255,255,255,0.03)', borderRadius: 6, border: '1px solid rgba(180,150,100,0.15)' }}>
       <div style={{ fontSize: 12, color: 'var(--gold)', marginBottom: 6 }}>Шаг #{step.order}</div>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 100px 70px 70px', gap: 6, marginBottom: 6 }}>
+      <div style={{ marginBottom: 8 }}>
+        <label className="lair-label" style={{ fontSize: 13 }}>Название</label>
+        <input className="lair-input" value={label} onChange={(e) => setLabel(e.target.value)} onBlur={save} style={{ height: 56, fontSize: 18 }} />
+      </div>
+      <div style={{ marginBottom: 8 }}>
+        <label className="lair-label" style={{ fontSize: 13 }}>Задание</label>
+        <input className="lair-input" value={task} onChange={(e) => setTask(e.target.value)} onBlur={save} placeholder="Текст задания" style={{ height: 56, fontSize: 18 }} />
+      </div>
+      <div style={{ marginBottom: 8 }}>
+        <label className="lair-label" style={{ fontSize: 13 }}>Подсказка</label>
+        <input className="lair-input" value={hint} onChange={(e) => setHint(e.target.value)} onBlur={save} placeholder="💡 Подсказка" style={{ height: 56, fontSize: 18 }} />
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 6 }}>
         <div>
-          <label className="lair-label" style={{ fontSize: 11 }}>Название</label>
-          <input className="lair-input" value={label} onChange={(e) => setLabel(e.target.value)} onBlur={save} style={{ height: 28, fontSize: 12 }} />
-        </div>
-        <div>
-          <label className="lair-label" style={{ fontSize: 11 }}>Норма</label>
+          <label className="lair-label" style={{ fontSize: 13 }}>Норма</label>
           <input className="lair-input" type="text" inputMode="numeric" value={norm}
                  onChange={(e) => setNorm(Math.max(1, parseInt(e.target.value, 10) || 1))} onBlur={save}
-                 style={{ height: 28, fontSize: 12 }} />
+                 style={{ height: 44, fontSize: 21 }} />
         </div>
         <div>
-          <label className="lair-label" style={{ fontSize: 11 }}>Таймаут ч</label>
+          <label className="lair-label" style={{ fontSize: 13 }}>Таймаут ч</label>
           <input className="lair-input" type="text" inputMode="numeric" value={th}
                  onChange={(e) => setTh(Math.max(0, parseInt(e.target.value, 10) || 0))} onBlur={save}
-                 style={{ height: 28, fontSize: 12 }} />
+                 style={{ height: 44, fontSize: 21 }} />
         </div>
         <div>
-          <label className="lair-label" style={{ fontSize: 11 }}>мин</label>
+          <label className="lair-label" style={{ fontSize: 13 }}>мин</label>
           <input className="lair-input" type="text" inputMode="numeric" value={tm}
                  onChange={(e) => setTm(Math.max(0, parseInt(e.target.value, 10) || 0))} onBlur={save}
-                 style={{ height: 28, fontSize: 12 }} />
-        </div>
-      </div>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, marginBottom: 6 }}>
-        <div>
-          <label className="lair-label" style={{ fontSize: 11 }}>Задание</label>
-          <input className="lair-input" value={task} onChange={(e) => setTask(e.target.value)} onBlur={save} placeholder="Текст задания" style={{ height: 28, fontSize: 12 }} />
-        </div>
-        <div>
-          <label className="lair-label" style={{ fontSize: 11 }}>Подсказка</label>
-          <input className="lair-input" value={hint} onChange={(e) => setHint(e.target.value)} onBlur={save} placeholder="💡 Подсказка" style={{ height: 28, fontSize: 12 }} />
+                 style={{ height: 44, fontSize: 21 }} />
         </div>
       </div>
       <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>

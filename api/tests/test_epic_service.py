@@ -78,6 +78,24 @@ def test_egg_hatch_and_name(db):
     assert epic_service.get_epic_name(db, 3) == "Уголёк"
 
 
+def test_get_epic_name_for_multiple(db):
+    db.add(User(vk_id=33, epic_unlocked=True))
+    e1 = _epic_dragon(db, name="E1", steps=1)
+    e2 = _epic_dragon(db, name="E2", steps=1)
+    db.add(UserDragon(user_id=33, dragon_id=e1.id, completed_at="2026-01-01T00:00:00"))
+    db.add(UserDragon(user_id=33, dragon_id=e2.id, completed_at=""))
+    u = db.query(User).filter(User.vk_id == 33).first()
+    u.epic_dragon_id = e2.id
+    db.add(UserProgress(user_id=33, dragon_id=e1.id, step_number=0, completed=False, epic_name="Старый"))
+    db.commit()
+    epic_service.set_epic_name(db, 33, "Новый")
+
+    assert epic_service.get_epic_name_for(db, 33, e1.id) == "Старый"
+    assert epic_service.get_epic_name_for(db, 33, e2.id) == "Новый"
+    assert epic_service.get_epic_name(db, 33) == "Новый"
+    assert epic_service.get_epic_name_for(db, 33, 99999) == ""
+
+
 def test_advance_cycle_to_finale(db):
     db.add(User(vk_id=4, epic_unlocked=False))
     d = _epic_dragon(db)

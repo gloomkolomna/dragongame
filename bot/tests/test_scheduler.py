@@ -152,3 +152,31 @@ def test_check_expired_skips_completed_dragon(db):
     _check_expired(db, vk_mock, logging.getLogger("test"))
 
     assert not vk_mock.messages.send.called
+
+
+def test_check_care_due_uses_epic_name(db):
+    from bot.scheduler import _check_care_due
+    from models import EpicCareState, EpicStage
+    from services import epic_service
+
+    ed = Dragon(name="EpicSched", rarity=3, steps_count=1, is_active=True, is_epic=True, egg_type="лунное")
+    db.add(ed)
+    db.flush()
+    u = User(vk_id=900, state="idle", epic_unlocked=True, epic_dragon_id=ed.id)
+    db.add(u)
+    ud = UserDragon(user_id=900, dragon_id=ed.id, completed_at="")
+    db.add(ud)
+    st = EpicStage(stage_number=1, name="S1", cycles_count=1)
+    db.add(st)
+    db.flush()
+    past = (datetime.now() - timedelta(minutes=5)).strftime("%Y-%m-%dT%H:%M:%S")
+    db.add(EpicCareState(user_dragon_id=ud.id, stage_id=st.id, next_action_at=past, care_notified=False))
+    db.commit()
+    epic_service.set_epic_name(db, 900, "Пепел")
+
+    vk_mock = MagicMock()
+    _check_care_due(db, vk_mock, logging.getLogger("test"))
+
+    assert vk_mock.messages.send.called
+    msg = vk_mock.messages.send.call_args[1].get("message", "")
+    assert "Пепел" in msg

@@ -591,6 +591,55 @@ def test_user_detail_shows_balance(client, db):
     assert data["epic_unlocked"] is False
 
 
+def test_user_detail_shows_epic_name(client, db):
+    from services import epic_service
+    ed = Dragon(name="EpicX", rarity=1, steps_count=1, is_active=True, is_epic=True, egg_type="лунное")
+    db.add(ed)
+    db.flush()
+    user = User(vk_id=780, state="idle", epic_unlocked=True, epic_dragon_id=ed.id)
+    db.add(user)
+    db.add(UserDragon(user_id=780, dragon_id=ed.id, completed_at=""))
+    db.commit()
+    epic_service.set_epic_name(db, 780, "Уголёк")
+
+    data = client.get("/api/admin/users/780").json()
+    assert data["epic_name"] == "Уголёк"
+    epic_cell = next(d for d in data["dragons"] if d["dragon_id"] == ed.id)
+    assert epic_cell["is_epic"] is True
+    assert epic_cell["epic_name"] == "Уголёк"
+
+
+def test_user_detail_multiple_epics_named(client, db):
+    from services import epic_service
+    e1 = Dragon(name="EpicA", rarity=1, steps_count=1, is_active=True, is_epic=True, egg_type="лунное")
+    e2 = Dragon(name="EpicB", rarity=1, steps_count=1, is_active=True, is_epic=True, egg_type="звёздное")
+    db.add(e1)
+    db.add(e2)
+    db.flush()
+    user = User(vk_id=782, state="idle", epic_unlocked=True, epic_dragon_id=e2.id)
+    db.add(user)
+    db.add(UserDragon(user_id=782, dragon_id=e1.id, completed_at="2026-01-01T00:00:00"))
+    db.add(UserDragon(user_id=782, dragon_id=e2.id, completed_at=""))
+    db.commit()
+    epic_service.set_epic_name(db, 782, "Второй")
+    db.add(UserProgress(user_id=782, dragon_id=e1.id, step_number=0, completed=False, epic_name="Первый"))
+    db.commit()
+
+    data = client.get("/api/admin/users/782").json()
+    names = {d["dragon_id"]: d["epic_name"] for d in data["dragons"]}
+    assert names[e1.id] == "Первый"
+    assert names[e2.id] == "Второй"
+    assert data["epic_name"] == "Второй"
+
+
+def test_user_detail_epic_name_empty_when_unnamed(client, db):
+    user = User(vk_id=781, state="idle")
+    db.add(user)
+    db.commit()
+    data = client.get("/api/admin/users/781").json()
+    assert data["epic_name"] == ""
+
+
 def test_user_detail_includes_own_suspicious(client, db):
     from models import SuspiciousReport
     db.add(User(vk_id=790, state="idle"))

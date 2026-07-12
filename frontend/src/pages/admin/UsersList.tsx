@@ -8,7 +8,7 @@ import { DataTableHead, TableToolbar } from '../../components/admin/DataTable';
 const GROUP_ID = 239999455;
 
 interface User { vk_id: number; first_name: string; last_name: string; state: string; registered_at: string; pins_activated: number; last_pin_code: string | null; dragons_collected: number; current_dragon_id: number | null; current_step: number; suspicious_pending: number; is_don: boolean; custom_price_per_dragon: number | null; }
-interface Detail { vk_id: number; first_name: string; last_name: string; registered_at: string; stitches_balance: number; epic_unlocked: boolean; is_don: boolean; don_since: string | null; don_synced_at: string | null; pins_activated: number; pins: { code: string; dragon_name: string; egg_type: string; status: string; activated_at: string }[]; dragons: { dragon_id: number; name: string | null; egg_type: string; status: string; progress_pct: number; completed_at: string | null }[]; dragons_collected: number; dragons_active: number; dragons_total: number; suspicious_reports: Suspicious[]; treasures_collected: TreasureCollected[]; custom_price_per_dragon: number | null; }
+interface Detail { vk_id: number; first_name: string; last_name: string; registered_at: string; stitches_balance: number; epic_unlocked: boolean; epic_name: string; is_don: boolean; don_since: string | null; don_synced_at: string | null; pins_activated: number; pins: { code: string; dragon_name: string; egg_type: string; status: string; activated_at: string }[]; dragons: { dragon_id: number; name: string | null; egg_type: string; is_epic: boolean; epic_name: string; status: string; progress_pct: number; completed_at: string | null }[]; dragons_collected: number; dragons_active: number; dragons_total: number; suspicious_reports: Suspicious[]; treasures_collected: TreasureCollected[]; custom_price_per_dragon: number | null; }
 interface TreasureCollected { id: number; name: string; description: string; image_path: string; dragon_id: number; is_active: boolean; }
 interface Suspicious { id: number; user_id: number; dragon_id: number | null; step_number: number; declared_crosses: number; normal_crosses: number; mode: string; status: string; created_at: string; }
 
@@ -168,6 +168,11 @@ function UsersList() {
                 <button className="lair-btn lair-btn-sm" onClick={saveBalance}>💾 Установить баланс</button>
                 {detail.epic_unlocked && <span className="lair-badge" style={{ marginLeft: 'auto' }}>🐲 эпический открыт</span>}
               </div>
+              {detail.epic_name && (
+                <div style={{ color: 'var(--parchment-dim)', fontSize: 13, marginTop: 8 }}>
+                  🐲 Эпический дракон: <strong style={{ color: 'var(--gold)' }}>{detail.epic_name}</strong>
+                </div>
+              )}
             </div>
 
             <div className="lair-card" style={{ marginBottom: 16 }}>
@@ -236,7 +241,8 @@ function UsersList() {
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 6 }}>
                 {detail.dragons.map((d) => (
                   <div key={d.dragon_id} className="lair-grid-cell" style={{ textAlign: 'center', padding: 12 }}>
-                    <div style={{ fontWeight: 600, fontSize: 14 }}>{d.name || d.egg_type}</div>
+                    <div style={{ fontWeight: 600, fontSize: 14 }}>{d.is_epic && d.epic_name ? d.epic_name : (d.name || d.egg_type)}</div>
+                    {d.is_epic && <div style={{ fontSize: 11, color: 'var(--gold)', marginTop: 2 }}>🐲 эпический{d.epic_name ? ` · ${d.egg_type}` : ''}</div>}
                     <div style={{ fontSize: 12, marginTop: 4 }}>{d.status === 'completed' ? '⭐' : d.status === 'growing' ? `${d.progress_pct}%` : '🔒'}</div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 3, alignItems: 'center', marginTop: 6 }}>
                       <button className="lair-btn lair-btn-sm lair-btn-outline" style={{ fontSize: 11, width: '100%' }}

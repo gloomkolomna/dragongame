@@ -251,6 +251,8 @@ def _check_care_due(db, vk, logger, session_factory=None):
         db.commit()
         if not ud or ud.completed_at:
             continue
+        from services.epic_service import get_epic_name
+        epic_name = get_epic_name(db, ud.user_id) or "малыш"
         kb = json.dumps({
             "one_time": False,
             "buttons": [
@@ -258,7 +260,7 @@ def _check_care_due(db, vk, logger, session_factory=None):
                 [{"action": {"type": "open_link", "label": "📖 Мой Бестиарий", "link": "https://vk.com/app54663330"}}],
             ],
         }, ensure_ascii=False)
-        _send(vk, ud.user_id, "🐲 Твой эпический малыш заскучал — пора продолжить заботу!", kb, logger, session_factory=session_factory)
+        _send(vk, ud.user_id, f"🐲 «{epic_name}» заскучал — пора продолжить заботу!", kb, logger, session_factory=session_factory)
 
 
 def _send(vk, user_id, message, keyboard, logger, attachment="", session_factory=None):
