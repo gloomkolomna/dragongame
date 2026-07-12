@@ -195,16 +195,52 @@ def get_legends(vk_id: int, db: Session = Depends(get_db)):
 def get_epic_view(vk_id: int, db: Session = Depends(get_db)):
     from services import epic_service
     from services.character_service import character_summary
+    import re
     dragon = epic_service.get_epic_dragon(db, vk_id)
     if not dragon:
         return {"has_epic": False}
 
     name = epic_service.get_epic_name(db, vk_id)
     care = epic_service.get_care(db, vk_id)
-    moodlets = [
-        {"key": m.key, "title": m.title, "polarity": m.polarity, "text": m.text, "image_path": f"/api/static/images/{m.image_path}" if m.image_path else ""}
-        for m in epic_service.get_moodlets(db, vk_id)
-    ]
+    _sub_outcome_cache = {}
+    _action_outcome_cache = {}
+    moodlets = []
+    for m in epic_service.get_moodlets(db, vk_id):
+        img = m.image_path
+        if not img:
+            sub_m = re.match(r"^sub:(\d+):(.+)$", m.key)
+            if sub_m:
+                sub_id = int(sub_m.group(1))
+                pol = sub_m.group(2)
+                if (sub_id, pol) not in _sub_outcome_cache:
+                    from models import EpicSubActionOutcome
+                    _sub_outcome_cache[(sub_id, pol)] = db.query(EpicSubActionOutcome).filter(
+                        EpicSubActionOutcome.sub_action_id == sub_id,
+                        EpicSubActionOutcome.polarity == pol,
+                    ).first()
+                outcome = _sub_outcome_cache.get((sub_id, pol))
+                if outcome and outcome.image_path:
+                    img = outcome.image_path
+            action_m = re.match(r"^action_outcome:(\d+):(.+)$", m.key)
+            if action_m:
+                act_id = int(action_m.group(1))
+                pol = action_m.group(2)
+                if (act_id, pol) not in _action_outcome_cache:
+                    from models import EpicActionOutcome
+                    _action_outcome_cache[(act_id, pol)] = db.query(EpicActionOutcome).filter(
+                        EpicActionOutcome.action_id == act_id,
+                        EpicActionOutcome.polarity == pol,
+                    ).first()
+                outcome = _action_outcome_cache.get((act_id, pol))
+                if outcome and outcome.image_path:
+                    img = outcome.image_path
+        moodlets.append({
+            "key": m.key,
+            "title": m.title,
+            "polarity": m.polarity,
+            "text": m.text,
+            "image_path": f"/api/static/images/{img}" if img else "",
+        })
     character = character_summary(db, care.user_dragon_id) if care else []
     base = {
         "has_epic": True,
