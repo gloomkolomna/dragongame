@@ -194,24 +194,17 @@ def handle_garden(user, db, send_message):
         lines.append(f"{num}. {status} {label} {bar}{remaining_str}{marker}")
 
     epic_num = None
-    if epic:
+    if epic and not is_egg_hatched(db, user.vk_id):
         epic_kind = "🐲"
         epic_label = f"{epic.egg_type or epic.name or '?'} {epic_kind}"
-        care = get_care(db, user.vk_id)
-        hatched = is_egg_hatched(db, user.vk_id)
-        if hatched:
-            from services.epic_service import get_epic_name
-            epic_name = get_epic_name(db, user.vk_id)
-            epic_label = f"{epic_name} {epic_kind}" if epic_name else epic_label
-        else:
-            done_egg = egg_completed_count(db, user.vk_id)
-            bar = "🟡" * done_egg + "⚪" * (epic.steps_count - done_egg)
-            epic_label = f"🐲🥚 {epic_label} {bar}"
+        done_egg = egg_completed_count(db, user.vk_id)
+        bar = "🟡" * done_egg + "⚪" * (epic.steps_count - done_egg)
+        epic_label = f"🐲🥚 {epic_label} {bar}"
         epic_num = len(all_entries) + 1
         _state_for_check = _prev_state
         is_epic_current = ((user.epic_dragon_id or None) == epic.id
-                           and (is_epic_egg(_state_for_check) or is_epic_care(_state_for_check)
-                                or _state_for_check in ("await_epic_name", "await_epic_restart")))
+                           and (is_epic_egg(_state_for_check)
+                                or _state_for_check in ("await_epic_name",)))
         epic_marker = " 👈 сейчас" if is_epic_current else ""
         lines.append(f"{epic_num}. {epic_label}{epic_marker}")
 
@@ -283,9 +276,9 @@ def cancel_garden(user, db, send_message, upload_image=None):
 def switch_dragon(user, num: int, db, send_message, upload_image=None):
     all_entries = _regular_user_dragons(db, user.vk_id)
 
-    from services.epic_service import get_epic_dragon
+    from services.epic_service import get_epic_dragon, is_egg_hatched
     epic = get_epic_dragon(db, user.vk_id)
-    if epic and num == len(all_entries) + 1:
+    if epic and not is_egg_hatched(db, user.vk_id) and num == len(all_entries) + 1:
         from bot.handlers.epic import handle_epic_command
         handle_epic_command(user, db, send_message, upload_image)
         return

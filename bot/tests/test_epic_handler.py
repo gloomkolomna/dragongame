@@ -58,6 +58,25 @@ def test_epic_name_no_stages_goes_idle(db):
     assert u.state == "idle"
 
 
+def test_epic_name_shows_description_after_hatch(db):
+    u, d = _epic(db, vk=13)
+    d.description = "Дракон тумана и лунного света."
+    u.state = "await_epic_name"
+    u.epic_unlocked = True
+    u.epic_dragon_id = d.id
+    db.commit()
+    st = EpicStage(stage_number=1, name="S1", cycles_count=1)
+    db.add(st)
+    db.flush()
+    db.add(EpicStageAction(stage_id=st.id, dragon_id=d.id, action_label="кормить", order_in_cycle=0, crosses_norm=1000))
+    db.commit()
+    msgs = []
+    handle_epic_name(u, "Лунный", db, lambda m, **k: msgs.append(m))
+    assert any("Дракон тумана и лунного света." in m for m in msgs)
+    assert any("Лунный" in m for m in msgs)
+    assert any("Эпический" in m for m in msgs)
+
+
 def test_epic_restart_same_clears_slot(db):
     u, d = _epic(db, vk=12)
     u.epic_unlocked = True

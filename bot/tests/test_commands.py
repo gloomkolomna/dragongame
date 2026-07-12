@@ -347,6 +347,27 @@ def test_switch_to_epic_number_routes_to_epic(db):
     assert u.state.startswith("epic_egg_")
 
 
+def test_handle_garden_excludes_hatched_epic(db):
+    d = Dragon(name="Reg", rarity=1, steps_count=2, is_active=True, egg_type="красное")
+    db.add(d)
+    db.flush()
+    u = User(vk_id=52, state="grow_step_1", current_dragon_id=d.id, current_step=1)
+    db.add(u)
+    db.add(UserDragon(user_id=52, dragon_id=d.id, completed_at=""))
+    db.commit()
+    _make_epic(db, 52, steps_count=2, hatched_steps=2, name="Уголёк")
+
+    messages = []
+    def send(msg, **kw):
+        messages.append(msg)
+
+    handle_garden(u, db, send)
+
+    full = " ".join(messages)
+    assert "Уголёк" not in full
+    assert "2. " not in full
+
+
 def _make_legendary(db, vk_id, name="Legendary", fragments=2, opened=0):
     from models import UserLegendProgress
     d = Dragon(name=name, rarity=3, steps_count=1, is_active=True, legend_title=f"{name} legend")

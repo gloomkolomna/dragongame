@@ -218,6 +218,14 @@ def handle_epic_name(user, text, db, send_message, upload_image=None):
     set_epic_name(db, user.vk_id, name)
     care = start_care(db, user.vk_id)
     dragon = get_epic_dragon(db, user.vk_id)
+
+    hatch_msg = f"🎉🐲 Знакомься, «{name}» вылупился!\n"
+    hatch_msg += "✨ Редкость: Эпический 🐲\n"
+    if dragon and dragon.description:
+        hatch_msg += f"\n{dragon.description}\n"
+    dragon_attachment = _attach(upload_image, dragon.dragon_path if dragon else "", user.vk_id)
+    send_message(hatch_msg, attachment=dragon_attachment)
+
     if not care:
         user.state = IDLE
         db.commit()
@@ -228,7 +236,7 @@ def handle_epic_name(user, text, db, send_message, upload_image=None):
         return True
     user.state = epic_care_state(care.stage_id)
     db.commit()
-    send_message(f"🐲 «{name}» вылупился! Начинается забота о малыше.")
+    send_message(f"🐲 «{name}» подрастает! Начинается забота о малыше.")
     from bot.handlers.epic_care import show_care_action
     show_care_action(user, db, send_message, upload_image)
     return True

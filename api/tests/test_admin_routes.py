@@ -193,6 +193,45 @@ def test_skip_step_clears_timeout(client, db):
     assert ud.timeout_notified is False
 
 
+def test_epic_egg_skip_step_prompts_name(client, db):
+    ed = Dragon(name="EpicEgg", rarity=3, steps_count=2, is_active=True, is_epic=True, egg_type="лунное")
+    db.add(ed)
+    db.flush()
+    db.add(DragonStep(dragon_id=ed.id, step_number=1, phase=0, crosses_norm=100))
+    db.add(DragonStep(dragon_id=ed.id, step_number=2, phase=0, crosses_norm=100))
+    user = User(vk_id=310, state="epic_egg_1", epic_unlocked=True, epic_dragon_id=ed.id)
+    db.add(user)
+    db.add(UserDragon(user_id=310, dragon_id=ed.id, completed_at=""))
+    db.commit()
+
+    client.post("/api/admin/users/310/skip-step", json={"dragon_id": ed.id})
+    client.post("/api/admin/users/310/skip-step", json={"dragon_id": ed.id})
+
+    db.refresh(user)
+    assert user.state == "await_epic_name"
+    ud = db.query(UserDragon).filter(UserDragon.user_id == 310, UserDragon.dragon_id == ed.id).first()
+    assert ud.completed_at == ""
+
+
+def test_epic_egg_toggle_last_step_prompts_name(client, db):
+    ed = Dragon(name="EpicEgg2", rarity=3, steps_count=2, is_active=True, is_epic=True, egg_type="звёздное")
+    db.add(ed)
+    db.flush()
+    db.add(DragonStep(dragon_id=ed.id, step_number=1, phase=0, crosses_norm=100))
+    db.add(DragonStep(dragon_id=ed.id, step_number=2, phase=0, crosses_norm=100))
+    user = User(vk_id=311, state="epic_egg_2", epic_unlocked=True, epic_dragon_id=ed.id)
+    db.add(user)
+    db.add(UserDragon(user_id=311, dragon_id=ed.id, completed_at=""))
+    db.commit()
+
+    client.post("/api/admin/users/311/steps/2/toggle", json={"dragon_id": ed.id})
+
+    db.refresh(user)
+    assert user.state == "await_epic_name"
+    ud = db.query(UserDragon).filter(UserDragon.user_id == 311, UserDragon.dragon_id == ed.id).first()
+    assert ud.completed_at == ""
+
+
 def test_reset_dragon_clears_timeout(client, db):
     fam = _create_family(client)
     dragon_resp = client.post(

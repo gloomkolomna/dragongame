@@ -22,6 +22,8 @@ function EpicSpeciesForm() {
   const [isActive, setIsActive] = useState(true);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState('');
+  const [dragonFile, setDragonFile] = useState<File | null>(null);
+  const [dragonPreview, setDragonPreview] = useState('');
   const [steps, setSteps] = useState<Step[]>([]);
 
   useEffect(() => {
@@ -33,6 +35,7 @@ function EpicSpeciesForm() {
       const dr = d.data;
       setName(dr.name); setEggType(dr.egg_type); setDescription(dr.description); setIsActive(dr.is_active);
       if (dr.egg_path) setImagePreview(`/dragons/api/static/images/${dr.egg_path}?t=${Date.now()}`);
+      if (dr.dragon_path) setDragonPreview(`/dragons/api/static/images/${dr.dragon_path}?t=${Date.now()}`);
       setSteps(s.data);
     }).finally(() => setLoading(false));
   }, [id]);
@@ -40,6 +43,11 @@ function EpicSpeciesForm() {
   const onImage = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) { setImageFile(file); setImagePreview(URL.createObjectURL(file)); }
+  };
+
+  const onDragonImage = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) { setDragonFile(file); setDragonPreview(URL.createObjectURL(file)); }
   };
 
   const handleSubmit = async () => {
@@ -54,6 +62,7 @@ function EpicSpeciesForm() {
       form.append('is_active', String(isActive));
       form.append('is_epic', 'true');
       if (imageFile) form.append('image', imageFile);
+      if (dragonFile) form.append('silhouette', dragonFile);
       if (steps.length > 0) {
         form.append('steps', JSON.stringify(steps.map((s, i) => ({ ...s, step_number: i + 1 }))));
       }
@@ -121,6 +130,15 @@ function EpicSpeciesForm() {
               {imageFile ? imageFile.name : 'Выбрать файл...'}
             </label>
             {imagePreview && <img src={imagePreview} alt="" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} style={{ maxWidth: '100%', maxHeight: 180, marginTop: 8, borderRadius: 'var(--radius-sm)' }} />}
+          </div>
+
+          <div className="lair-form-group">
+            <label className="lair-label">Финальное фото дракона (показывается после вылупления)</label>
+            <label className="lair-file">
+              <input type="file" accept="image/*" style={{ display: 'none' }} onChange={onDragonImage} />
+              {dragonFile ? dragonFile.name : 'Выбрать файл...'}
+            </label>
+            {dragonPreview && <img src={dragonPreview} alt="" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} style={{ maxWidth: '100%', maxHeight: 180, marginTop: 8, borderRadius: 'var(--radius-sm)' }} />}
           </div>
 
           <div className="lair-form-group">

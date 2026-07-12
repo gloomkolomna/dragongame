@@ -785,6 +785,17 @@ async def toggle_user_step(vk_id: int, step_number: int, request: Request, db: S
     ).count()
 
     if completed_count >= total:
+        if dragon.is_epic:
+            user.state = "await_epic_name"
+            db.commit()
+            _notify_user(
+                vk_id,
+                "🎉🐲 Эпическое яйцо вылупилось!\n\n"
+                "🐲 Твой эпический дракон вылупился!\n"
+                "Как ты его назовёшь? Напиши имя одним сообщением.",
+            )
+            return {"ok": True, "completed": progress.completed, "current_step": user.current_step}
+
         ud = db.query(UserDragon).filter(UserDragon.user_id == vk_id, UserDragon.dragon_id == dragon_id).first()
         if ud and not ud.completed_at:
             ud.completed_at = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
@@ -982,6 +993,17 @@ async def skip_step(vk_id: int, request: Request, db: Session = Depends(get_db))
         ud.timeout_notified = False
 
     if next_step >= total:
+        if dragon.is_epic:
+            user.state = "await_epic_name"
+            db.commit()
+            _notify_user(
+                vk_id,
+                "🎉🐲 Эпическое яйцо вылупилось!\n\n"
+                "🐲 Твой эпический дракон вылупился!\n"
+                "Как ты его назовёшь? Напиши имя одним сообщением.",
+            )
+            return {"ok": True, "new_step": 0}
+
         if ud and not ud.completed_at:
             ud.completed_at = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
         if user.current_dragon_id == dragon_id:
