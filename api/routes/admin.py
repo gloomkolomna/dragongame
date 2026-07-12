@@ -788,11 +788,12 @@ async def toggle_user_step(vk_id: int, step_number: int, request: Request, db: S
         if dragon.is_epic:
             user.state = "await_epic_name"
             db.commit()
+            from bot.keyboard import empty_keyboard
             _notify_user(
                 vk_id,
-                "🎉🐲 Эпическое яйцо вылупилось!\n\n"
                 "🐲 Твой эпический дракон вылупился!\n"
                 "Как ты его назовёшь? Напиши имя одним сообщением.",
+                keyboard=empty_keyboard(),
             )
             return {"ok": True, "completed": progress.completed, "current_step": user.current_step}
 
@@ -1012,11 +1013,12 @@ async def skip_step(vk_id: int, request: Request, db: Session = Depends(get_db))
         if dragon.is_epic:
             user.state = "await_epic_name"
             db.commit()
+            from bot.keyboard import empty_keyboard
             _notify_user(
                 vk_id,
-                "🎉🐲 Эпическое яйцо вылупилось!\n\n"
                 "🐲 Твой эпический дракон вылупился!\n"
                 "Как ты его назовёшь? Напиши имя одним сообщением.",
+                keyboard=empty_keyboard(),
             )
             return {"ok": True, "new_step": 0}
 
