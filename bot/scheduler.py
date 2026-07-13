@@ -172,9 +172,19 @@ def _check_expired(db, vk, logger, session_factory=None):
                 msg += f"\n{dragon.description}\n"
             msg += "\nЗагляни в мини-приложение, чтобы увидеть его в своей коллекции!"
 
+            from bot.services.legend_service import get_legend_total
+            has_legend = dragon and dragon.rarity == 3 and get_legend_total(db, dragon.id) > 0
+            legend_rows = []
+            if has_legend:
+                msg += (
+                    "\n\n📖 У этого дракона есть легенда — нажми «🐲 Рассказать легенду», чтобы открыть её."
+                    "\nСобранные легенды можно перечитать в разделе «📖 Библиотека» мини-приложения."
+                )
+                legend_rows.append([{"action": {"type": "text", "label": "🐲 Рассказать легенду", "payload": json.dumps({"cmd": "legend", "dragon_id": dragon.id}, ensure_ascii=False)}, "color": "primary"}])
+
             keyboard_json = json.dumps({
                 "one_time": True,
-                "buttons": [
+                "buttons": legend_rows + [
                     [
                         {"action": {"type": "text", "label": "📖 Список Бестиария", "payload": json.dumps({"cmd": "garden"}, ensure_ascii=False)}, "color": "primary"},
                         {"action": {"type": "text", "label": "❓ Помощь", "payload": json.dumps({"cmd": "help"}, ensure_ascii=False)}, "color": "secondary"},
@@ -182,6 +192,20 @@ def _check_expired(db, vk, logger, session_factory=None):
                     [{"action": {"type": "open_link", "label": "📖 Мой Бестиарий", "link": "https://vk.com/app54663330"}}],
                 ],
             }, ensure_ascii=False)
+            try:
+                from bot.handlers.commands import user_has_legendary
+                from bot.keyboard import keyboard_with_legends
+                if user_has_legendary(db, ud.user_id):
+                    keyboard_json = keyboard_with_legends(keyboard_json)
+            except Exception:
+                pass
+            try:
+                from bot.handlers.epic import user_has_epic
+                from bot.keyboard import keyboard_with_epics
+                if user_has_epic(db, ud.user_id):
+                    keyboard_json = keyboard_with_epics(keyboard_json)
+            except Exception:
+                pass
             attachment = ""
             if dragon.dragon_path:
                 filepath = os.path.join(_IMAGES, os.path.basename(dragon.dragon_path))
@@ -206,24 +230,32 @@ def _check_expired(db, vk, logger, session_factory=None):
             )
             from bot.keyboard import step_buttons_keyboard
             keyboard_json = step_buttons_keyboard()
-            attachment = ""
-            if dragon and dragon.egg_path:
-                filepath = os.path.join(_IMAGES, os.path.basename(dragon.egg_path))
-                if os.path.isfile(filepath):
-                    attachment = _upload_image(vk, filepath, peer_id=ud.user_id, session_factory=session_factory, user_id=ud.user_id)
-            _send(vk, ud.user_id, msg, keyboard_json, logger, attachment, session_factory=session_factory)
         else:
             msg = (
                 f"⏰ Выращивание яйца «{dragon.egg_type or dragon.name or '?'}» готово к следующему этапу!\n"
                 f"Нажми кнопку ниже, чтобы переключиться."
             )
             keyboard_json = _switch_garden_keyboard(ud.dragon_id)
-            attachment = ""
-            if dragon and dragon.egg_path:
-                filepath = os.path.join(_IMAGES, os.path.basename(dragon.egg_path))
-                if os.path.isfile(filepath):
-                    attachment = _upload_image(vk, filepath, peer_id=ud.user_id, session_factory=session_factory, user_id=ud.user_id)
-            _send(vk, ud.user_id, msg, keyboard_json, logger, attachment, session_factory=session_factory)
+        try:
+            from bot.handlers.commands import user_has_legendary
+            from bot.keyboard import keyboard_with_legends
+            if user_has_legendary(db, ud.user_id):
+                keyboard_json = keyboard_with_legends(keyboard_json)
+        except Exception:
+            pass
+        try:
+            from bot.handlers.epic import user_has_epic
+            from bot.keyboard import keyboard_with_epics
+            if user_has_epic(db, ud.user_id):
+                keyboard_json = keyboard_with_epics(keyboard_json)
+        except Exception:
+            pass
+        attachment = ""
+        if dragon and dragon.egg_path:
+            filepath = os.path.join(_IMAGES, os.path.basename(dragon.egg_path))
+            if os.path.isfile(filepath):
+                attachment = _upload_image(vk, filepath, peer_id=ud.user_id, session_factory=session_factory, user_id=ud.user_id)
+        _send(vk, ud.user_id, msg, keyboard_json, logger, attachment, session_factory=session_factory)
 
 
 def _switch_garden_keyboard(dragon_id: int):

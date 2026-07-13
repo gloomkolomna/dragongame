@@ -814,10 +814,11 @@ async def toggle_user_step(vk_id: int, step_number: int, request: Request, db: S
         family_treasures = award_family_treasures(db, vk_id)
         epic = maybe_spawn_first_epic(db, vk_id)
 
+        from bot.services.grow_service import rarity_name, rarity_stars
         msg = (
             f"🎉 Поздравляю! Ты вырастил дракона!\n\n"
-            f"⭐ {dragon.name} ⭐\n"
-            f"Редкость: {({1: 'обычный', 2: 'редкий', 3: 'легендарный'}).get(dragon.rarity, 'легендарный')} {'⭐' * min(dragon.rarity, 3)}\n"
+            f"🐲 {dragon.name} 🐲\n"
+            f"Редкость: {rarity_name(dragon.rarity)} {rarity_stars(dragon.rarity)}\n"
         )
         if dragon.family_id:
             family_row = db.query(Family).filter(Family.id == dragon.family_id).first()
@@ -827,6 +828,16 @@ async def toggle_user_step(vk_id: int, step_number: int, request: Request, db: S
             msg += f"\n{dragon.description}\n"
         msg += "\nЗагляни в мини-приложение, чтобы увидеть его в своей коллекции!"
 
+        from bot.services.legend_service import get_legend_total
+        has_legend = dragon.rarity == 3 and get_legend_total(db, dragon.id) > 0
+        legend_rows = []
+        if has_legend:
+            msg += (
+                "\n\n📖 У этого дракона есть легенда — нажми «🐲 Рассказать легенду», чтобы открыть её."
+                "\nСобранные легенды можно перечитать в разделе «📖 Библиотека» мини-приложения."
+            )
+            legend_rows.append([{"action": {"type": "text", "label": "🐲 Рассказать легенду", "payload": json.dumps({"cmd": "legend", "dragon_id": dragon.id}, ensure_ascii=False)}, "color": "primary"}])
+
         attachment = ""
         if dragon.dragon_path:
             img_path = os.path.join(os.path.dirname(__file__), "..", "..", "images", "dragons", os.path.basename(dragon.dragon_path))
@@ -834,13 +845,26 @@ async def toggle_user_step(vk_id: int, step_number: int, request: Request, db: S
 
         idle_kb = json.dumps({
             "one_time": False,
-            "buttons": [
-                [{"action": {"type": "text", "label": "🥚 Добавить яйцо дракона", "payload": json.dumps({"cmd": "pin"}, ensure_ascii=False)}, "color": "primary"}],
-                [{"action": {"type": "text", "label": "🔄🥚 Сменить яйцо дракона", "payload": json.dumps({"cmd": "garden"}, ensure_ascii=False)}, "color": "secondary"},
+            "buttons": legend_rows + [
+                [{"action": {"type": "text", "label": "📖 Список Бестиария", "payload": json.dumps({"cmd": "garden"}, ensure_ascii=False)}, "color": "primary"},
                  {"action": {"type": "text", "label": "❓ Помощь", "payload": json.dumps({"cmd": "help"}, ensure_ascii=False)}, "color": "secondary"}],
                 [{"action": {"type": "open_link", "label": "📖 Мой Бестиарий", "link": "https://vk.com/app54663330"}}],
             ],
         }, ensure_ascii=False)
+        try:
+            from bot.handlers.commands import user_has_legendary
+            from bot.keyboard import keyboard_with_legends
+            if user_has_legendary(db, vk_id):
+                idle_kb = keyboard_with_legends(idle_kb)
+        except Exception:
+            pass
+        try:
+            from bot.handlers.epic import user_has_epic
+            from bot.keyboard import keyboard_with_epics
+            if user_has_epic(db, vk_id):
+                idle_kb = keyboard_with_epics(idle_kb)
+        except Exception:
+            pass
 
         _notify_user(vk_id, msg, attachment, keyboard=idle_kb)
         if treasure:
@@ -1032,11 +1056,64 @@ async def skip_step(vk_id: int, request: Request, db: Session = Depends(get_db))
             user.current_dragon_id = None
             user.current_step = 0
         db.commit()
-        from bot.services.grow_service import award_treasure, award_family_treasures
+        from bot.services.grow_service import award_treasure, award_family_treasures, rarity_name, rarity_stars
         award_treasure(db, vk_id, dragon_id)
         award_family_treasures(db, vk_id)
         from services.epic_service import maybe_spawn_first_epic
         maybe_spawn_first_epic(db, vk_id)
+
+        msg = (
+            f"🎉 Поздравляю! Ты вырастил дракона!\n\n"
+            f"🐲 {dragon.name} 🐲\n"
+            f"Редкость: {rarity_name(dragon.rarity)} {rarity_stars(dragon.rarity)}\n"
+        )
+        if dragon.family_id:
+            family_row = db.query(Family).filter(Family.id == dragon.family_id).first()
+            if family_row:
+                msg += f"Коллекция: {family_row.name}\n"
+        if dragon.description:
+            msg += f"\n{dragon.description}\n"
+        msg += "\nЗагляни в мини-приложение, чтобы увидеть его в своей коллекции!"
+
+        from bot.services.legend_service import get_legend_total
+        has_legend = dragon.rarity == 3 and get_legend_total(db, dragon.id) > 0
+        legend_rows = []
+        if has_legend:
+            msg += (
+                "\n\n📖 У этого дракона есть легенда — нажми «🐲 Рассказать легенду», чтобы открыть её."
+                "\nСобранные легенды можно перечитать в разделе «📖 Библиотека» мини-приложения."
+            )
+            legend_rows.append([{"action": {"type": "text", "label": "🐲 Рассказать легенду", "payload": json.dumps({"cmd": "legend", "dragon_id": dragon.id}, ensure_ascii=False)}, "color": "primary"}])
+
+        attachment = ""
+        if dragon.dragon_path:
+            img_path = os.path.join(os.path.dirname(__file__), "..", "..", "images", "dragons", os.path.basename(dragon.dragon_path))
+            attachment = _upload_vk_image(os.path.abspath(img_path), peer_id=vk_id)
+
+        keyboard = json.dumps({
+            "one_time": False,
+            "buttons": legend_rows + [
+                [{"action": {"type": "text", "label": "📖 Список Бестиария", "payload": json.dumps({"cmd": "garden"}, ensure_ascii=False)}, "color": "primary"},
+                 {"action": {"type": "text", "label": "❓ Помощь", "payload": json.dumps({"cmd": "help"}, ensure_ascii=False)}, "color": "secondary"}],
+                [{"action": {"type": "open_link", "label": "📖 Мой Бестиарий", "link": "https://vk.com/app54663330"}}],
+            ],
+        }, ensure_ascii=False)
+        try:
+            from bot.handlers.commands import user_has_legendary
+            from bot.keyboard import keyboard_with_legends
+            if user_has_legendary(db, vk_id):
+                keyboard = keyboard_with_legends(keyboard)
+        except Exception:
+            pass
+        try:
+            from bot.handlers.epic import user_has_epic
+            from bot.keyboard import keyboard_with_epics
+            if user_has_epic(db, vk_id):
+                keyboard = keyboard_with_epics(keyboard)
+        except Exception:
+            pass
+
+        _notify_user(vk_id, msg, attachment, keyboard=keyboard)
         return {"ok": True, "new_step": 0}
 
     new_step = next_step + 1
