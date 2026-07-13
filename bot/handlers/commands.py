@@ -161,7 +161,7 @@ def handle_balance(user, db, send_message):
 def handle_garden(user, db, send_message):
     all_entries = _regular_user_dragons(db, user.vk_id)
 
-    from services.epic_service import get_epic_dragon, get_care, is_egg_hatched, egg_completed_count, all_user_epics, get_epic_name_for
+    from services.epic_service import get_epic_dragon, get_care, is_egg_hatched, egg_completed_count, all_user_epics, get_epic_name_for, has_completed_regular_dragon
     epic_dragons = all_user_epics(db, user.vk_id)
 
     if not all_entries and not epic_dragons:
@@ -170,7 +170,7 @@ def handle_garden(user, db, send_message):
         send_message(
             "📖 В твоём Бестиарии пока нет драконов.\n"
             "Нажми «🥚 Добавить яйцо дракона» и введи PIN-код, чтобы вырастить первого.",
-            keyboard=await_garden_keyboard(with_cancel=False, show_incubator=user.epic_unlocked),
+            keyboard=await_garden_keyboard(with_cancel=False, show_incubator=has_completed_regular_dragon(db, user.vk_id)),
         )
         return
 
@@ -259,7 +259,7 @@ def handle_garden(user, db, send_message):
             lines.append("\nВсе яйца выращены! Добавь нового или загляни в Бестиарий.")
 
     if user.current_dragon_id or user.epic_dragon_id:
-        send_message("\n".join(lines), keyboard=await_garden_keyboard(with_cancel=True, show_incubator=user.epic_unlocked))
+        send_message("\n".join(lines), keyboard=await_garden_keyboard(with_cancel=True, show_incubator=has_completed_regular_dragon(db, user.vk_id)))
     else:
         send_message("\n".join(lines))
 

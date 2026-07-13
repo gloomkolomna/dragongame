@@ -411,27 +411,8 @@ def rules_section_keyboard():
 
 
 def incubator_keyboard(epics):
-    buttons = []
-    for ep in epics:
-        d = ep["dragon"]
-        status = ep["status"]
-        cost = ep["cost"]
-        is_active = ep["is_active"]
-        marker = " 👈" if is_active else ""
-        if status == "completed":
-            label = f"🔄 {d.egg_type or d.name} — {cost} ✚ (повтор){marker}"
-        elif status == "growing":
-            label = f"🐣 {d.egg_type or d.name} — растёт{marker}"
-        else:
-            label = f"🥚 {d.egg_type or d.name} — {cost} ✚{marker}"
-        buttons.append([{
-            "action": {
-                "type": "text",
-                "label": label[:40],
-                "payload": json.dumps({"cmd": "incubator_buy", "dragon_id": d.id}, ensure_ascii=False),
-            },
-            "color": "positive" if cost > 0 else "secondary",
-        }])
-    buttons.append(row(("0. Отмена", "incubator_cancel")))
-    buttons.append(bestiary_link_row())
+    buttons = [
+        row(("0. Отмена", "incubator_cancel")),
+        bestiary_link_row(),
+    ]
     return _keyboard(buttons)

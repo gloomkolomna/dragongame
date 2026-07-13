@@ -61,14 +61,18 @@ def _handle_growing_chat(user, db, send_message, upload_image=None):
         send_message(msg, attachment=attachment, keyboard=step_buttons_keyboard())
 
 
-def get_keyboard(state: str, user=None) -> str:
+def get_keyboard(state: str, user=None, db=None) -> str:
     if state == AWAIT_EPIC_NAME:
         from bot.keyboard import epic_name_keyboard
         return epic_name_keyboard()
     if state == AWAIT_PIN:
         return await_pin_keyboard()
     if state == AWAIT_GARDEN:
-        return await_garden_keyboard(with_cancel=True, show_incubator=bool(user and user.epic_unlocked))
+        show_inc = False
+        if user and db:
+            from services.epic_service import has_completed_regular_dragon
+            show_inc = has_completed_regular_dragon(db, user.vk_id)
+        return await_garden_keyboard(with_cancel=True, show_incubator=show_inc)
     if state == AWAIT_INCUBATOR:
         return empty_keyboard()
     if state == AWAIT_EPIC_RESTART:
@@ -221,7 +225,7 @@ def main():
                     "random_id": random.randint(1, 2**31 - 1),
                 }
                 if keyboard is None:
-                    keyboard = get_keyboard(user.state, user)
+                    keyboard = get_keyboard(user.state, user, db)
                 if keyboard:
                     try:
                         if (user.state not in (AWAIT_LEGENDS, AWAIT_EPIC_NAME)
@@ -399,12 +403,12 @@ def main():
             if cmd == "incubator_buy":
                 try:
                     payload = json.loads(payload_str) if payload_str else {}
-                    dragon_id = payload.get("dragon_id")
+                    idx = payload.get("idx")
                 except (json.JSONDecodeError, TypeError):
-                    dragon_id = None
-                if dragon_id:
+                    idx = None
+                if idx:
                     from bot.handlers.incubator import handle_incubator_pick
-                    handle_incubator_pick(user, int(dragon_id), db, send_message, upload_image)
+                    handle_incubator_pick(user, int(idx), db, send_message, upload_image)
                 continue
 
             if cmd == "incubator_confirm":

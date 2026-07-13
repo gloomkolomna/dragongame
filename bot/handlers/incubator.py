@@ -4,8 +4,13 @@ import json as j
 
 
 def handle_incubator(user, db, send_message, upload_image=None):
-    from services.epic_service import get_incubator_epics
+    from services.epic_service import get_incubator_epics, has_completed_regular_dragon
     from models import Dragon
+
+    if not has_completed_regular_dragon(db, user.vk_id):
+        send_message("🥚 Инкубатор станет доступен после того, как ты вырастишь первого обычного дракона.")
+        return
+
     epics = get_incubator_epics(db, user.vk_id)
     pool = db.query(Dragon).filter(Dragon.is_epic == True).all()
     if not pool:
@@ -29,7 +34,7 @@ def handle_incubator(user, db, send_message, upload_image=None):
             lines.append(f"{i}. 🐣 {d.egg_type or d.name} — уже растёт{marker}")
         else:
             lines.append(f"{i}. 🥚 {d.egg_type or d.name} — {cost} ✚{marker}")
-    lines.append("\nНапиши номер, чтобы купить яйцо, или «0» для отмены.")
+    lines.append("\nНапиши номер яйца или «0» для отмены.")
     send_message("\n".join(lines), keyboard=incubator_keyboard(epics))
 
 

@@ -156,8 +156,10 @@ def test_restart_same_resets_slot(db):
     dragon, others = epic_service.restart_epic(db, 7, "same")
     assert dragon.id == d.id
     assert others is False
-    ud2 = epic_service.get_epic_user_dragon(db, 7)
-    assert ud2.completed_at == ""
+    uds = db.query(UserDragon).filter(UserDragon.user_id == 7, UserDragon.dragon_id == d.id).all()
+    assert len(uds) >= 2
+    assert any(u.completed_at == "" for u in uds)
+    assert any(u.completed_at == "2026-01-01T00:00:00" for u in uds)
 
 
 def test_care_timeout_gating(db):

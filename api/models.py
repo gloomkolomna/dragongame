@@ -111,7 +111,7 @@ class UserDragon(Base):
     completed_at = Column(String, default="")
     next_step_available_at = Column(String, nullable=True, default=None)
     timeout_notified = Column(Boolean, default=False)
-    __table_args__ = (UniqueConstraint("user_id", "dragon_id"),)
+    __table_args__ = ()
 
 
 class ErrorLog(Base):

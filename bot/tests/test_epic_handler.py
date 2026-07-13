@@ -89,8 +89,10 @@ def test_epic_restart_same_clears_slot(db):
     handle_epic_restart(u, "same", db, lambda m, **k: msgs.append(m))
     db.refresh(u)
     assert u.state == "epic_egg_1"
-    ud2 = db.query(UserDragon).filter(UserDragon.user_id == 12).first()
-    assert ud2.completed_at == ""
+    uds = db.query(UserDragon).filter(UserDragon.user_id == 12).all()
+    assert len(uds) >= 2
+    assert any(ud2.completed_at == "" for ud2 in uds)
+    assert any(ud2.completed_at == "2026-01-01" for ud2 in uds)
 
 
 def test_epic_spawn_notice_has_garden_button(db):
