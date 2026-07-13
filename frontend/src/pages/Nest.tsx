@@ -21,7 +21,8 @@ interface EpicView {
   hatched?: boolean;
   egg_progress?: { completed: number; total: number };
   stage?: { number: number; name: string; description: string; image_start: string; image_end: string; cycle_completed: number; cycle_total: number };
-  action?: { label: string; hint: string; crosses_norm: number; items: { id: number; name: string; owned: boolean }[] } | null;
+  action?: { label: string; hint: string; crosses_norm: number; image_path: string; items: { id: number; name: string; owned: boolean }[] } | null;
+  care_started?: boolean;
   care_remaining_seconds?: number;
   moodlets?: Moodlet[];
   character?: { axis: string; label: string; polarity: string }[];
@@ -75,7 +76,7 @@ function Nest() {
     transition: 'all 0.2s',
   });
 
-  const img = data.dragon_url || data.egg_url;
+  const img = (data.phase === 'care' && data.care_started && data.action?.image_path) || (data.phase === 'care' && data.care_started && data.stage?.image_start) || data.dragon_url || data.egg_url;
 
   return (
     <div style={{ padding: '12px 10px', maxWidth: 560, margin: '0 auto' }}>

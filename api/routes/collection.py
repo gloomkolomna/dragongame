@@ -264,10 +264,17 @@ def get_epic_view(vk_id: int, db: Session = Depends(get_db)):
         return base
 
     stage = epic_service.get_stage(db, care.stage_id)
-    action = epic_service.get_current_action(db, care)
     remaining = epic_service.get_care_remaining(db, care)
+    action = epic_service.get_current_action(db, care)
+    if remaining and action:
+        prev_idx = (care.current_action_order or 0) - 1
+        actions = epic_service.get_stage_actions(db, care.stage_id, epic_service.care_dragon_id(db, care))
+        if prev_idx >= 0 and prev_idx < len(actions):
+            action = actions[prev_idx]
     owned_missing = {m.id for m in epic_service.missing_action_items(db, vk_id, action.id)} if action else set()
     base["phase"] = "care"
+    care_started = (care.current_action_order or 0) > 0 or (care.cycles_completed or 0) > 0
+    base["care_started"] = care_started
     base["stage"] = {
         "number": stage.stage_number if stage else 0,
         "name": stage.name if stage else "",
@@ -278,6 +285,7 @@ def get_epic_view(vk_id: int, db: Session = Depends(get_db)):
         "cycle_total": stage.cycles_count if stage else 0,
     }
     if action:
+        action_img = getattr(action, "image_path", "") or ""
         base["action"] = {
             "label": action.action_label,
             "task": action.task,
@@ -285,6 +293,7 @@ def get_epic_view(vk_id: int, db: Session = Depends(get_db)):
             "crosses_norm": action.crosses_norm,
             "timeout_hours": action.timeout_hours,
             "timeout_minutes": action.timeout_minutes,
+            "image_path": f"/api/static/images/{action_img}" if action_img else "",
             "items": [
                 {"id": it.id, "name": it.name, "owned": it.id not in owned_missing}
                 for it in epic_service.action_items(db, action.id)
