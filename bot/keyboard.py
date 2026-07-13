@@ -137,7 +137,6 @@ def keyboard_with_incubator(kb_json):
 def idle_keyboard(has_active=True):
     bottom = [("📖 Список Бестиария", "garden"), ("📜 Правила", "rules"), ("❓ Помощь", "help")]
     return _keyboard([
-        row(("🛒 Магазин", "shop")),
         row(*bottom),
         bestiary_link_row(),
     ])
@@ -145,7 +144,6 @@ def idle_keyboard(has_active=True):
 
 def growing_keyboard():
     return _keyboard([
-        row(("🛒 Магазин", "shop")),
         row(("📖 Список Бестиария", "garden"), ("📜 Правила", "rules"), ("❓ Помощь", "help")),
         bestiary_link_row(),
     ])
