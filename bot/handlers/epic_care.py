@@ -532,11 +532,13 @@ def handle_confirm_sub(user, db, send_message, upload_image=None):
     if outcome:
         pol_label = "🌟" if polarity == "positive" else "💔"
         moodlet_title = outcome.moodlet_title or outcome.label
-        msg = f"{pol_label} «{sub_action.label}» — {moodlet_title}"
+        msg = f"{pol_label} «{sub_action.label}»"
+        if moodlet_title:
+            msg += f" — {moodlet_title}"
         if outcome.moodlet_text:
             msg += f"\n\n{outcome.moodlet_text}"
-        if outcome.moodlet_title:
-            msg += f"\n\nДобавлено воспоминание: {outcome.moodlet_title}"
+        if moodlet_title or outcome.moodlet_text:
+            msg += f"\n\nДобавлено воспоминание: {moodlet_title or 'без названия'}"
         if outcome.image_path:
             attachment = _attach(upload_image, outcome.image_path, user.vk_id)
             send_message(msg, attachment=attachment)
@@ -703,11 +705,13 @@ def handle_sub_message(user, text, attachments, db, send_message, upload_image=N
         if outcome:
             pol_label = "🌟" if polarity == "positive" else "💔"
             moodlet_title = outcome.moodlet_title or outcome.label
-            msg = f"{pol_label} «{sub_action.label if sub_action else '?'}» — {moodlet_title}"
+            msg = f"{pol_label} «{sub_action.label if sub_action else '?'}»"
+            if moodlet_title:
+                msg += f" — {moodlet_title}"
             if outcome.moodlet_text:
                 msg += f"\n\n{outcome.moodlet_text}"
-            if outcome.moodlet_title:
-                msg += f"\n\nДобавлено воспоминание: {outcome.moodlet_title}"
+            if moodlet_title or outcome.moodlet_text:
+                msg += f"\n\nДобавлено воспоминание: {moodlet_title or 'без названия'}"
             if outcome.image_path:
                 attachment = _attach(upload_image, outcome.image_path, user.vk_id)
                 send_message(msg, attachment=attachment)
@@ -777,11 +781,12 @@ def _show_action_outcome(db, vk_id, care, action, send_message, upload_image, ha
         return
     pol_label = "🌟" if polarity == "positive" else "💔"
     moodlet_title = outcome.moodlet_title or outcome.label or action.action_label
-    msg = f"{pol_label} {moodlet_title}"
+    msg = f"{pol_label} {moodlet_title}" if moodlet_title else f"{pol_label} {action.action_label}"
     if outcome.moodlet_text:
         msg += f"\n\n{outcome.moodlet_text}"
-    if outcome.moodlet_title:
-        msg += f"\n\nДобавлено воспоминание: {outcome.moodlet_title}"
+    if moodlet_title or outcome.moodlet_text:
+        label_for_memory = outcome.moodlet_title or outcome.label or action.action_label
+        msg += f"\n\nДобавлено воспоминание: {label_for_memory}"
     if outcome.image_path:
         attachment = _attach(upload_image, outcome.image_path, vk_id)
         send_message(msg, attachment=attachment)
