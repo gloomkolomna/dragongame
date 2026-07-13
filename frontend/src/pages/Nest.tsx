@@ -40,6 +40,7 @@ function Nest() {
   const [load, setLoad] = useState(true);
   const [tab, setTab] = useState<'nest' | 'memories'>('nest');
   const [zoomMoodlet, setZoomMoodlet] = useState<Moodlet | null>(null);
+  const [zoomImg, setZoomImg] = useState('');
   const [memPage, setMemPage] = useState(0);
 
   useEffect(() => {
@@ -89,7 +90,7 @@ function Nest() {
       {tab === 'nest' && (
         <>
           <div className="lair-card" style={{ marginBottom: 12, textAlign: 'center' }}>
-            {img && <img src={mediaUrl(img)} alt="" style={{ maxWidth: 180, maxHeight: 180, objectFit: 'contain', borderRadius: 10 }} />}
+            {img && <img src={mediaUrl(img)} alt="" onClick={() => setZoomImg(mediaUrl(img))} style={{ maxWidth: 180, maxHeight: 180, objectFit: 'contain', borderRadius: 10, cursor: 'pointer' }} />}
             <h2 style={{ color: 'var(--gold)', margin: '10px 0 2px' }}>{data.name || data.egg_type || 'Эпический дракон'}</h2>
             {data.character && data.character.length > 0 && (
               <div style={{ fontSize: 14, color: 'var(--parchment-dim)', marginTop: 6 }}>
@@ -207,6 +208,20 @@ function Nest() {
               ✕
             </button>
           </div>
+        </div>
+      )}
+
+      {zoomImg && (
+        <div
+          onClick={() => setZoomImg('')}
+          style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, cursor: 'pointer' }}
+        >
+          <img src={zoomImg} alt="" onClick={(e) => e.stopPropagation()}
+               style={{ maxWidth: '90vw', maxHeight: '90vh', objectFit: 'contain', borderRadius: 12, cursor: 'default' }} />
+          <button onClick={() => setZoomImg('')}
+                  style={{ position: 'absolute', top: 16, right: 16, width: 40, height: 40, borderRadius: '50%', border: '2px solid var(--bronze)', background: 'rgba(21,15,26,0.85)', color: 'var(--gold)', fontSize: 20, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1 }}>
+            ✕
+          </button>
         </div>
       )}
     </div>
