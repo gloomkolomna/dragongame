@@ -138,10 +138,10 @@ def handle_balance(user, db, send_message):
 def handle_garden(user, db, send_message):
     all_entries = _regular_user_dragons(db, user.vk_id)
 
-    from services.epic_service import get_epic_dragon, get_care, is_egg_hatched, egg_completed_count
-    epic = get_epic_dragon(db, user.vk_id)
+    from services.epic_service import get_epic_dragon, get_care, is_egg_hatched, egg_completed_count, all_user_epics, get_epic_name_for
+    epic_dragons = all_user_epics(db, user.vk_id)
 
-    if not all_entries and not epic:
+    if not all_entries and not epic_dragons:
         from bot.keyboard import idle_keyboard
         user.state = IDLE
         db.commit()
@@ -153,7 +153,15 @@ def handle_garden(user, db, send_message):
 
     entries = [e for e in all_entries if not e.completed_at]
     completed_entries = [e for e in all_entries if e.completed_at]
-    index_map = {e.id: i + 1 for i, e in enumerate(all_entries)}
+    index_map = {}
+    counter = 1
+    for e in all_entries:
+        index_map[("regular", e.id)] = counter
+        counter += 1
+    epic_index_map = {}
+    for d in epic_dragons:
+        epic_index_map[d.id] = counter
+        counter += 1
 
     import json as _j
     _sd = _j.loads(user.state_data or "{}")
@@ -190,31 +198,33 @@ def handle_garden(user, db, send_message):
             remaining_str = f" ⏳ ещё {hours} ч. {minutes} мин."
         marker = " 👈 сейчас" if is_current else ""
         label = dragon.egg_type or dragon.name or "?"
-        num = index_map[ud.id]
+        num = index_map[("regular", ud.id)]
         lines.append(f"{num}. {status} {label} {bar}{remaining_str}{marker}")
 
-    epic_num = None
-    if epic and not is_egg_hatched(db, user.vk_id):
-        epic_kind = "🐲"
-        epic_label = f"{epic.egg_type or epic.name or '?'} {epic_kind}"
-        done_egg = egg_completed_count(db, user.vk_id)
-        bar = "🟡" * done_egg + "⚪" * (epic.steps_count - done_egg)
-        epic_label = f"🐲🥚 {epic_label} {bar}"
-        epic_num = len(all_entries) + 1
-        _state_for_check = _prev_state
-        is_epic_current = ((user.epic_dragon_id or None) == epic.id
-                           and (is_epic_egg(_state_for_check)
-                                or _state_for_check in ("await_epic_name",)))
-        epic_marker = " 👈 сейчас" if is_epic_current else ""
-        lines.append(f"{epic_num}. {epic_label}{epic_marker}")
+    for d in epic_dragons:
+        name = get_epic_name_for(db, user.vk_id, d.id) or d.egg_type or d.name or "?"
+        is_epic_current = (user.epic_dragon_id == d.id
+                           and (is_epic_egg(_prev_state)
+                                or is_epic_care(_prev_state)
+                                or _prev_state in ("await_epic_name", "await_epic_restart")))
+        marker = " 👈 сейчас" if is_epic_current else ""
+        hatched = is_egg_hatched(db, user.vk_id) and user.epic_dragon_id == d.id
+        num = epic_index_map[d.id]
+        if hatched:
+            lines.append(f"{num}. 🐲 {name} — уход{marker}")
+        else:
+            egg_done = egg_completed_count_for_bot(db, user.vk_id, d.id)
+            total = d.steps_count or 0
+            bar = "🟡" * egg_done + "⚪" * (total - egg_done)
+            lines.append(f"{num}. 🥚 {name} {bar}{marker}")
 
-    if entries or epic:
+    if entries or epic_dragons:
         user.state_data = _j.dumps(_sd, ensure_ascii=False)
         user.state = AWAIT_GARDEN
         db.commit()
         if completed_entries:
             lines.append(f"\n🐲 Выращено драконов: {len(completed_entries)}. Их можно посмотреть в мини-приложении «Мой Бестиарий».")
-        if user.current_dragon_id:
+        if user.current_dragon_id or user.epic_dragon_id:
             lines.append("\nНапиши номер яйца, чтобы переключиться на него, или нажми кнопку «Не менять».")
         else:
             lines.append("\nНапиши номер яйца, чтобы переключиться на него, или нажми кнопку «Не менять»")
@@ -224,10 +234,20 @@ def handle_garden(user, db, send_message):
         if completed_entries:
             lines.append("\nВсе яйца выращены! Добавь нового или загляни в Бестиарий.")
 
-    if user.current_dragon_id:
+    if user.current_dragon_id or user.epic_dragon_id:
         send_message("\n".join(lines), keyboard=await_garden_keyboard(with_cancel=True))
     else:
         send_message("\n".join(lines))
+
+
+def egg_completed_count_for_bot(db, vk_id, dragon_id):
+    from models import UserProgress
+    return db.query(UserProgress).filter(
+        UserProgress.user_id == vk_id,
+        UserProgress.dragon_id == dragon_id,
+        UserProgress.step_number > 0,
+        UserProgress.completed == True,
+    ).count()
 
 
 def cancel_garden(user, db, send_message, upload_image=None):
@@ -276,10 +296,20 @@ def cancel_garden(user, db, send_message, upload_image=None):
 def switch_dragon(user, num: int, db, send_message, upload_image=None):
     all_entries = _regular_user_dragons(db, user.vk_id)
 
-    from services.epic_service import get_epic_dragon, is_egg_hatched
-    epic = get_epic_dragon(db, user.vk_id)
-    if epic and not is_egg_hatched(db, user.vk_id) and num == len(all_entries) + 1:
+    from services.epic_service import all_user_epics, get_epic_name_for
+    epic_dragons = all_user_epics(db, user.vk_id)
+
+    epic_index_map = {}
+    counter = len(all_entries) + 1
+    for d in epic_dragons:
+        epic_index_map[d.id] = counter
+        counter += 1
+
+    if num in epic_index_map.values():
+        dragon_id = [k for k, v in epic_index_map.items() if v == num][0]
         from bot.handlers.epic import handle_epic_command
+        user.epic_dragon_id = dragon_id
+        db.commit()
         handle_epic_command(user, db, send_message, upload_image)
         return
 

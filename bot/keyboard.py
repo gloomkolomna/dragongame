@@ -46,12 +46,20 @@ def garden_row():
     return row(("🔄🥚 Сменить яйцо дракона", "garden"))
 
 
+def help_rules_row():
+    return row(("📜 Правила", "rules"), ("❓ Помощь", "help"))
+
+
 def legends_row():
     return row(("🐲 Легендарные драконы", "legends"))
 
 
 def epics_row():
     return row(("🐉 Эпические драконы", "epics"))
+
+
+def incubator_row():
+    return row(("🥚 Инкубатор", "incubator"))
 
 
 def keyboard_with_legends(kb_json):
@@ -102,8 +110,32 @@ def keyboard_with_epics(kb_json):
     return json.dumps(data, ensure_ascii=False)
 
 
+def keyboard_with_incubator(kb_json):
+    data = json.loads(kb_json)
+    buttons = data.get("buttons", [])
+    for r in buttons:
+        for b in r:
+            payload = b.get("action", {}).get("payload")
+            if payload:
+                try:
+                    if json.loads(payload).get("cmd") == "incubator":
+                        return kb_json
+                except (json.JSONDecodeError, TypeError):
+                    pass
+    if len(buttons) >= 10:
+        return kb_json
+    insert_at = len(buttons)
+    for i, r in enumerate(buttons):
+        if any(b.get("action", {}).get("type") == "open_link" for b in r):
+            insert_at = i
+            break
+    buttons.insert(insert_at, incubator_row())
+    data["buttons"] = buttons
+    return json.dumps(data, ensure_ascii=False)
+
+
 def idle_keyboard(has_active=True):
-    bottom = [("🔄🥚 Сменить яйцо дракона", "garden"), ("❓ Помощь", "help")]
+    bottom = [("🔄🥚 Сменить яйцо дракона", "garden"), ("📜 Правила", "rules"), ("❓ Помощь", "help")]
     return _keyboard([
         row(("🥚 Добавить яйцо дракона", "pin")),
         row(("🛒 Магазин", "shop")),
@@ -115,7 +147,7 @@ def idle_keyboard(has_active=True):
 def growing_keyboard():
     return _keyboard([
         row(("🛒 Магазин", "shop")),
-        row(("🔄🥚 Сменить яйцо дракона", "garden"), ("❓ Помощь", "help")),
+        row(("🔄🥚 Сменить яйцо дракона", "garden"), ("📜 Правила", "rules"), ("❓ Помощь", "help")),
         bestiary_link_row(),
     ])
 
@@ -123,7 +155,7 @@ def growing_keyboard():
 def waiting_keyboard():
     return _keyboard([
         row(("◀ Назад", "back")),
-        row(("🔄🥚 Сменить яйцо дракона", "garden"), ("❓ Помощь", "help")),
+        row(("🔄🥚 Сменить яйцо дракона", "garden"), ("📜 Правила", "rules"), ("❓ Помощь", "help")),
         bestiary_link_row(),
     ])
 
@@ -131,7 +163,7 @@ def waiting_keyboard():
 def start_growing_keyboard():
     return _keyboard([
         row(("🌱 Перейти к выращиванию", "grow")),
-        row(("🔄🥚 Сменить яйцо дракона", "garden"), ("❓ Помощь", "help")),
+        row(("🔄🥚 Сменить яйцо дракона", "garden"), ("📜 Правила", "rules"), ("❓ Помощь", "help")),
         bestiary_link_row(),
     ])
 
@@ -140,7 +172,8 @@ def step_buttons_keyboard():
     return _keyboard([
         [{"action": {"type": "text", "label": "🎯 Норма", "payload": json.dumps({"cmd": "norm"}, ensure_ascii=False)}, "color": "positive"}],
         [{"action": {"type": "text", "label": "⚡ Штраф (x2)", "payload": json.dumps({"cmd": "x2"}, ensure_ascii=False)}, "color": "negative"}],
-        row(("🔄🥚 Сменить яйцо дракона", "garden")),
+        garden_row(),
+        help_rules_row(),
         bestiary_link_row(),
     ])
 
@@ -150,6 +183,7 @@ def legend_buttons_keyboard():
         [{"action": {"type": "text", "label": "🎯 Норма", "payload": json.dumps({"cmd": "norm"}, ensure_ascii=False)}, "color": "positive"}],
         [{"action": {"type": "text", "label": "⚡ Штраф (x2)", "payload": json.dumps({"cmd": "x2"}, ensure_ascii=False)}, "color": "negative"}],
         garden_row(),
+        help_rules_row(),
         bestiary_link_row(),
     ])
 
@@ -159,6 +193,7 @@ def epic_egg_buttons_keyboard():
         [{"action": {"type": "text", "label": "🎯 Норма", "payload": json.dumps({"cmd": "norm"}, ensure_ascii=False)}, "color": "positive"}],
         [{"action": {"type": "text", "label": "⚡ Штраф (x2)", "payload": json.dumps({"cmd": "x2"}, ensure_ascii=False)}, "color": "negative"}],
         garden_row(),
+        help_rules_row(),
         bestiary_link_row(),
     ])
 
@@ -169,6 +204,7 @@ def epic_care_keyboard():
         [{"action": {"type": "text", "label": "⚡ Штраф (x2)", "payload": json.dumps({"cmd": "x2"}, ensure_ascii=False)}, "color": "negative"}],
         row(("🛒 Магазин", "shop")),
         garden_row(),
+        help_rules_row(),
         bestiary_link_row(),
     ])
 
@@ -196,7 +232,7 @@ def epic_care_optional_item_keyboard(button_label=""):
 
 def await_pin_keyboard():
     return _keyboard([
-        row(("🔄🥚 Сменить яйцо дракона", "garden"), ("❓ Помощь", "help")),
+        row(("🔄🥚 Сменить яйцо дракона", "garden"), ("📜 Правила", "rules"), ("❓ Помощь", "help")),
         bestiary_link_row(),
     ])
 
@@ -252,6 +288,7 @@ def inventory_keyboard():
         row(("🛒 Магазин", "shop")),
         row(("🐲 К эпическому дракону", "epic")),
         garden_row(),
+        help_rules_row(),
         bestiary_link_row(),
     ])
 
@@ -260,6 +297,7 @@ def care_shop_keyboard():
     return _keyboard([
         row(("🛒 Магазин", "shop")),
         garden_row(),
+        help_rules_row(),
         bestiary_link_row(),
     ])
 
@@ -294,6 +332,7 @@ def sub_step_keyboard(with_back=False):
     if with_back:
         buttons.append([{"action": {"type": "text", "label": "◀ Назад к выбору", "payload": json.dumps({"cmd": "sub_back"}, ensure_ascii=False)}, "color": "secondary"}])
     buttons.append(garden_row())
+    buttons.append(help_rules_row())
     buttons.append(bestiary_link_row())
     return _keyboard(buttons)
 
@@ -328,3 +367,53 @@ def intro_last_keyboard():
 
 def empty_keyboard():
     return json.dumps({"one_time": False, "buttons": []}, ensure_ascii=False)
+
+
+def rules_menu_keyboard(sections):
+    buttons = []
+    for key, title in sections:
+        buttons.append([{
+            "action": {
+                "type": "text",
+                "label": title[:40],
+                "payload": json.dumps({"cmd": "rules_section", "section": key}, ensure_ascii=False),
+            },
+            "color": "secondary",
+        }])
+    buttons.append(row(("◀ Закрыть правила", "rules_close")))
+    buttons.append(bestiary_link_row())
+    return _keyboard(buttons)
+
+
+def rules_section_keyboard():
+    return _keyboard([
+        row(("◀ К правилам", "rules"), ("❓ Закрыть", "rules_close")),
+        bestiary_link_row(),
+    ])
+
+
+def incubator_keyboard(epics):
+    buttons = []
+    for ep in epics:
+        d = ep["dragon"]
+        status = ep["status"]
+        cost = ep["cost"]
+        is_active = ep["is_active"]
+        marker = " 👈" if is_active else ""
+        if status == "completed":
+            label = f"🔄 {d.egg_type or d.name} — {cost} ✚ (повтор){marker}"
+        elif status == "growing":
+            label = f"🐣 {d.egg_type or d.name} — растёт{marker}"
+        else:
+            label = f"🥚 {d.egg_type or d.name} — {cost} ✚{marker}"
+        buttons.append([{
+            "action": {
+                "type": "text",
+                "label": label[:40],
+                "payload": json.dumps({"cmd": "incubator_buy", "dragon_id": d.id}, ensure_ascii=False),
+            },
+            "color": "positive" if cost > 0 else "secondary",
+        }])
+    buttons.append(row(("0. Отмена", "incubator_cancel")))
+    buttons.append(bestiary_link_row())
+    return _keyboard(buttons)

@@ -15,18 +15,19 @@ sys.path.insert(0, os.path.join(_root, "api"))
 
 import config
 from db import SessionLocal
-from bot.fsm import IDLE, AWAIT_PIN, AWAIT_GARDEN, AWAIT_LEGENDS, AWAIT_EPICS, is_growing, is_waiting_text, grow_state, step_from_state, is_legend, is_legend_waiting, is_epic_egg, is_epic_egg_waiting, is_epic_care, is_epic_care_waiting, is_epic_care_sub, is_epic_care_sub_waiting, AWAIT_EPIC_NAME, AWAIT_EPIC_RESTART, is_intro_chapter, intro_chapter_from_state
+from bot.fsm import IDLE, AWAIT_PIN, AWAIT_GARDEN, AWAIT_LEGENDS, AWAIT_EPICS, AWAIT_INCUBATOR, AWAIT_RULES, is_growing, is_waiting_text, grow_state, step_from_state, is_legend, is_legend_waiting, is_epic_egg, is_epic_egg_waiting, is_epic_care, is_epic_care_waiting, is_epic_care_sub, is_epic_care_sub_waiting, AWAIT_EPIC_NAME, AWAIT_EPIC_RESTART, is_intro_chapter, intro_chapter_from_state
 from bot.handlers.commands import handle_start, handle_help, handle_garden, switch_dragon, cancel_garden, handle_switch_to, handle_balance, handle_legends, handle_legends_pick, cancel_legends, user_has_legendary
 from bot.handlers.pin import handle_pin_command, handle_pin_entry
 from bot.handlers.grow import handle_grow_message, handle_grow_command, handle_norm_command, handle_x2_command, handle_back_command
 from bot.handlers.shop import handle_shop_command, handle_buy, handle_inventory
 from bot.handlers.legend import handle_legend_start, handle_legend_mode, handle_legend_message
 from bot.handlers.epic import handle_epic_command, handle_epic_egg_mode, handle_epic_egg_message, handle_epic_name, handle_epics, handle_epics_pick, cancel_epics, user_has_epic
+from bot.handlers.rules import handle_rules, handle_rules_section, handle_rules_pick, cancel_rules
 from bot.handlers.intro import handle_intro_next, handle_intro_chat, start_intro
 from bot.services.user_service import get_or_create_user
 from bot.scheduler import run_timeout_checker
 from bot.services.donor_sync import run_donor_sync
-from bot.keyboard import idle_keyboard, growing_keyboard, waiting_keyboard, start_growing_keyboard, step_buttons_keyboard, await_pin_keyboard, await_garden_keyboard, keyboard_with_legends, keyboard_with_epics, intro_keyboard, empty_keyboard
+from bot.keyboard import idle_keyboard, growing_keyboard, waiting_keyboard, start_growing_keyboard, step_buttons_keyboard, await_pin_keyboard, await_garden_keyboard, keyboard_with_legends, keyboard_with_epics, keyboard_with_incubator, intro_keyboard, empty_keyboard
 from datetime import datetime
 
 
@@ -67,6 +68,12 @@ def get_keyboard(state: str, user=None) -> str:
         return await_pin_keyboard()
     if state == AWAIT_GARDEN:
         return await_garden_keyboard()
+    if state == AWAIT_INCUBATOR:
+        return empty_keyboard()
+    if state == AWAIT_RULES:
+        from bot.handlers.rules import SECTIONS_MENU_VIEW
+        from bot.keyboard import rules_menu_keyboard
+        return rules_menu_keyboard(SECTIONS_MENU_VIEW)
     if is_intro_chapter(state):
         return intro_keyboard()
     if is_growing(state):
@@ -93,6 +100,8 @@ def extract_cmd(text: str, payload_str: str) -> str | None:
         return "start"
     if "помощь" in t or "/help" in t:
         return "help"
+    if "правила" in t or "/rules" in t:
+        return "rules"
     if "легендарн" in t:
         return "legends"
     if "бестиарий" in t or "сменить" in t or "/garden" in t:
@@ -107,6 +116,8 @@ def extract_cmd(text: str, payload_str: str) -> str | None:
         return "epics"
     if "эпическ" in t or "пещера" in t or "пещеру" in t:
         return "epic"
+    if "инкубатор" in t:
+        return "incubator"
     if "выращиванию" in t:
         return "grow"
     if "читать" in t:
@@ -223,6 +234,14 @@ def main():
                             keyboard = keyboard_with_epics(keyboard)
                     except Exception:
                         pass
+                    try:
+                        if (user.state not in (AWAIT_EPICS, AWAIT_EPIC_NAME, AWAIT_INCUBATOR)
+                                and not is_epic_egg(user.state)
+                                and not is_epic_care(user.state)
+                                and user.epic_unlocked):
+                            keyboard = keyboard_with_incubator(keyboard)
+                    except Exception:
+                        pass
                     kwargs["keyboard"] = keyboard
                 if attachment:
                     kwargs["attachment"] = attachment
@@ -276,6 +295,26 @@ def main():
                     handle_epics_pick(user, int(t), db, send_message, upload_image)
                     continue
 
+            if user.state == AWAIT_INCUBATOR and not cmd:
+                t = text.strip().lower()
+                if t in ("0", "назад", "отмена"):
+                    from bot.handlers.incubator import handle_incubator_cancel
+                    handle_incubator_cancel(user, db, send_message)
+                    continue
+                if t.isdigit():
+                    from bot.handlers.incubator import handle_incubator_pick
+                    handle_incubator_pick(user, int(t), db, send_message, upload_image)
+                    continue
+
+            if user.state == AWAIT_RULES and not cmd:
+                t = text.strip().lower()
+                if t in ("0", "закрыть правила", "назад", "отмена"):
+                    cancel_rules(user, db, send_message, upload_image)
+                    continue
+                if t.isdigit():
+                    handle_rules_pick(user, db, send_message, int(t))
+                    continue
+
             if cmd == "switch_to":
                 try:
                     payload = json.loads(payload_str) if payload_str else {}
@@ -326,6 +365,16 @@ def main():
                     send_message("Не удалось открыть легенду.")
                 continue
 
+            if cmd == "rules_section":
+                section_key = ""
+                try:
+                    payload = json.loads(payload_str) if payload_str else {}
+                    section_key = payload.get("section", "")
+                except (json.JSONDecodeError, TypeError):
+                    section_key = ""
+                handle_rules_section(user, db, send_message, section_key)
+                continue
+
             if is_legend(user.state) and cmd in ("norm", "x2"):
                 handle_legend_mode(user, cmd, db, send_message)
                 continue
@@ -336,6 +385,32 @@ def main():
 
             if cmd == "epic":
                 handle_epic_command(user, db, send_message, upload_image)
+                continue
+
+            if cmd == "incubator":
+                from bot.handlers.incubator import handle_incubator
+                handle_incubator(user, db, send_message, upload_image)
+                continue
+
+            if cmd == "incubator_buy":
+                try:
+                    payload = json.loads(payload_str) if payload_str else {}
+                    dragon_id = payload.get("dragon_id")
+                except (json.JSONDecodeError, TypeError):
+                    dragon_id = None
+                if dragon_id:
+                    from bot.handlers.incubator import handle_incubator_pick
+                    handle_incubator_pick(user, int(dragon_id), db, send_message, upload_image)
+                continue
+
+            if cmd == "incubator_confirm":
+                from bot.handlers.incubator import handle_incubator_confirm
+                handle_incubator_confirm(user, db, send_message, upload_image)
+                continue
+
+            if cmd == "incubator_cancel":
+                from bot.handlers.incubator import handle_incubator_cancel
+                handle_incubator_cancel(user, db, send_message)
                 continue
 
             if is_epic_egg(user.state) and cmd in ("norm", "x2"):
@@ -411,6 +486,10 @@ def main():
                 handle_start(user, db, send_message, upload_image)
             elif cmd == "help":
                 handle_help(send_message)
+            elif cmd == "rules":
+                handle_rules(user, db, send_message)
+            elif cmd == "rules_close":
+                cancel_rules(user, db, send_message, upload_image)
             elif cmd == "balance":
                 handle_balance(user, db, send_message)
             elif cmd == "garden":

@@ -6,6 +6,7 @@ interface Dragon {
   id: number; name: string; rarity: number; egg_type: string;
   steps_count: number; description: string; egg_path: string;
   dragon_path: string; is_active: boolean; family_id: number | null;
+  is_epic: boolean; epic_cost_stitches: number | null;
 }
 interface Family { id: number; name: string; }
 interface Step {
@@ -35,6 +36,8 @@ function DragonForm() {
   const [families, setFamilies] = useState<Family[]>([]);
   const [familyId, setFamilyId] = useState<number | null>(null);
   const [steps, setSteps] = useState<Step[]>([]);
+  const [isEpic, setIsEpic] = useState(false);
+  const [epicCost, setEpicCost] = useState<number | null>(null);
 
   useEffect(() => {
     client.get('/admin/families').then((r) => setFamilies(r.data));
@@ -50,6 +53,8 @@ function DragonForm() {
       setName(dr.name); setRarity(dr.rarity); setEggType(dr.egg_type);
       setDescription(dr.description); setIsActive(dr.is_active);
       setFamilyId(dr.family_id ?? null);
+      setIsEpic(dr.is_epic ?? false);
+      setEpicCost(dr.epic_cost_stitches ?? null);
       if (dr.egg_path) setImagePreview(`/dragons/api/static/images/${dr.egg_path}?t=${Date.now()}`);
       if (dr.dragon_path) setSilhouettePreview(`/dragons/api/static/images/${dr.dragon_path}?t=${Date.now()}`);
       setSteps(s.data);
@@ -72,6 +77,8 @@ function DragonForm() {
       form.append('description', description);
       form.append('is_active', String(isActive));
       form.append('family_id', String(familyId));
+      form.append('is_epic', String(isEpic));
+      if (epicCost !== null && epicCost > 0) form.append('epic_cost_stitches', String(epicCost));
       if (imageFile) form.append('image', imageFile);
       if (silhouetteFile) form.append('silhouette', silhouetteFile);
       if (steps.length > 0) {
@@ -128,6 +135,20 @@ function DragonForm() {
               <option value={3}>Легендарный</option>
             </select>
           </div>
+
+          <div className="lair-form-group">
+            <label className="lair-checkbox">
+              <input type="checkbox" checked={isEpic} onChange={(e) => setIsEpic(e.target.checked)} />
+              Эпический дракон
+            </label>
+          </div>
+
+          {isEpic && (
+            <div className="lair-form-group">
+              <label className="lair-label">Стоимость в крестиках (инкубатор)</label>
+              <input className="lair-input" type="number" value={epicCost ?? ''} onChange={(e) => setEpicCost(e.target.value ? parseInt(e.target.value, 10) : null)} placeholder="0 — бесплатно" style={{ width: 200 }} />
+            </div>
+          )}
 
           <div className="lair-form-group">
             <label className="lair-label">Семейство / Союз *</label>

@@ -43,6 +43,7 @@ def create_dragon(
     image: UploadFile | None = None,
     silhouette: UploadFile | None = None,
     is_epic: bool = False,
+    epic_cost_stitches: int | None = None,
 ) -> Dragon:
     dragon = Dragon(
         name=name, rarity=rarity, egg_type=egg_type,
@@ -50,6 +51,7 @@ def create_dragon(
         pin_code=_generate_pin_code(db),
         family_id=family_id,
         is_epic=is_epic,
+        epic_cost_stitches=epic_cost_stitches,
     )
     db.add(dragon)
     db.flush()
@@ -77,6 +79,7 @@ def update_dragon(
     image: UploadFile | None = None,
     silhouette: UploadFile | None = None,
     is_epic: bool | None = None,
+    epic_cost_stitches: int | None = None,
 ) -> Dragon | None:
     dragon = db.query(Dragon).filter(Dragon.id == dragon_id).first()
     if not dragon:
@@ -89,6 +92,7 @@ def update_dragon(
     if is_active is not None: dragon.is_active = is_active
     if family_id is not None: dragon.family_id = family_id
     if is_epic is not None: dragon.is_epic = is_epic
+    if epic_cost_stitches is not None: dragon.epic_cost_stitches = epic_cost_stitches
 
     if image and image.filename:
         _cleanup_old(IMAGES_DIR, str(dragon.id), dragon.egg_path)

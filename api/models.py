@@ -29,6 +29,7 @@ class Dragon(Base):
     pin_code = Column(String(5), nullable=True, unique=True)
     family_id = Column(Integer, ForeignKey("families.id", ondelete="SET NULL"), nullable=True)
     is_epic = Column(Boolean, default=False)
+    epic_cost_stitches = Column(Integer, nullable=True, default=None)
     legend_image_path = Column(String, default="")
     legend_title = Column(String, default="")
     legend_full_text = Column(Text, default="")

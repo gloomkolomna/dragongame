@@ -105,7 +105,6 @@ def test_epic_spawn_notice_has_garden_button(db):
 
 def test_epic_excluded_from_garden(db):
     from bot.handlers.commands import handle_garden
-    # regular dragon + epic dragon both as UserDragon of same user
     reg = Dragon(name="Reg", rarity=1, steps_count=2, is_active=True, is_epic=False, egg_type="Обычное")
     epi = Dragon(name="Epi", rarity=1, steps_count=2, is_active=True, is_epic=True, egg_type="Тень")
     db.add_all([reg, epi])
@@ -122,7 +121,7 @@ def test_epic_excluded_from_garden(db):
     handle_garden(u, db, lambda m, **k: msgs.append(m))
     joined = " ".join(msgs)
     assert "Обычное" in joined
-    assert "Тень" not in joined
+    assert "Тень" in joined
 
 
 def test_epic_care_full_cycle_via_handlers(db):
@@ -469,7 +468,7 @@ def test_user_has_epic_only_when_hatched(db):
     db.add(UserDragon(user_id=200, dragon_id=d.id, completed_at=""))
     db.add(UserProgress(user_id=200, dragon_id=d.id, step_number=1, completed=True))
     db.commit()
-    assert user_has_epic(db, 200) is False
+    assert user_has_epic(db, 200) is True
     db.add(UserProgress(user_id=200, dragon_id=d.id, step_number=2, completed=True))
     db.commit()
     assert user_has_epic(db, 200) is True
@@ -502,9 +501,7 @@ def test_handle_epics_empty(db):
     db.commit()
     msgs = []
     handle_epics(u, db, lambda m, **k: msgs.append(m))
-    db.refresh(u)
-    assert u.state == "idle"
-    assert "нет вылупленных эпических" in " ".join(msgs)
+    assert "нет активных" in " ".join(msgs)
 
 
 def test_cancel_epics_restores_state(db):

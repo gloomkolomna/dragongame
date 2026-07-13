@@ -293,6 +293,7 @@ def _make_epic(db, vk_id, steps_count=2, hatched_steps=0, name=""):
     ed = Dragon(name="EpicOne", rarity=3, steps_count=steps_count, is_active=True, is_epic=True, egg_type="лунное")
     db.add(ed)
     db.flush()
+    db.add(UserDragon(user_id=vk_id, dragon_id=ed.id, completed_at=""))
     for i in range(1, steps_count + 1):
         db.add(DragonStep(dragon_id=ed.id, step_number=i, magic_action=f"E{i}", crosses_norm=1000))
     for i in range(1, hatched_steps + 1):
@@ -364,8 +365,8 @@ def test_handle_garden_excludes_hatched_epic(db):
     handle_garden(u, db, send)
 
     full = " ".join(messages)
-    assert "Уголёк" not in full
-    assert "2. " not in full
+    assert "Уголёк" in full
+    assert "уход" in full
 
 
 def _make_legendary(db, vk_id, name="Legendary", fragments=2, opened=0):

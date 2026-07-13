@@ -127,31 +127,63 @@ def grown_epics(db, vk_id):
 
 
 def user_has_epic(db, vk_id):
-    return len(grown_epics(db, vk_id)) > 0
+    from services.epic_service import all_user_epics
+    return len(all_user_epics(db, vk_id)) > 0
 
 
 def handle_epics(user, db, send_message):
-    from services.epic_service import get_epic_name_for
-    dragons = grown_epics(db, user.vk_id)
+    from services.epic_service import get_epic_name_for, all_user_epics, egg_completed_count, is_egg_hatched, get_care
+    dragons = all_user_epics(db, user.vk_id)
     if not dragons:
         send_message(
-            "🐉 У тебя пока нет вылупленных эпических драконов.\n"
-            "Они появятся здесь, когда ты вырастишь эпическое яйцо."
+            "🐉 У тебя пока нет активных эпических драконов.\n"
+            "Первый появится после выращивания любого обычного дракона."
         )
         return
     lines = ["🐉 Эпические драконы — выбери, к кому перейти:\n"]
     for i, d in enumerate(dragons, start=1):
         name = get_epic_name_for(db, user.vk_id, d.id) or d.egg_type or d.name or "?"
         marker = " 👈 сейчас" if user.epic_dragon_id == d.id else ""
-        lines.append(f"{i}. 🐲 {name}{marker}")
+        hatched = is_egg_hatched_for(db, user.vk_id, d.id)
+        if hatched:
+            lines.append(f"{i}. 🐲 {name}{marker}")
+        else:
+            egg_done = egg_completed_count_for(db, user.vk_id, d.id)
+            total = d.steps_count or 0
+            lines.append(f"{i}. 🥚 {name} ({egg_done}/{total}){marker}")
     lines.append("\nНапиши номер, чтобы перейти к дракону, или «0», чтобы вернуться.")
     user.state = AWAIT_EPICS
     db.commit()
     send_message("\n".join(lines))
 
 
+def is_egg_hatched_for(db, vk_id, dragon_id):
+    from models import Dragon, UserProgress
+    dragon = db.query(Dragon).filter(Dragon.id == dragon_id).first()
+    if not dragon or not dragon.steps_count:
+        return False
+    done = db.query(UserProgress).filter(
+        UserProgress.user_id == vk_id,
+        UserProgress.dragon_id == dragon_id,
+        UserProgress.step_number > 0,
+        UserProgress.completed == True,
+    ).count()
+    return done >= dragon.steps_count
+
+
+def egg_completed_count_for(db, vk_id, dragon_id):
+    from models import UserProgress
+    return db.query(UserProgress).filter(
+        UserProgress.user_id == vk_id,
+        UserProgress.dragon_id == dragon_id,
+        UserProgress.step_number > 0,
+        UserProgress.completed == True,
+    ).count()
+
+
 def handle_epics_pick(user, num, db, send_message, upload_image=None):
-    dragons = grown_epics(db, user.vk_id)
+    from services.epic_service import all_user_epics
+    dragons = all_user_epics(db, user.vk_id)
     if num < 1 or num > len(dragons):
         send_message("❌ Неверный номер. Напиши номер из списка.")
         return

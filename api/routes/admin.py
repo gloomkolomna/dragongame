@@ -139,9 +139,10 @@ def create_dragon_route(
     silhouette: Optional[UploadFile] = File(None),
     steps: Optional[str] = Form(None),
     is_epic: bool = Form(False),
+    epic_cost_stitches: Optional[int] = Form(None),
     db: Session = Depends(get_db),
 ):
-    dragon = create_dragon(db, name, rarity, egg_type, description, family_id, image, silhouette, is_epic)
+    dragon = create_dragon(db, name, rarity, egg_type, description, family_id, image, silhouette, is_epic, epic_cost_stitches)
 
     if steps:
         try:
@@ -185,10 +186,12 @@ def update_dragon_route(
     silhouette: Optional[UploadFile] = File(None),
     steps: Optional[str] = Form(None),
     is_epic: Optional[bool] = Form(None),
+    epic_cost_stitches: Optional[int] = Form(None),
     db: Session = Depends(get_db),
 ):
     dragon = update_dragon(db, dragon_id, name, rarity, egg_type, description,
-                           is_active, family_id, image, silhouette, is_epic)
+                           is_active, family_id, image, silhouette, is_epic,
+                           epic_cost_stitches)
     if not dragon:
         raise HTTPException(status_code=404, detail="Dragon not found")
 
@@ -1100,6 +1103,12 @@ def restart_dragon(vk_id: int, dragon_id: int, db: Session = Depends(get_db)):
         UserProgress.user_id == vk_id, UserProgress.dragon_id == dragon_id
     ).delete()
 
+    if dragon.is_epic and ud:
+        db.query(EpicCareState).filter(EpicCareState.user_dragon_id == ud.id).delete()
+        db.query(EpicMoodlet).filter(EpicMoodlet.user_dragon_id == ud.id).delete()
+        db.query(CharacterBalance).filter(CharacterBalance.user_dragon_id == ud.id).delete()
+        user.epic_dragon_id = dragon_id
+
     ud.next_step_available_at = None
     ud.timeout_notified = False
 
@@ -1240,7 +1249,10 @@ def epic_care_restart(vk_id: int, db: Session = Depends(get_db)):
     user, care = _epic_care_or_404(vk_id, db)
     if not admin_restart_care(db, care):
         raise HTTPException(status_code=400, detail="У дракона нет настроенных стадий")
-    _notify_user(vk_id, "🔧 Администратор перезапустил уход с первой стадии.")
+    db.query(EpicMoodlet).filter(EpicMoodlet.user_dragon_id == care.user_dragon_id).delete()
+    db.query(CharacterBalance).filter(CharacterBalance.user_dragon_id == care.user_dragon_id).delete()
+    db.commit()
+    _notify_user(vk_id, "🔧 Администратор перезапустил уход с первой стадии (мудлеты и характер сброшены).")
     _push_epic_care_screen(vk_id)
     return {"ok": True}
 
