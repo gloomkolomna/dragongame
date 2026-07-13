@@ -11,6 +11,12 @@ from bot.keyboard import epic_care_keyboard, epic_care_item_keyboard, epic_care_
 _IMAGES = os.path.join(os.path.dirname(__file__), "..", "..", "images", "dragons")
 
 
+def _notify_stage_up(name, nxt_stage, send_message, upload_image, vk_id):
+    msg = f"🌟 «{name}» перешёл на новую стадию: «{nxt_stage.name}»!"
+    attachment = _attach(upload_image, nxt_stage.image_start, vk_id)
+    send_message(msg, attachment=attachment)
+
+
 def _care_fallback_keyboard(db, vk_id):
     """Keyboard for care dead-ends so the player is never stuck without buttons."""
     import json as j
@@ -209,7 +215,7 @@ def handle_care_use_item(user, db, send_message, upload_image=None):
 
     if kind == "stage_up":
         nxt = event["stage"]
-        send_message(f"🌟 «{name}» перешёл на новую стадию: «{nxt.name}»!")
+        _notify_stage_up(name, nxt, send_message, upload_image, user.vk_id)
 
     show_care_action(user, db, send_message, upload_image)
 
@@ -248,7 +254,7 @@ def handle_care_skip_item(user, db, send_message, upload_image=None):
 
     if kind == "stage_up":
         nxt = event["stage"]
-        send_message(f"🌟 «{name}» перешёл на новую стадию: «{nxt.name}»!")
+        _notify_stage_up(name, nxt, send_message, upload_image, user.vk_id)
 
     show_care_action(user, db, send_message, upload_image)
 
@@ -347,7 +353,7 @@ def handle_care_message(user, text, attachments, db, send_message, upload_image=
 
     if kind == "stage_up":
         nxt = event["stage"]
-        send_message(f"🌟 «{name}» перешёл на новую стадию: «{nxt.name}»!")
+        _notify_stage_up(name, nxt, send_message, upload_image, user.vk_id)
 
     show_care_action(user, db, send_message, upload_image)
     return True
@@ -525,9 +531,12 @@ def handle_confirm_sub(user, db, send_message, upload_image=None):
     outcome, polarity = resolve_outcome(db, user.vk_id, care, sub_action)
     if outcome:
         pol_label = "🌟" if polarity == "positive" else "💔"
-        msg = f"{pol_label} «{sub_action.label}» — {outcome.moodlet_title or outcome.label}"
+        moodlet_title = outcome.moodlet_title or outcome.label
+        msg = f"{pol_label} «{sub_action.label}» — {moodlet_title}"
         if outcome.moodlet_text:
             msg += f"\n\n{outcome.moodlet_text}"
+        if outcome.moodlet_title:
+            msg += f"\n\nДобавлено воспоминание: {outcome.moodlet_title}"
         if outcome.image_path:
             attachment = _attach(upload_image, outcome.image_path, user.vk_id)
             send_message(msg, attachment=attachment)
@@ -545,7 +554,7 @@ def handle_confirm_sub(user, db, send_message, upload_image=None):
 
     if kind == "stage_up":
         nxt = event["stage"]
-        send_message(f"🌟 «{name}» перешёл на новую стадию: «{nxt.name}»!")
+        _notify_stage_up(name, nxt, send_message, upload_image, user.vk_id)
 
     show_care_action(user, db, send_message, upload_image)
 
@@ -693,9 +702,12 @@ def handle_sub_message(user, text, attachments, db, send_message, upload_image=N
 
         if outcome:
             pol_label = "🌟" if polarity == "positive" else "💔"
-            msg = f"{pol_label} «{sub_action.label if sub_action else '?'}» — {outcome.moodlet_title or outcome.label}"
+            moodlet_title = outcome.moodlet_title or outcome.label
+            msg = f"{pol_label} «{sub_action.label if sub_action else '?'}» — {moodlet_title}"
             if outcome.moodlet_text:
                 msg += f"\n\n{outcome.moodlet_text}"
+            if outcome.moodlet_title:
+                msg += f"\n\nДобавлено воспоминание: {outcome.moodlet_title}"
             if outcome.image_path:
                 attachment = _attach(upload_image, outcome.image_path, user.vk_id)
                 send_message(msg, attachment=attachment)
@@ -713,7 +725,7 @@ def handle_sub_message(user, text, attachments, db, send_message, upload_image=N
 
         if kind == "stage_up":
             nxt = event["stage"]
-            send_message(f"🌟 «{name}» перешёл на новую стадию: «{nxt.name}»!")
+            _notify_stage_up(name, nxt, send_message, upload_image, user.vk_id)
 
         show_care_action(user, db, send_message, upload_image)
         return True
@@ -764,9 +776,12 @@ def _show_action_outcome(db, vk_id, care, action, send_message, upload_image, ha
     if not outcome:
         return
     pol_label = "🌟" if polarity == "positive" else "💔"
-    msg = f"{pol_label} {outcome.moodlet_title or outcome.label or action.action_label}"
+    moodlet_title = outcome.moodlet_title or outcome.label or action.action_label
+    msg = f"{pol_label} {moodlet_title}"
     if outcome.moodlet_text:
         msg += f"\n\n{outcome.moodlet_text}"
+    if outcome.moodlet_title:
+        msg += f"\n\nДобавлено воспоминание: {outcome.moodlet_title}"
     if outcome.image_path:
         attachment = _attach(upload_image, outcome.image_path, vk_id)
         send_message(msg, attachment=attachment)

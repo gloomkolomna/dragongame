@@ -27,7 +27,7 @@ def _attach(upload_image, image_path, vk_id):
 
 
 def handle_shop_command(user, db, send_message, page=0):
-    from services.shop_service import get_current_stage_key, get_stage_items, get_inventory
+    from services.shop_service import get_current_stage_key, get_visible_stage_items, get_inventory
     from bot.keyboard import shop_keyboard
 
     stage_key = get_current_stage_key(db, user.vk_id)
@@ -35,7 +35,7 @@ def handle_shop_command(user, db, send_message, page=0):
         send_message("🛒 Магазин откроется, когда у тебя появится эпический дракон.")
         return
 
-    items = get_stage_items(db, stage_key)
+    items = get_visible_stage_items(db, user.vk_id, stage_key)
     if not items:
         send_message("🛒 Пока на этой стадии нет товаров.")
         return

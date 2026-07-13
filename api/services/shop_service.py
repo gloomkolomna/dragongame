@@ -43,6 +43,20 @@ def get_stage_items(db, stage_key):
     return result
 
 
+def get_visible_stage_items(db, vk_id, stage_key):
+    from services.epic_service import get_used_item_ids, item_in_future_stages
+    items = get_stage_items(db, stage_key)
+    if not items:
+        return []
+    used_ids = get_used_item_ids(db, vk_id)
+    if not used_ids:
+        return items
+    return [
+        it for it in items
+        if it.id not in used_ids or item_in_future_stages(db, vk_id, it.id)
+    ]
+
+
 def get_inventory(db, vk_id: int):
     rows = db.query(UserInventory).filter(UserInventory.user_id == vk_id).all()
     result = []

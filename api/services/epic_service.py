@@ -8,7 +8,7 @@ from models import (
     UserInventory, EpicMoodlet, ShopItem,
     CharacterAxis, CharacterBalance,
     EpicSubAction, EpicSubActionItem, EpicSubActionStep, EpicSubActionOutcome,
-    EpicActionOutcome,
+    EpicActionOutcome, UserItemUsage, StageShopItem,
 )
 
 
@@ -249,6 +249,7 @@ def has_non_optional_items(db, action_id) -> bool:
 
 def consume_action_items(db, vk_id, action_id):
     items = action_items(db, action_id)
+    ud = get_epic_user_dragon(db, vk_id)
     for item in items:
         inv = db.query(UserInventory).filter(
             UserInventory.user_id == vk_id,
@@ -259,12 +260,15 @@ def consume_action_items(db, vk_id, action_id):
                 inv.quantity -= 1
             else:
                 db.delete(inv)
+        if ud:
+            _record_item_usage(db, vk_id, item.id, ud.id)
     db.commit()
 
 
 def consume_owned_action_items(db, vk_id, action_id):
     """Consume only the items the user actually owns (respects optional flag)."""
     items = action_items(db, action_id)
+    ud = get_epic_user_dragon(db, vk_id)
     for item in items:
         inv = db.query(UserInventory).filter(
             UserInventory.user_id == vk_id,
@@ -275,6 +279,8 @@ def consume_owned_action_items(db, vk_id, action_id):
                 inv.quantity -= 1
             else:
                 db.delete(inv)
+        if ud:
+            _record_item_usage(db, vk_id, item.id, ud.id)
     db.commit()
 
 
@@ -525,6 +531,7 @@ def missing_sub_items(db, vk_id, sub_id):
 
 
 def consume_sub_items(db, vk_id, sub_id):
+    ud = get_epic_user_dragon(db, vk_id)
     for item in sub_action_items(db, sub_id):
         if not item.is_consumable:
             continue
@@ -537,6 +544,8 @@ def consume_sub_items(db, vk_id, sub_id):
                 inv.quantity -= 1
             else:
                 db.delete(inv)
+        if ud:
+            _record_item_usage(db, vk_id, item.id, ud.id)
     db.commit()
 
 
@@ -600,6 +609,65 @@ def roll_outcome_polarity(db, care):
     penalty_mult = 0.5 if care.sub_had_penalty else 1.0
     chance = max(0.05, min(0.95, char_component * penalty_mult))
     return "positive" if random.random() < chance else "negative"
+
+
+def _record_item_usage(db, vk_id, item_id, user_dragon_id):
+    from datetime import datetime
+    existing = db.query(UserItemUsage).filter(
+        UserItemUsage.user_id == vk_id,
+        UserItemUsage.item_id == item_id,
+        UserItemUsage.user_dragon_id == user_dragon_id,
+    ).first()
+    if not existing:
+        db.add(UserItemUsage(
+            user_id=vk_id,
+            item_id=item_id,
+            user_dragon_id=user_dragon_id,
+            used_at=datetime.now().strftime("%Y-%m-%dT%H:%M:%S"),
+        ))
+
+
+def get_used_item_ids(db, vk_id):
+    ud = get_epic_user_dragon(db, vk_id)
+    if not ud:
+        return set()
+    rows = db.query(UserItemUsage).filter(
+        UserItemUsage.user_id == vk_id,
+        UserItemUsage.user_dragon_id == ud.id,
+    ).all()
+    return {r.item_id for r in rows}
+
+
+def item_in_future_stages(db, vk_id, item_id):
+    user = db.query(User).filter(User.vk_id == vk_id).first()
+    if not user or not user.epic_dragon_id:
+        return False
+    ud = get_epic_user_dragon(db, vk_id)
+    if not ud:
+        return False
+    care = get_care(db, vk_id)
+    current_stage_number = None
+    if care and care.stage_id:
+        stage = get_stage(db, care.stage_id)
+        if stage:
+            current_stage_number = stage.stage_number
+    future_keys = []
+    if current_stage_number is not None:
+        future_stages = (
+            db.query(EpicStage)
+            .filter(
+                EpicStage.dragon_id == user.epic_dragon_id,
+                EpicStage.stage_number > current_stage_number,
+            )
+            .all()
+        )
+        for fs in future_stages:
+            future_keys.append(f"epic:{user.epic_dragon_id}:{fs.stage_number}")
+    exists = db.query(StageShopItem).filter(
+        StageShopItem.item_id == item_id,
+        StageShopItem.stage_key.in_(future_keys),
+    ).first()
+    return exists is not None
 
 
 def _award_outcome_moodlet(db, user_dragon_id, polarity, outcome):

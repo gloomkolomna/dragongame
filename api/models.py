@@ -197,6 +197,16 @@ class UserInventory(Base):
     __table_args__ = (UniqueConstraint("user_id", "item_id"),)
 
 
+class UserItemUsage(Base):
+    __tablename__ = "user_item_usage"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.vk_id", ondelete="CASCADE"), nullable=False)
+    item_id = Column(Integer, ForeignKey("shop_items.id", ondelete="CASCADE"), nullable=False)
+    user_dragon_id = Column(Integer, ForeignKey("user_dragons.id", ondelete="CASCADE"), nullable=False)
+    used_at = Column(String, default="")
+    __table_args__ = (UniqueConstraint("user_id", "item_id", "user_dragon_id"),)
+
+
 # ─── Эпический дракон: общие стадии и уход ───
 
 class EpicStage(Base):

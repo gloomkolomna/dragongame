@@ -473,7 +473,7 @@ def _completed_keyboard():
 
 def grown_legendaries(db, vk_id):
     from models import Dragon, UserDragon
-    from bot.services.legend_service import get_legend_total
+    from bot.services.legend_service import get_legend_total, is_legend_completed
     rows = (
         db.query(Dragon)
         .join(UserDragon, UserDragon.dragon_id == Dragon.id)
@@ -486,7 +486,7 @@ def grown_legendaries(db, vk_id):
         .order_by(UserDragon.id)
         .all()
     )
-    return [d for d in rows if get_legend_total(db, d.id) > 0]
+    return [d for d in rows if get_legend_total(db, d.id) > 0 and not is_legend_completed(db, vk_id, d.id)]
 
 
 def user_has_legendary(db, vk_id):

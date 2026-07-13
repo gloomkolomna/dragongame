@@ -54,9 +54,11 @@ function EpicActionEditor() {
       fetchActions(didRef.current);
       return;
     }
-    client.get('/admin/epic/species').then((r) => {
-      if (!r.data.length) { setLoading(false); return; }
-      fetchActions(r.data[0].id);
+    client.get('/admin/epic/stages').then((stages) => {
+      const stage = stages.data.find((s: any) => s.id === sid);
+      const did = stage?.dragon_id;
+      if (!did) { setLoading(false); return; }
+      fetchActions(did);
     });
   };
 

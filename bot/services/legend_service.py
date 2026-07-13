@@ -17,6 +17,23 @@ def get_legend_total(db, dragon_id: int) -> int:
     return len(get_legend_steps(db, dragon_id))
 
 
+def is_legend_completed(db, vk_id: int, dragon_id: int) -> bool:
+    from models import UserLegendProgress
+    total = get_legend_total(db, dragon_id)
+    if total == 0:
+        return False
+    done = (
+        db.query(UserLegendProgress)
+        .filter(
+            UserLegendProgress.user_id == vk_id,
+            UserLegendProgress.dragon_id == dragon_id,
+            UserLegendProgress.completed == True,
+        )
+        .count()
+    )
+    return done >= total
+
+
 def get_next_legend_fragment(db, vk_id: int, dragon_id: int):
     from models import UserLegendProgress
     done_rows = (
