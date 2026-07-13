@@ -13,6 +13,7 @@ function Shop() {
   const [inventory, setInventory] = useState<InvItem[]>([]);
   const [balance, setBalance] = useState(0);
   const [load, setLoad] = useState(true);
+  const [zoom, setZoom] = useState<string | null>(null);
 
   useEffect(() => {
     if (bl || !vkUserId) { setLoad(false); return; }
@@ -47,7 +48,7 @@ function Shop() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {items.map((it) => (
               <div key={it.id} style={{ display: 'flex', gap: 10, alignItems: 'center', padding: 8, borderRadius: 8, background: 'var(--bg-card)' }}>
-                {it.image_path && <img src={mediaUrl(it.image_path)} alt="" style={{ width: 44, height: 44, objectFit: 'contain', borderRadius: 6 }} />}
+                {it.image_path && <img src={mediaUrl(it.image_path)} alt="" onClick={() => setZoom(mediaUrl(it.image_path))} style={{ width: 44, height: 44, objectFit: 'contain', borderRadius: 6, cursor: 'pointer' }} />}
                 <div style={{ flex: 1 }}>
                   <div style={{ fontWeight: 600 }}>{it.name} {it.owned && '✅'}</div>
                   {it.description && <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{it.description}</div>}
@@ -71,6 +72,16 @@ function Shop() {
           </div>
         )}
       </div>
+
+      {zoom && (
+        <div onClick={() => setZoom(null)}
+             style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+          <img src={zoom} alt="" onClick={(e) => e.stopPropagation()}
+               style={{ maxWidth: '90vw', maxHeight: '90vh', objectFit: 'contain', borderRadius: 8, boxShadow: '0 0 60px rgba(153,102,255,0.3)' }} />
+          <button onClick={() => setZoom(null)}
+                  style={{ position: 'absolute', top: 16, right: 16, background: 'none', border: 'none', color: '#fff', fontSize: 32, cursor: 'pointer', lineHeight: 1 }}>✕</button>
+        </div>
+      )}
     </div>
   );
 }
