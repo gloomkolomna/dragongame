@@ -527,7 +527,7 @@ def test_create_normal_dragon_without_family_ok_on_backend(client):
 
 def test_epic_stage_crud(client):
     dragon = client.post("/api/admin/dragons", data={"name": "EpicSt", "rarity": 1, "is_epic": True}).json()
-    resp = client.post("/api/admin/epic/stages", json={"dragon_id": dragon["id"], "stage_number": 1, "name": "Вылупленное чудо", "cycles_count": 3, "image_start": "dragons/s1.png", "image_end": "dragons/s1_end.png"})
+    resp = client.post("/api/admin/epic/stages", json={"dragon_id": dragon["id"], "stage_number": 1, "name": "Вылупленное чудо", "image_start": "dragons/s1.png", "image_end": "dragons/s1_end.png"})
     assert resp.status_code == 200
     stage_id = resp.json()["id"]
     assert resp.json()["image_start"] == "dragons/s1.png"
@@ -964,14 +964,14 @@ def _setup_epic_care(client, db, vk_id=7777):
     db.add(u)
     ud = UserDragon(user_id=vk_id, dragon_id=d.id, completed_at="")
     db.add(ud)
-    st1 = EpicStage(dragon_id=d.id, stage_number=1, name="Малыш", cycles_count=2)
-    st2 = EpicStage(dragon_id=d.id, stage_number=2, name="Подросток", cycles_count=1)
+    st1 = EpicStage(dragon_id=d.id, stage_number=1, name="Малыш")
+    st2 = EpicStage(dragon_id=d.id, stage_number=2, name="Подросток")
     db.add_all([st1, st2])
     db.flush()
     db.add(EpicStageAction(dragon_id=d.id, stage_id=st1.id, action_label="кормить", order_in_cycle=0, crosses_norm=100))
     db.add(EpicStageAction(dragon_id=d.id, stage_id=st1.id, action_label="играть", order_in_cycle=1, crosses_norm=100))
     db.add(EpicStageAction(dragon_id=d.id, stage_id=st2.id, action_label="учить", order_in_cycle=0, crosses_norm=100))
-    care = EpicCareState(user_dragon_id=ud.id, stage_id=st1.id, current_action_order=0, cycles_completed=0)
+    care = EpicCareState(user_dragon_id=ud.id, stage_id=st1.id, current_action_order=0)
     db.add(care)
     db.commit()
     return d, st1, st2, ud
@@ -1010,7 +1010,7 @@ def test_epic_care_advance(client, db):
 def test_epic_care_goto(client, db):
     from models import EpicCareState
     d, st1, st2, ud = _setup_epic_care(client, db, vk_id=7704)
-    r = client.post("/api/admin/users/7704/epic-care/goto", json={"stage_id": st2.id, "action_order": 0, "cycles_completed": 0})
+    r = client.post("/api/admin/users/7704/epic-care/goto", json={"stage_id": st2.id, "action_order": 0})
     assert r.status_code == 200
     care = db.query(EpicCareState).filter(EpicCareState.user_dragon_id == ud.id).first()
     db.refresh(care)
@@ -1023,7 +1023,7 @@ def test_epic_care_goto_wrong_stage(client, db):
     other = Dragon(name="Other", rarity=1, steps_count=1, is_active=True, is_epic=True)
     db.add(other)
     db.flush()
-    foreign = EpicStage(dragon_id=other.id, stage_number=1, name="X", cycles_count=1)
+    foreign = EpicStage(dragon_id=other.id, stage_number=1, name="X")
     db.add(foreign)
     db.commit()
     r = client.post("/api/admin/users/7705/epic-care/goto", json={"stage_id": foreign.id})
@@ -1053,14 +1053,12 @@ def test_epic_care_restart(client, db):
     d, st1, st2, ud = _setup_epic_care(client, db, vk_id=7707)
     care = db.query(EpicCareState).filter(EpicCareState.user_dragon_id == ud.id).first()
     care.stage_id = st2.id
-    care.cycles_completed = 3
     care.current_action_order = 2
     db.commit()
     r = client.post("/api/admin/users/7707/epic-care/restart")
     assert r.status_code == 200
     db.refresh(care)
     assert care.stage_id == st1.id
-    assert care.cycles_completed == 0
     assert care.current_action_order == 0
 
 

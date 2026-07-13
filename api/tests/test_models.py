@@ -159,11 +159,10 @@ def test_epic_stage_crud(db):
     dragon = Dragon(name="E", rarity=1, steps_count=1, is_active=True, is_epic=True)
     db.add(dragon)
     db.flush()
-    stage = EpicStage(dragon_id=dragon.id, stage_number=1, name="Вылупленное чудо", cycles_count=3)
+    stage = EpicStage(dragon_id=dragon.id, stage_number=1, name="Вылупленное чудо")
     db.add(stage)
     db.commit()
     assert stage.id is not None
-    assert stage.cycles_count == 3
 
 
 def test_epic_stage_action(db):

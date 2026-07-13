@@ -273,7 +273,7 @@ def get_epic_view(vk_id: int, db: Session = Depends(get_db)):
             action = actions[prev_idx]
     owned_missing = {m.id for m in epic_service.missing_action_items(db, vk_id, action.id)} if action else set()
     base["phase"] = "care"
-    care_started = (care.current_action_order or 0) > 0 or (care.cycles_completed or 0) > 0
+    care_started = (care.current_action_order or 0) > 0
     base["care_started"] = care_started
     base["stage"] = {
         "number": stage.stage_number if stage else 0,
@@ -281,8 +281,6 @@ def get_epic_view(vk_id: int, db: Session = Depends(get_db)):
         "description": stage.description if stage else "",
         "image_start": f"/api/static/images/{stage.image_start}" if stage and stage.image_start else "",
         "image_end": f"/api/static/images/{stage.image_end}" if stage and stage.image_end else "",
-        "cycle_completed": care.cycles_completed or 0,
-        "cycle_total": stage.cycles_count if stage else 0,
     }
     if action:
         action_img = getattr(action, "image_path", "") or ""

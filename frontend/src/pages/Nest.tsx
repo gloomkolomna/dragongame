@@ -20,7 +20,7 @@ interface EpicView {
   phase?: string;
   hatched?: boolean;
   egg_progress?: { completed: number; total: number };
-  stage?: { number: number; name: string; description: string; image_start: string; image_end: string; cycle_completed: number; cycle_total: number };
+  stage?: { number: number; name: string; description: string; image_start: string; image_end: string };
   action?: { label: string; hint: string; crosses_norm: number; image_path: string; items: { id: number; name: string; owned: boolean }[] } | null;
   care_started?: boolean;
   care_remaining_seconds?: number;
@@ -77,7 +77,7 @@ function Nest() {
     transition: 'all 0.2s',
   });
 
-  const img = (data.phase === 'care' && data.care_started && data.action?.image_path) || (data.phase === 'care' && data.care_started && data.stage?.image_start) || data.dragon_url || data.egg_url;
+  const img = (data.phase === 'care' && data.action?.image_path) || (data.phase === 'care' && data.stage?.image_start) || data.dragon_url || data.egg_url;
 
   return (
     <div style={{ padding: '12px 10px', maxWidth: 560, margin: '0 auto' }}>
@@ -115,7 +115,6 @@ function Nest() {
             <div className="lair-card" style={{ marginBottom: 12 }}>
               <h4 style={{ color: 'var(--gold)', marginTop: 0 }}>Стадия «{data.stage.name}»</h4>
               {data.stage.description && <div style={{ fontSize: 14, color: 'var(--parchment-dim)', marginBottom: 6 }}>{data.stage.description}</div>}
-              <div>Цикл {(data.stage.cycle_completed ?? 0) + 1} из {data.stage.cycle_total}</div>
               {data.care_remaining_seconds && data.care_remaining_seconds > 0 ? (
                 <div style={{ marginTop: 8, color: 'var(--parchment-dim)' }}>😴 Отдыхает, вернись через {fmtRemaining(data.care_remaining_seconds)}</div>
               ) : data.action ? (

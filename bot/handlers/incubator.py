@@ -86,12 +86,12 @@ def handle_incubator_confirm(user, db, send_message, upload_image=None):
     dragon_id = sd.get("_inc_pick_id", 0)
     if not dragon_id:
         send_message("Ошибка: яйцо не выбрано.")
-        _restore_state(user, db, send_message)
+        handle_incubator(user, db, send_message, upload_image)
         return
     ok, message, dragon = purchase_epic_egg(db, user.vk_id, dragon_id)
     if not ok:
         send_message(f"❌ {message}")
-        _restore_state(user, db, send_message)
+        handle_incubator(user, db, send_message, upload_image)
         return
     user.state_data = "{}"
     db.commit()

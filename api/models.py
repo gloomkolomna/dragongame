@@ -220,7 +220,6 @@ class EpicStage(Base):
     image_path = Column(String, default="")
     image_start = Column(String, default="")
     image_end = Column(String, default="")
-    cycles_count = Column(Integer, default=3)
 
 
 class EpicStageAction(Base):
@@ -274,7 +273,6 @@ class EpicCareState(Base):
     sub_had_penalty = Column(Boolean, default=False)
     next_action_at = Column(String, nullable=True, default=None)
     care_notified = Column(Boolean, default=False)
-    cycles_completed = Column(Integer, default=0)
 
 
 # ─── Характер (оси + баланс) ───

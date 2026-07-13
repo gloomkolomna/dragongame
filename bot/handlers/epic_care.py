@@ -110,10 +110,8 @@ def show_care_action(user, db, send_message, upload_image=None):
     missing_non_opt = missing_action_items(db, user.vk_id, action.id) if has_items else []
     only_optional = has_items and not has_non_optional_items(db, action.id)
 
-    cycle_no = (care.cycles_completed or 0) + 1
-    total_cycles = stage.cycles_count if stage else 1
     base_msg = (
-        f"🐲 «{name}» — стадия «{stage.name if stage else '?'}» (цикл {cycle_no}/{total_cycles})\n"
+        f"🐲 «{name}» — стадия «{stage.name if stage else '?'}»\n"
         f"\n▶ {action.action_label}\n"
     )
     if action.hint:

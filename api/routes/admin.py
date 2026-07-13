@@ -1224,7 +1224,6 @@ async def epic_care_goto(vk_id: int, request: Request, db: Session = Depends(get
         db, care,
         stage_id=body.get("stage_id"),
         action_order=body.get("action_order"),
-        cycles_completed=body.get("cycles_completed"),
     )
     if not ok:
         raise HTTPException(status_code=400, detail="Стадия не найдена у этого дракона")
@@ -1711,7 +1710,6 @@ async def create_epic_stage(request: Request, db: Session = Depends(get_db)):
         description=b.get("description", ""),
         image_start=b.get("image_start", ""),
         image_end=b.get("image_end", ""),
-        cycles_count=max(1, int(b.get("cycles_count", 3) or 3)),
     )
     db.add(stage)
     db.commit()
@@ -1730,7 +1728,6 @@ async def update_epic_stage(stage_id: int, request: Request, db: Session = Depen
     if "description" in b: stage.description = b["description"]
     if "image_start" in b: stage.image_start = b["image_start"]
     if "image_end" in b: stage.image_end = b["image_end"]
-    if "cycles_count" in b: stage.cycles_count = max(1, int(b["cycles_count"] or 3))
     db.commit()
     db.refresh(stage)
     return stage

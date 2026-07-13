@@ -202,7 +202,7 @@ def start_care(db, vk_id):
         return None
     care = EpicCareState(
         user_dragon_id=ud.id, stage_id=stage.id,
-        current_action_order=0, cycles_completed=0,
+        current_action_order=0,
         next_action_at=None, care_notified=False,
     )
     db.add(care)
@@ -356,26 +356,20 @@ def advance_care(db, care):
 
     if care.current_action_order >= n:
         care.current_action_order = 0
-        care.cycles_completed = (care.cycles_completed or 0) + 1
-        if stage and care.cycles_completed >= (stage.cycles_count or 1):
-            nxt = (
-                db.query(EpicStage)
-                .filter(
-                    EpicStage.dragon_id == stage.dragon_id,
-                    EpicStage.stage_number > stage.stage_number,
-                )
-                .order_by(EpicStage.stage_number, EpicStage.id)
-                .first()
+        nxt = (
+            db.query(EpicStage)
+            .filter(
+                EpicStage.dragon_id == stage.dragon_id,
+                EpicStage.stage_number > stage.stage_number,
             )
-            if nxt:
-                care.stage_id = nxt.id
-                care.cycles_completed = 0
-                care.current_action_order = 0
-                event = {"event": "stage_up", "stage": nxt, "prev_stage": stage}
-            else:
-                event = {"event": "finale", "stage": stage}
+            .order_by(EpicStage.stage_number, EpicStage.id)
+            .first()
+        )
+        if nxt:
+            care.stage_id = nxt.id
+            event = {"event": "stage_up", "stage": nxt, "prev_stage": stage}
         else:
-            event = {"event": "cycle_done", "stage": stage}
+            event = {"event": "finale", "stage": stage}
 
     timeout_action = completed_action or get_current_action(db, care)
     if timeout_action:
@@ -408,8 +402,8 @@ def admin_clear_sub(db, care):
     db.commit()
 
 
-def admin_goto(db, care, stage_id=None, action_order=None, cycles_completed=None):
-    """Admin: jump to a specific stage / action / cycle count."""
+def admin_goto(db, care, stage_id=None, action_order=None):
+    """Admin: jump to a specific stage / action."""
     dragon_id = care_dragon_id(db, care)
     if stage_id is not None:
         stage = db.query(EpicStage).filter(
@@ -418,8 +412,6 @@ def admin_goto(db, care, stage_id=None, action_order=None, cycles_completed=None
         if not stage:
             return False
         care.stage_id = stage.id
-    if cycles_completed is not None:
-        care.cycles_completed = max(0, int(cycles_completed))
     if action_order is not None:
         actions = get_stage_actions(db, care.stage_id, dragon_id)
         idx = max(0, int(action_order))
@@ -436,12 +428,11 @@ def admin_goto(db, care, stage_id=None, action_order=None, cycles_completed=None
 
 
 def admin_restart_care(db, care):
-    """Admin: reset care to the first stage / first action / zero cycles."""
+    """Admin: reset care to the first stage / first action."""
     dragon_id = care_dragon_id(db, care)
     stage = first_stage(db, dragon_id)
     care.stage_id = stage.id if stage else None
     care.current_action_order = 0
-    care.cycles_completed = 0
     care.current_sub_action_id = None
     care.current_step_order = 0
     care.sub_had_penalty = False
@@ -475,14 +466,12 @@ def care_overview(db, vk_id):
     return {
         "dragon_id": dragon_id,
         "stages": [
-            {"id": s.id, "stage_number": s.stage_number, "name": s.name, "cycles_count": s.cycles_count}
+            {"id": s.id, "stage_number": s.stage_number, "name": s.name}
             for s in stages
         ],
         "stage_id": care.stage_id,
         "stage_name": cur_stage.name if cur_stage else "",
         "stage_number": cur_stage.stage_number if cur_stage else 0,
-        "cycles_completed": care.cycles_completed or 0,
-        "cycles_total": cur_stage.cycles_count if cur_stage else 0,
         "current_action_order": care.current_action_order or 0,
         "actions": [
             {"order_in_cycle": a.order_in_cycle, "action_label": a.action_label, "action_type": getattr(a, "action_type", "simple")}
