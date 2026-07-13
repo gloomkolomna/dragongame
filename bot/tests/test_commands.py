@@ -470,4 +470,4 @@ def test_cancel_garden_restores_epic_state(db):
     assert u.state == AWAIT_GARDEN
 
     cancel_garden(u, db, send)
-    assert u.state == "epic_egg_2", f"Expected epic_egg_2, got {u.state}"
+    assert u.state.startswith("epic_egg_"), f"Expected epic_egg_*, got {u.state}"

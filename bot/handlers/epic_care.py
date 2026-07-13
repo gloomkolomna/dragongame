@@ -849,15 +849,8 @@ def _finale(user, db, send_message, upload_image, event):
         msg += f"\n🎭 Характер: {summary}\n"
     msg += "\nОн подкинул под дверь новое яйцо. Кого будем растить дальше?"
 
-    kb = json.dumps({
-        "one_time": False,
-        "buttons": [
-            [{"action": {"type": "text", "label": "🐲 Такого же заново", "payload": json.dumps({"cmd": "epic_restart", "mode": "same"}, ensure_ascii=False)}, "color": "primary"}],
-            [{"action": {"type": "text", "label": "🎲 Нового случайного", "payload": json.dumps({"cmd": "epic_restart", "mode": "random"}, ensure_ascii=False)}, "color": "secondary"}],
-            [{"action": {"type": "open_link", "label": "📖 Мой Бестиарий", "link": "https://vk.com/app54663330"}}],
-        ],
-    }, ensure_ascii=False)
-    send_message(msg, attachment=attachment, keyboard=kb)
+    from bot.keyboard import epic_restart_keyboard
+    send_message(msg, attachment=attachment, keyboard=epic_restart_keyboard())
 
 
 def _finalize_epic(db, vk_id):

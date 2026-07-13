@@ -316,10 +316,11 @@ def handle_epic_egg_message(user, text, attachments, db, send_message, upload_im
 def _prompt_name(user, dragon, db, send_message):
     user.state = AWAIT_EPIC_NAME
     db.commit()
+    from bot.keyboard import epic_name_keyboard
     send_message(
         "🐲 Твой эпический дракон вылупился!\n"
         "Как ты его назовёшь? Напиши имя одним сообщением.",
-        keyboard=empty_keyboard(),
+        keyboard=epic_name_keyboard(),
     )
 
 

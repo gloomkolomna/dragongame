@@ -237,6 +237,22 @@ def await_pin_keyboard():
     ])
 
 
+def epic_name_keyboard():
+    return _keyboard([
+        row(("🔄🥚 Сменить яйцо дракона", "garden"), ("❓ Помощь", "help")),
+        bestiary_link_row(),
+    ])
+
+
+def epic_restart_keyboard():
+    return _keyboard([
+        [{"action": {"type": "text", "label": "🐲 Такого же заново", "payload": json.dumps({"cmd": "epic_restart", "mode": "same"}, ensure_ascii=False)}, "color": "primary"}],
+        [{"action": {"type": "text", "label": "🎲 Нового случайного", "payload": json.dumps({"cmd": "epic_restart", "mode": "random"}, ensure_ascii=False)}, "color": "secondary"}],
+        row(("🔄🥚 Сменить яйцо дракона", "garden"), ("❓ Помощь", "help")),
+        bestiary_link_row(),
+    ])
+
+
 def await_garden_keyboard(with_cancel=False):
     buttons = [
         row(("🥚 Добавить яйцо дракона", "pin")),
@@ -296,6 +312,7 @@ def inventory_keyboard():
 def care_shop_keyboard():
     return _keyboard([
         row(("🛒 Магазин", "shop")),
+        row(("◀ К дракону", "epic")),
         garden_row(),
         help_rules_row(),
         bestiary_link_row(),

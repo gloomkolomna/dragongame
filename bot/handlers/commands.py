@@ -260,7 +260,8 @@ def cancel_garden(user, db, send_message, upload_image=None):
     if prev_state and (prev_state.startswith("epic_egg_") or prev_state.startswith("epic_care_") or prev_state == "await_epic_name" or prev_state == "await_epic_restart"):
         user.state = prev_state
         db.commit()
-        send_message("Остаёмся на эпическом драконе.")
+        from bot.handlers.epic import handle_epic_command
+        handle_epic_command(user, db, send_message, upload_image)
         return
 
     if not user.current_dragon_id:

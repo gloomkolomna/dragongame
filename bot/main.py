@@ -63,13 +63,17 @@ def _handle_growing_chat(user, db, send_message, upload_image=None):
 
 def get_keyboard(state: str, user=None) -> str:
     if state == AWAIT_EPIC_NAME:
-        return empty_keyboard()
+        from bot.keyboard import epic_name_keyboard
+        return epic_name_keyboard()
     if state == AWAIT_PIN:
         return await_pin_keyboard()
     if state == AWAIT_GARDEN:
-        return await_garden_keyboard()
+        return await_garden_keyboard(with_cancel=True)
     if state == AWAIT_INCUBATOR:
         return empty_keyboard()
+    if state == AWAIT_EPIC_RESTART:
+        from bot.keyboard import epic_restart_keyboard
+        return epic_restart_keyboard()
     if state == AWAIT_RULES:
         from bot.handlers.rules import SECTIONS_MENU_VIEW
         from bot.keyboard import rules_menu_keyboard
@@ -264,6 +268,16 @@ def main():
                 )
 
             if user.state == AWAIT_EPIC_NAME:
+                if cmd in ("garden", "help", "rules", "start"):
+                    if cmd == "garden":
+                        handle_garden(user, db, send_message)
+                    elif cmd == "help":
+                        handle_help(send_message)
+                    elif cmd == "rules":
+                        handle_rules(user, db, send_message)
+                    elif cmd == "start":
+                        handle_start(user, db, send_message, upload_image)
+                    continue
                 if text:
                     handle_epic_name(user, text, db, send_message, upload_image)
                 continue
@@ -529,6 +543,14 @@ def main():
                     )
                 else:
                     _handle_growing_chat(user, db, send_message, upload_image)
+
+            elif user.state == AWAIT_EPIC_RESTART and text and not cmd:
+                from bot.keyboard import epic_restart_keyboard
+                send_message(
+                    "🐲 Выбери, кого растить дальше: «🐲 Такого же заново» или «🎲 Нового случайного».\n"
+                    "Или нажми «🔄🥚 Сменить яйцо дракона», чтобы вернуться к другим драконам.",
+                    keyboard=epic_restart_keyboard(),
+                )
 
             elif is_intro_chapter(user.state) and text and not cmd:
                 handle_intro_chat(user, db, send_message, upload_image)

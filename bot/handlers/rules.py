@@ -200,10 +200,19 @@ def cancel_rules(user, db, send_message, upload_image=None):
     prev_state = _restore_prev_state(user)
     if prev_state and prev_state != AWAIT_RULES:
         user.state = prev_state
+        db.commit()
+        if prev_state.startswith("epic_egg_") or prev_state.startswith("epic_care_") or prev_state == "await_epic_name" or prev_state == "await_epic_restart":
+            from bot.handlers.epic import handle_epic_command
+            handle_epic_command(user, db, send_message, upload_image)
+        else:
+            send_message(
+                "📜 Правила закрыты. Удачной вышивки!",
+                keyboard=idle_keyboard(),
+            )
     else:
         user.state = IDLE
-    db.commit()
-    send_message(
-        "📜 Правила закрыты. Удачной вышивки!",
-        keyboard=idle_keyboard(),
-    )
+        db.commit()
+        send_message(
+            "📜 Правила закрыты. Удачной вышивки!",
+            keyboard=idle_keyboard(),
+        )
