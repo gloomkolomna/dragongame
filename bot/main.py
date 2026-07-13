@@ -20,7 +20,7 @@ from bot.handlers.commands import handle_start, handle_help, handle_garden, swit
 from bot.handlers.pin import handle_pin_command, handle_pin_entry
 from bot.handlers.grow import handle_grow_message, handle_grow_command, handle_norm_command, handle_x2_command, handle_back_command
 from bot.handlers.shop import handle_shop_command, handle_buy, handle_inventory
-from bot.handlers.legend import handle_legend_start, handle_legend_mode, handle_legend_message
+from bot.handlers.legend import handle_legend_start, handle_legend_mode, handle_legend_message, handle_legend_next
 from bot.handlers.epic import handle_epic_command, handle_epic_egg_mode, handle_epic_egg_message, handle_epic_name, handle_epics, handle_epics_pick, cancel_epics, user_has_epic
 from bot.handlers.rules import handle_rules, handle_rules_section, handle_rules_pick, cancel_rules
 from bot.handlers.intro import handle_intro_next, handle_intro_chat, start_intro
@@ -388,6 +388,10 @@ def main():
 
             if is_legend(user.state) and cmd in ("norm", "x2"):
                 handle_legend_mode(user, cmd, db, send_message)
+                continue
+
+            if is_legend(user.state) and cmd == "legend_next":
+                handle_legend_next(user, db, send_message, upload_image)
                 continue
 
             if is_legend_waiting(user.state) and not cmd:

@@ -9,7 +9,7 @@ from bot.services.legend_service import (
     complete_legend_fragment, give_legend_book,
 )
 from bot.services.grow_service import credit_stitches, is_suspicious, is_blocked, create_suspicious_report, notify_admin
-from bot.keyboard import legend_buttons_keyboard, idle_keyboard
+from bot.keyboard import legend_buttons_keyboard, legend_next_keyboard, idle_keyboard
 
 _IMAGES = os.path.join(os.path.dirname(__file__), "..", "..", "images", "dragons")
 
@@ -226,6 +226,35 @@ def handle_legend_message(user, text, attachments, db, send_message, upload_imag
         send_message(msg, keyboard=idle_keyboard(has_active=bool(user.current_dragon_id)))
         return True
 
-    send_message(f"✅ Отрывок {frag_num} рассказан! Приступай к следующему.")
-    _show_fragment(user, dragon, next_frag, total, db, send_message, upload_image)
+    user.state = legend_state(frag_num)
+    db.commit()
+    send_message(
+        f"📖 Отрывок {frag_num} прочитан. Хочешь продолжить?",
+        keyboard=legend_next_keyboard(),
+    )
     return True
+
+
+def handle_legend_next(user, db, send_message, upload_image=None):
+    dragon_id = _legend_dragon_id(user)
+    if not dragon_id:
+        send_message("Легенда не активна.")
+        return
+    from models import Dragon
+    dragon = db.query(Dragon).filter(Dragon.id == dragon_id).first()
+    if not dragon:
+        send_message("Дракон не найден.")
+        return
+    next_frag = get_next_legend_fragment(db, user.vk_id, dragon_id)
+    if not next_frag:
+        book = give_legend_book(db, user.vk_id)
+        user.state = IDLE
+        _clear_legend(user)
+        db.commit()
+        msg = f"📖✨ Легенда дракона «{dragon.name}» рассказана полностью!\n"
+        if book:
+            msg += f"\n🎁 В инвентарь добавлено: «{book.name}»."
+        send_message(msg, keyboard=idle_keyboard(has_active=bool(user.current_dragon_id)))
+        return
+    total = get_legend_total(db, dragon_id)
+    _show_fragment(user, dragon, next_frag, total, db, send_message, upload_image)

@@ -1,5 +1,5 @@
 from models import Dragon, DragonStep, User, UserDragon, UserInventory, ShopItem, SuspiciousReport
-from bot.handlers.legend import handle_legend_start, handle_legend_mode, handle_legend_message
+from bot.handlers.legend import handle_legend_start, handle_legend_mode, handle_legend_message, handle_legend_next
 
 
 def _photos():
@@ -55,6 +55,9 @@ def test_legend_full_flow_gives_book(db):
     handle_legend_start(u, d.id, db, send)
     handle_legend_mode(u, "norm", db, send)
     handle_legend_message(u, "вышито 1000", _photos(), db, send)
+    assert u.state == "legend_1"
+
+    handle_legend_next(u, db, send)
     assert u.state == "legend_2"
 
     handle_legend_mode(u, "norm", db, send)

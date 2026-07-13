@@ -187,6 +187,14 @@ def legend_buttons_keyboard():
     ])
 
 
+def legend_next_keyboard():
+    return _keyboard([
+        [{"action": {"type": "text", "label": "📖 Читать следующий отрывок", "payload": json.dumps({"cmd": "legend_next"}, ensure_ascii=False)}, "color": "primary"}],
+        garden_row(),
+        bestiary_link_row(),
+    ])
+
+
 def epic_egg_buttons_keyboard():
     return _keyboard([
         [{"action": {"type": "text", "label": "🎯 Норма", "payload": json.dumps({"cmd": "norm"}, ensure_ascii=False)}, "color": "positive"}],
