@@ -4,7 +4,7 @@ import os
 import re
 from bot.fsm import IDLE, AWAIT_EPIC_RESTART, epic_care_state, epic_care_sub_state, epic_care_sub_confirm_state, state_mode, is_epic_care_sub, is_epic_care_sub_waiting, is_epic_care_sub_confirm
 from bot.services.grow_service import (
-    credit_stitches, is_suspicious, create_suspicious_report, notify_admin,
+    credit_stitches, is_suspicious, is_blocked, create_suspicious_report, notify_admin,
 )
 from bot.keyboard import epic_care_keyboard, epic_care_item_keyboard, epic_care_optional_item_keyboard, idle_keyboard, sub_step_keyboard
 
@@ -318,6 +318,20 @@ def handle_care_message(user, text, attachments, db, send_message, upload_image=
     photo_after_id = fmt_photo(photos[1]) if len(photos) > 1 else ""
     from services.epic_service import get_epic_dragon
     epic_dragon = get_epic_dragon(db, user.vk_id)
+
+    if is_blocked(crosses, required):
+        create_suspicious_report(
+            db, user.vk_id, epic_dragon.id if epic_dragon else None,
+            action.order_in_cycle, crosses, required, mode,
+            photo_before_id=photo_before_id, photo_after_id=photo_after_id,
+            raw_message=text,
+        )
+        send_message(
+            f"⚠ Ты заявил {crosses} крестиков при норме {required} — это слишком много.\n"
+            "Шаг не засчитан. Отправь, пожалуйста, корректное число."
+        )
+        db.commit()
+        return True
 
     credit_stitches(db, user.vk_id, crosses)
     if is_suspicious(crosses, required):
@@ -673,6 +687,20 @@ def handle_sub_message(user, text, attachments, db, send_message, upload_image=N
 
     from services.epic_service import get_epic_dragon
     epic_dragon = get_epic_dragon(db, user.vk_id)
+
+    if is_blocked(crosses, required):
+        create_suspicious_report(
+            db, user.vk_id, epic_dragon.id if epic_dragon else None,
+            0, crosses, required, mode,
+            photo_before_id=photo_before_id, photo_after_id=photo_after_id,
+            raw_message=text,
+        )
+        send_message(
+            f"⚠ Ты заявил {crosses} крестиков при норме {required} — это слишком много.\n"
+            "Шаг не засчитан. Отправь, пожалуйста, корректное число."
+        )
+        db.commit()
+        return True
 
     credit_stitches(db, user.vk_id, crosses)
     if is_suspicious(crosses, required):

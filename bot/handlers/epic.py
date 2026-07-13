@@ -8,7 +8,7 @@ from bot.fsm import (
 )
 from bot.services.grow_service import (
     get_dragon_step, get_total_steps, complete_step,
-    credit_stitches, is_suspicious, create_suspicious_report, notify_admin,
+    credit_stitches, is_suspicious, is_blocked, create_suspicious_report, notify_admin,
 )
 from bot.keyboard import epic_egg_buttons_keyboard, idle_keyboard, empty_keyboard
 
@@ -270,6 +270,19 @@ def handle_epic_egg_message(user, text, attachments, db, send_message, upload_im
 
     photo_before_id = _fmt_photo(photos[0])
     photo_after_id = _fmt_photo(photos[1]) if len(photos) > 1 else ""
+
+    if is_blocked(crosses, required):
+        create_suspicious_report(
+            db, user.vk_id, dragon.id, step, crosses, required, mode,
+            photo_before_id=photo_before_id, photo_after_id=photo_after_id,
+            raw_message=text,
+        )
+        send_message(
+            f"⚠ Ты заявил {crosses} крестиков при норме {required} — это слишком много.\n"
+            "Шаг не засчитан. Отправь, пожалуйста, корректное число."
+        )
+        db.commit()
+        return True
 
     credit_stitches(db, user.vk_id, crosses)
     if is_suspicious(crosses, required):

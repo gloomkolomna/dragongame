@@ -8,7 +8,7 @@ from bot.services.legend_service import (
     get_legend_steps, get_legend_total, get_next_legend_fragment,
     complete_legend_fragment, give_legend_book,
 )
-from bot.services.grow_service import credit_stitches, is_suspicious, create_suspicious_report, notify_admin
+from bot.services.grow_service import credit_stitches, is_suspicious, is_blocked, create_suspicious_report, notify_admin
 from bot.keyboard import legend_buttons_keyboard, idle_keyboard
 
 _IMAGES = os.path.join(os.path.dirname(__file__), "..", "..", "images", "dragons")
@@ -167,6 +167,19 @@ def handle_legend_message(user, text, attachments, db, send_message, upload_imag
 
     photo_before_id = fmt_photo(photo_infos[0])
     photo_after_id = fmt_photo(photo_infos[1]) if len(photo_infos) > 1 else ""
+
+    if is_blocked(crosses, required):
+        create_suspicious_report(
+            db, user.vk_id, dragon_id, frag_num, crosses, required, mode,
+            photo_before_id=photo_before_id, photo_after_id=photo_after_id,
+            raw_message=text,
+        )
+        send_message(
+            f"⚠ Ты заявил {crosses} крестиков при норме {required} — это слишком много.\n"
+            "Отрывок не засчитан. Отправь, пожалуйста, корректное число."
+        )
+        db.commit()
+        return True
 
     credit_stitches(db, user.vk_id, crosses)
 

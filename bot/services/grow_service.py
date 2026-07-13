@@ -218,12 +218,16 @@ def complete_dragon(db, vk_id: int, dragon_id: int):
     return treasure, family_treasures
 
 
-def get_anti_cheat_multiplier() -> int:
-    try:
-        import config
-        return max(2, int(config.ANTI_CHEAT_MULTIPLIER or 5))
-    except Exception:
-        return 5
+def is_blocked(declared: int, required: int) -> bool:
+    if required <= 0:
+        return False
+    return declared > required * 5
+
+
+def is_suspicious(declared: int, required: int) -> bool:
+    if required <= 0:
+        return False
+    return declared > required * 3
 
 
 def credit_stitches(db, vk_id: int, amount: int) -> int:
@@ -237,12 +241,6 @@ def credit_stitches(db, vk_id: int, amount: int) -> int:
     user.stitches_balance = (user.stitches_balance or 0) + amount
     db.commit()
     return user.stitches_balance
-
-
-def is_suspicious(declared: int, required: int) -> bool:
-    if required <= 0:
-        return False
-    return declared > required * get_anti_cheat_multiplier()
 
 
 def create_suspicious_report(db, vk_id, dragon_id, step_number, declared, required, mode,

@@ -234,19 +234,19 @@ def test_grow_message_anti_cheat_creates_report(db):
     def send(msg, **kw):
         messages.append(msg)
 
-    handle_grow_message(u, "вышито 6000", _photos(), db, send)
+    handle_grow_message(u, "вышито 4000", _photos(), db, send)
 
     db.refresh(u)
-    assert u.stitches_balance == 6000
+    assert u.stitches_balance == 4000
 
     report = db.query(SuspiciousReport).filter(SuspiciousReport.user_id == u.vk_id).first()
     assert report is not None
     assert report.status == "pending"
-    assert report.declared_crosses == 6000
+    assert report.declared_crosses == 4000
     assert report.normal_crosses == 1000
     assert report.mode == "norm"
     assert report.photo_before_id == "photo1_10"
-    assert report.raw_message == "вышито 6000"
+    assert report.raw_message == "вышито 4000"
     assert any("подозрительным" in m.lower() for m in messages)
 
 
@@ -257,12 +257,12 @@ def test_grow_message_anti_cheat_x2_threshold(db):
     def send(msg, **kw):
         pass
 
-    handle_grow_message(u, "вышито 11000", _photos(), db, send)
+    handle_grow_message(u, "вышито 8000", _photos(), db, send)
     report = db.query(SuspiciousReport).filter(SuspiciousReport.user_id == u.vk_id).first()
     assert report is not None
     assert report.mode == "x2"
     assert report.normal_crosses == 2000
-    assert report.declared_crosses == 11000
+    assert report.declared_crosses == 8000
 
 
 def test_grow_message_x2_not_suspicious_below_threshold(db):
@@ -272,11 +272,53 @@ def test_grow_message_x2_not_suspicious_below_threshold(db):
     def send(msg, **kw):
         pass
 
-    handle_grow_message(u, "вышито 9000", _photos(), db, send)
+    handle_grow_message(u, "вышито 5000", _photos(), db, send)
     report = db.query(SuspiciousReport).filter(SuspiciousReport.user_id == u.vk_id).first()
     assert report is None
     db.refresh(u)
-    assert u.stitches_balance == 9000
+    assert u.stitches_balance == 5000
+
+
+def test_grow_message_blocked_over_5x(db):
+    from models import SuspiciousReport
+    d, u = _setup(db)
+
+    messages = []
+    def send(msg, **kw):
+        messages.append(msg)
+
+    handle_grow_message(u, "вышито 6000", _photos(), db, send)
+
+    db.refresh(u)
+    assert u.stitches_balance == 0
+    assert u.current_step == 1
+    assert any("слишком много" in m for m in messages)
+
+    report = db.query(SuspiciousReport).filter(SuspiciousReport.user_id == u.vk_id).first()
+    assert report is not None
+    assert report.declared_crosses == 6000
+
+
+def test_grow_message_blocked_over_5x_x2(db):
+    from models import SuspiciousReport
+    d, u = _setup(db, state="grow_step_1_x2")
+
+    messages = []
+    def send(msg, **kw):
+        messages.append(msg)
+
+    handle_grow_message(u, "вышито 11000", _photos(), db, send)
+
+    db.refresh(u)
+    assert u.stitches_balance == 0
+    assert u.current_step == 1
+    assert any("слишком много" in m for m in messages)
+
+    report = db.query(SuspiciousReport).filter(SuspiciousReport.user_id == u.vk_id).first()
+    assert report is not None
+    assert report.mode == "x2"
+    assert report.normal_crosses == 2000
+    assert report.declared_crosses == 11000
 
 
 def test_grow_message_no_report_within_threshold(db):
@@ -286,7 +328,7 @@ def test_grow_message_no_report_within_threshold(db):
     def send(msg, **kw):
         pass
 
-    handle_grow_message(u, "вышито 5000", _photos(), db, send)
+    handle_grow_message(u, "вышито 2500", _photos(), db, send)
 
     report = db.query(SuspiciousReport).filter(SuspiciousReport.user_id == u.vk_id).first()
     assert report is None

@@ -88,7 +88,7 @@ def test_legend_anti_cheat(db):
 
     handle_legend_start(u, d.id, db, send)
     handle_legend_mode(u, "x2", db, send)
-    handle_legend_message(u, "вышито 20000", _photos(), db, send)
+    handle_legend_message(u, "вышито 8000", _photos(), db, send)
     report = db.query(SuspiciousReport).filter(SuspiciousReport.user_id == 1).first()
     assert report is not None
     assert report.mode == "x2"
