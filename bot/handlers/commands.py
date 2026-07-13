@@ -111,7 +111,29 @@ def handle_start(user, db, send_message, upload_image=None):
             )
 
 
-def handle_help(send_message):
+def handle_help(user, send_message):
+    from bot.fsm import is_growing, is_waiting_text, is_epic_egg, is_epic_egg_waiting, is_epic_care, is_epic_care_waiting, is_legend, is_legend_waiting
+    from bot.keyboard import step_buttons_keyboard, epic_egg_buttons_keyboard, epic_care_keyboard, legend_buttons_keyboard, growing_keyboard, idle_keyboard, waiting_keyboard
+    if is_waiting_text(user.state):
+        kb = waiting_keyboard()
+    elif is_growing(user.state):
+        kb = step_buttons_keyboard()
+    elif is_epic_egg_waiting(user.state):
+        kb = waiting_keyboard()
+    elif is_epic_egg(user.state):
+        kb = epic_egg_buttons_keyboard()
+    elif is_epic_care_waiting(user.state):
+        kb = waiting_keyboard()
+    elif is_epic_care(user.state):
+        kb = epic_care_keyboard()
+    elif is_legend_waiting(user.state):
+        kb = waiting_keyboard()
+    elif is_legend(user.state):
+        kb = legend_buttons_keyboard()
+    elif user.current_dragon_id:
+        kb = growing_keyboard()
+    else:
+        kb = idle_keyboard(has_active=False)
     send_message(
         "🐲 Добро пожаловать в Бестиарий драконьих легенд!\n\n"
         "📖 Мой Бестиарий — открыть коллекцию в мини-приложении ВК\n"
@@ -123,7 +145,8 @@ def handle_help(send_message):
         "1. Нажми «🌱 Перейти к выращиванию»\n"
         "2. Выбери «🎯 Норма» или «⚡ Штраф (x2)»\n"
         "3. Вышей нужное количество крестиков\n"
-        "4. Отправь сообщение «вышито 1000» (своё число)"
+        "4. Отправь сообщение «вышито 1000» (своё число)",
+        keyboard=kb,
     )
 
 
@@ -147,7 +170,7 @@ def handle_garden(user, db, send_message):
         send_message(
             "📖 В твоём Бестиарии пока нет драконов.\n"
             "Нажми «🥚 Добавить яйцо дракона» и введи PIN-код, чтобы вырастить первого.",
-            keyboard=await_garden_keyboard(with_cancel=False),
+            keyboard=await_garden_keyboard(with_cancel=False, show_incubator=user.epic_unlocked),
         )
         return
 
@@ -235,7 +258,7 @@ def handle_garden(user, db, send_message):
             lines.append("\nВсе яйца выращены! Добавь нового или загляни в Бестиарий.")
 
     if user.current_dragon_id or user.epic_dragon_id:
-        send_message("\n".join(lines), keyboard=await_garden_keyboard(with_cancel=True))
+        send_message("\n".join(lines), keyboard=await_garden_keyboard(with_cancel=True, show_incubator=user.epic_unlocked))
     else:
         send_message("\n".join(lines))
 

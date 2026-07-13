@@ -27,7 +27,7 @@ from bot.handlers.intro import handle_intro_next, handle_intro_chat, start_intro
 from bot.services.user_service import get_or_create_user
 from bot.scheduler import run_timeout_checker
 from bot.services.donor_sync import run_donor_sync
-from bot.keyboard import idle_keyboard, growing_keyboard, waiting_keyboard, start_growing_keyboard, step_buttons_keyboard, await_pin_keyboard, await_garden_keyboard, keyboard_with_legends, keyboard_with_epics, keyboard_with_incubator, intro_keyboard, empty_keyboard
+from bot.keyboard import idle_keyboard, growing_keyboard, waiting_keyboard, start_growing_keyboard, step_buttons_keyboard, await_pin_keyboard, await_garden_keyboard, keyboard_with_legends, keyboard_with_epics, intro_keyboard, empty_keyboard
 from datetime import datetime
 
 
@@ -68,7 +68,7 @@ def get_keyboard(state: str, user=None) -> str:
     if state == AWAIT_PIN:
         return await_pin_keyboard()
     if state == AWAIT_GARDEN:
-        return await_garden_keyboard(with_cancel=True)
+        return await_garden_keyboard(with_cancel=True, show_incubator=bool(user and user.epic_unlocked))
     if state == AWAIT_INCUBATOR:
         return empty_keyboard()
     if state == AWAIT_EPIC_RESTART:
@@ -232,17 +232,10 @@ def main():
                         pass
                     try:
                         if (user.state not in (AWAIT_EPICS, AWAIT_EPIC_NAME)
-                                and not is_epic_egg(user.state)
-                                and not is_epic_care(user.state)
                                 and user_has_epic(db, user.vk_id)):
                             keyboard = keyboard_with_epics(keyboard)
                     except Exception:
                         pass
-                    if (user.state not in (AWAIT_EPICS, AWAIT_EPIC_NAME, AWAIT_INCUBATOR)
-                            and not is_epic_egg(user.state)
-                            and not is_epic_care(user.state)
-                            and user.epic_unlocked):
-                        keyboard = keyboard_with_incubator(keyboard)
                     kwargs["keyboard"] = keyboard
                 if attachment:
                     kwargs["attachment"] = attachment
@@ -310,7 +303,7 @@ def main():
                 t = text.strip().lower()
                 if t in ("0", "назад", "отмена"):
                     from bot.handlers.incubator import handle_incubator_cancel
-                    handle_incubator_cancel(user, db, send_message)
+                    handle_incubator_cancel(user, db, send_message, upload_image)
                     continue
                 if t.isdigit():
                     from bot.handlers.incubator import handle_incubator_pick
@@ -421,7 +414,7 @@ def main():
 
             if cmd == "incubator_cancel":
                 from bot.handlers.incubator import handle_incubator_cancel
-                handle_incubator_cancel(user, db, send_message)
+                handle_incubator_cancel(user, db, send_message, upload_image)
                 continue
 
             if is_epic_egg(user.state) and cmd in ("norm", "x2"):
@@ -496,7 +489,7 @@ def main():
             if cmd == "start":
                 handle_start(user, db, send_message, upload_image)
             elif cmd == "help":
-                handle_help(send_message)
+                handle_help(user, send_message)
             elif cmd == "rules":
                 handle_rules(user, db, send_message)
             elif cmd == "rules_close":

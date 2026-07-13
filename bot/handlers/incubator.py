@@ -1,5 +1,6 @@
 from bot.fsm import IDLE, AWAIT_INCUBATOR, is_growing, grow_state
 from bot.keyboard import incubator_keyboard
+import json as j
 
 
 def handle_incubator(user, db, send_message, upload_image=None):
@@ -10,6 +11,9 @@ def handle_incubator(user, db, send_message, upload_image=None):
     if not pool:
         send_message("🐲 Эпических драконов пока нет в игре.")
         return
+    sd = j.loads(user.state_data or "{}")
+    sd["_inc_prev_state"] = user.state
+    user.state_data = j.dumps(sd, ensure_ascii=False)
     user.state = AWAIT_INCUBATOR
     db.commit()
     lines = ["🥚 Инкубатор — выбери эпическое яйцо:\n"]
@@ -54,10 +58,10 @@ def handle_incubator_pick(user, num, db, send_message, upload_image=None):
         send_message("Этот эпический дракон недоступен для покупки.")
         return
 
-    user.state_data = str(dragon.id)
+    sd = j.loads(user.state_data or "{}")
+    sd["_inc_pick_id"] = dragon.id
+    user.state_data = j.dumps(sd, ensure_ascii=False)
     db.commit()
-    from bot.keyboard import empty_keyboard
-    import json as j
     confirm_kb = j.dumps({
         "one_time": False,
         "buttons": [
@@ -73,10 +77,8 @@ def handle_incubator_pick(user, num, db, send_message, upload_image=None):
 
 
 def handle_incubator_confirm(user, db, send_message, upload_image=None):
-    try:
-        dragon_id = int(user.state_data or "0")
-    except (ValueError, TypeError):
-        dragon_id = 0
+    sd = j.loads(user.state_data or "{}")
+    dragon_id = sd.get("_inc_pick_id", 0)
     if not dragon_id:
         send_message("Ошибка: яйцо не выбрано.")
         _restore_state(user, db, send_message)
@@ -86,21 +88,32 @@ def handle_incubator_confirm(user, db, send_message, upload_image=None):
         send_message(f"❌ {message}")
         _restore_state(user, db, send_message)
         return
+    user.state_data = "{}"
+    db.commit()
     send_message(f"✅ {message}")
     from bot.handlers.epic import handle_epic_command
     handle_epic_command(user, db, send_message, upload_image)
 
 
-def handle_incubator_cancel(user, db, send_message):
-    _restore_state(user, db, send_message)
+def handle_incubator_cancel(user, db, send_message, upload_image=None):
+    _restore_state(user, db, send_message, upload_image)
 
 
-def _restore_state(user, db, send_message):
+def _restore_state(user, db, send_message, upload_image=None):
+    sd = j.loads(user.state_data or "{}")
+    prev_state = sd.pop("_inc_prev_state", None)
+    sd.pop("_inc_pick_id", None)
+    user.state_data = j.dumps(sd, ensure_ascii=False)
+    if prev_state and (prev_state.startswith("epic_egg_") or prev_state.startswith("epic_care_") or prev_state in ("await_epic_name", "await_epic_restart")):
+        user.state = prev_state
+        db.commit()
+        from bot.handlers.epic import handle_epic_command
+        handle_epic_command(user, db, send_message, upload_image)
+        return
     if user.current_dragon_id:
         user.state = grow_state(user.current_step)
     else:
         user.state = IDLE
-    user.state_data = "{}"
     db.commit()
     send_message("Хорошо, вернулись.", keyboard=None)
 

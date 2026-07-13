@@ -835,8 +835,16 @@ def _finale(user, db, send_message, upload_image, event):
     db.commit()
 
     attachment = ""
-    if upload_image and dragon and dragon.dragon_path:
-        fp = os.path.join(_IMAGES, os.path.basename(dragon.dragon_path))
+    image_to_show = None
+    stage = event.get("stage")
+    if dragon and dragon.dragon_path:
+        image_to_show = dragon.dragon_path
+    elif stage and stage.image_end:
+        image_to_show = stage.image_end
+    elif dragon and dragon.egg_path:
+        image_to_show = dragon.egg_path
+    if upload_image and image_to_show:
+        fp = os.path.join(_IMAGES, os.path.basename(image_to_show))
         if os.path.isfile(fp):
             attachment = upload_image(fp, peer_id=user.vk_id)
 

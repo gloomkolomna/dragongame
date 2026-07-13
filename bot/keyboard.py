@@ -252,10 +252,12 @@ def epic_restart_keyboard():
     ])
 
 
-def await_garden_keyboard(with_cancel=False):
+def await_garden_keyboard(with_cancel=False, show_incubator=False):
     buttons = [
         row(("🥚 Добавить яйцо дракона", "pin")),
     ]
+    if show_incubator:
+        buttons.append(incubator_row())
     bottom = []
     if with_cancel:
         bottom.insert(0, ("◀ Не менять", "garden_cancel"))
