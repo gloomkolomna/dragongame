@@ -365,8 +365,8 @@ def test_handle_garden_excludes_hatched_epic(db):
     handle_garden(u, db, send)
 
     full = " ".join(messages)
-    assert "Уголёк" in full
-    assert "уход" in full
+    assert "Уголёк" not in full
+    assert "2. " not in full
 
 
 def _make_legendary(db, vk_id, name="Legendary", fragments=2, opened=0):

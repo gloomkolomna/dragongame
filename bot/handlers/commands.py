@@ -183,6 +183,10 @@ def handle_garden(user, db, send_message):
         counter += 1
     epic_index_map = {}
     for d in epic_dragons:
+        egg_done = egg_completed_count_for_bot(db, user.vk_id, d.id)
+        total = d.steps_count or 0
+        if total > 0 and egg_done >= total:
+            continue
         epic_index_map[d.id] = counter
         counter += 1
 
@@ -225,21 +229,18 @@ def handle_garden(user, db, send_message):
         lines.append(f"{num}. {status} {label} {bar}{remaining_str}{marker}")
 
     for d in epic_dragons:
+        egg_done = egg_completed_count_for_bot(db, user.vk_id, d.id)
+        total = d.steps_count or 0
+        if total > 0 and egg_done >= total:
+            continue
         name = get_epic_name_for(db, user.vk_id, d.id) or d.egg_type or d.name or "?"
         is_epic_current = (user.epic_dragon_id == d.id
                            and (is_epic_egg(_prev_state)
-                                or is_epic_care(_prev_state)
-                                or _prev_state in ("await_epic_name", "await_epic_restart")))
+                                or _prev_state in ("await_epic_name",)))
         marker = " 👈 сейчас" if is_epic_current else ""
-        hatched = is_egg_hatched(db, user.vk_id) and user.epic_dragon_id == d.id
         num = epic_index_map[d.id]
-        if hatched:
-            lines.append(f"{num}. 🐲 {name} — уход{marker}")
-        else:
-            egg_done = egg_completed_count_for_bot(db, user.vk_id, d.id)
-            total = d.steps_count or 0
-            bar = "🟡" * egg_done + "⚪" * (total - egg_done)
-            lines.append(f"{num}. 🥚 {name} {bar}{marker}")
+        bar = "🟡" * egg_done + "⚪" * (total - egg_done)
+        lines.append(f"{num}. 🥚 {name} {bar}{marker}")
 
     if entries or epic_dragons:
         user.state_data = _j.dumps(_sd, ensure_ascii=False)
@@ -327,6 +328,10 @@ def switch_dragon(user, num: int, db, send_message, upload_image=None):
     epic_index_map = {}
     counter = len(all_entries) + 1
     for d in epic_dragons:
+        egg_done = egg_completed_count_for_bot(db, user.vk_id, d.id)
+        total = d.steps_count or 0
+        if total > 0 and egg_done >= total:
+            continue
         epic_index_map[d.id] = counter
         counter += 1
 
