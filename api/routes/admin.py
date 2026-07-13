@@ -315,7 +315,7 @@ def add_step(dragon_id: int, db: Session = Depends(get_db)):
     dragon = get_dragon(db, dragon_id)
     if not dragon:
         raise HTTPException(status_code=404, detail="Dragon not found")
-    max_number = db.query(DragonStep).filter(DragonStep.dragon_id == dragon_id, DragonStep.phase == 0).count()
+    max_number = db.query(func.max(DragonStep.step_number)).filter(DragonStep.dragon_id == dragon_id, DragonStep.phase == 0).scalar() or 0
     step = DragonStep(dragon_id=dragon_id, step_number=max_number + 1, magic_action="", task_description="", hint="", timeout_hours=1, timeout_minutes=0, crosses_norm=1000)
     db.add(step)
     db.commit()
@@ -679,7 +679,7 @@ def get_user_dragon_steps(vk_id: int, dragon_id: int, db: Session = Depends(get_
     if user and user.current_dragon_id == dragon_id:
         current_step = user.current_step
 
-    steps = db.query(DragonStep).filter(DragonStep.dragon_id == dragon_id).order_by(DragonStep.step_number).all()
+    steps = db.query(DragonStep).filter(DragonStep.dragon_id == dragon_id, DragonStep.phase == 0).order_by(DragonStep.step_number).all()
     result = []
     for s in steps:
         progress = db.query(UserProgress).filter(

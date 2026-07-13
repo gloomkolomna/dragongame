@@ -5,7 +5,7 @@ import os
 
 engine = create_engine(
     DATABASE_URL,
-    connect_args={"check_same_thread": False} if "sqlite" in DATABASE_URL else {},
+    connect_args={"check_same_thread": False, "timeout": 30} if "sqlite" in DATABASE_URL else {},
     pool_pre_ping=True,
 )
 

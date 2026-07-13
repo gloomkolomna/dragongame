@@ -50,6 +50,8 @@ class DragonStep(Base):
     phase = Column(Integer, default=0)
     image_path = Column(String, default="")
 
+    __table_args__ = (UniqueConstraint("dragon_id", "step_number", "phase"),)
+
 
 class CollectionGrid(Base):
     __tablename__ = "collection_grid"
