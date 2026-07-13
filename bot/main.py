@@ -84,6 +84,9 @@ def get_keyboard(state: str, user=None, db=None) -> str:
         return rules_menu_keyboard(SECTIONS_MENU_VIEW)
     if is_intro_chapter(state):
         return intro_keyboard()
+    if is_legend(state):
+        from bot.keyboard import legend_buttons_keyboard
+        return legend_buttons_keyboard()
     if is_growing(state):
         if is_waiting_text(state):
             return waiting_keyboard()
