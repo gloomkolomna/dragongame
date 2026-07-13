@@ -39,9 +39,10 @@ function EpicSubActionEditor() {
   const [editRandomOutcome, setEditRandomOutcome] = useState(true);
 
   const load = () => {
-    client.get('/admin/epic/species').then((r) => {
-      if (!r.data.length) { setLoading(false); return; }
-      const did = r.data[0].id;
+    client.get('/admin/epic/stages').then((stages) => {
+      const stage = stages.data.find((s: any) => s.id === sid);
+      const did = stage?.dragon_id;
+      if (!did) { setLoading(false); return; }
       client.get(`/admin/epic/species/${did}/stages/${sid}/actions`).then((rr) => {
         const action = rr.data.find((a: any) => a.id === aid);
         if (action?.sub_actions) {
