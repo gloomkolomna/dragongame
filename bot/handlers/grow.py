@@ -313,8 +313,7 @@ def _handle_crosses_check(user, text, attachments, db, send_message, upload_imag
         keyboard = j.dumps({
             "one_time": True,
             "buttons": legend_rows + [
-                [{"action": {"type": "text", "label": "🥚 Добавить яйцо дракона", "payload": j.dumps({"cmd": "pin"}, ensure_ascii=False)}, "color": "primary"}],
-                [{"action": {"type": "text", "label": "🔄🥚 Сменить яйцо дракона", "payload": j.dumps({"cmd": "garden"}, ensure_ascii=False)}, "color": "secondary"},
+                [{"action": {"type": "text", "label": "📖 Список Бестиария", "payload": j.dumps({"cmd": "garden"}, ensure_ascii=False)}, "color": "primary"},
                  {"action": {"type": "text", "label": "❓ Помощь", "payload": j.dumps({"cmd": "help"}, ensure_ascii=False)}, "color": "secondary"}],
                 [{"action": {"type": "open_link", "label": "📖 Мой Бестиарий", "link": "https://vk.com/app54663330"}}],
             ],

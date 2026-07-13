@@ -43,7 +43,7 @@ def bestiary_link_row():
 
 
 def garden_row():
-    return row(("🔄🥚 Сменить яйцо дракона", "garden"))
+    return row(("📖 Список Бестиария", "garden"))
 
 
 def help_rules_row():
@@ -135,9 +135,8 @@ def keyboard_with_incubator(kb_json):
 
 
 def idle_keyboard(has_active=True):
-    bottom = [("🔄🥚 Сменить яйцо дракона", "garden"), ("📜 Правила", "rules"), ("❓ Помощь", "help")]
+    bottom = [("📖 Список Бестиария", "garden"), ("📜 Правила", "rules"), ("❓ Помощь", "help")]
     return _keyboard([
-        row(("🥚 Добавить яйцо дракона", "pin")),
         row(("🛒 Магазин", "shop")),
         row(*bottom),
         bestiary_link_row(),
@@ -147,7 +146,7 @@ def idle_keyboard(has_active=True):
 def growing_keyboard():
     return _keyboard([
         row(("🛒 Магазин", "shop")),
-        row(("🔄🥚 Сменить яйцо дракона", "garden"), ("📜 Правила", "rules"), ("❓ Помощь", "help")),
+        row(("📖 Список Бестиария", "garden"), ("📜 Правила", "rules"), ("❓ Помощь", "help")),
         bestiary_link_row(),
     ])
 
@@ -155,7 +154,7 @@ def growing_keyboard():
 def waiting_keyboard():
     return _keyboard([
         row(("◀ Назад", "back")),
-        row(("🔄🥚 Сменить яйцо дракона", "garden"), ("📜 Правила", "rules"), ("❓ Помощь", "help")),
+        row(("📖 Список Бестиария", "garden"), ("📜 Правила", "rules"), ("❓ Помощь", "help")),
         bestiary_link_row(),
     ])
 
@@ -163,7 +162,7 @@ def waiting_keyboard():
 def start_growing_keyboard():
     return _keyboard([
         row(("🌱 Перейти к выращиванию", "grow")),
-        row(("🔄🥚 Сменить яйцо дракона", "garden"), ("📜 Правила", "rules"), ("❓ Помощь", "help")),
+        row(("📖 Список Бестиария", "garden"), ("📜 Правила", "rules"), ("❓ Помощь", "help")),
         bestiary_link_row(),
     ])
 
@@ -232,14 +231,14 @@ def epic_care_optional_item_keyboard(button_label=""):
 
 def await_pin_keyboard():
     return _keyboard([
-        row(("🔄🥚 Сменить яйцо дракона", "garden"), ("📜 Правила", "rules"), ("❓ Помощь", "help")),
+        row(("📖 Список Бестиария", "garden"), ("📜 Правила", "rules"), ("❓ Помощь", "help")),
         bestiary_link_row(),
     ])
 
 
 def epic_name_keyboard():
     return _keyboard([
-        row(("🔄🥚 Сменить яйцо дракона", "garden"), ("❓ Помощь", "help")),
+        row(("📖 Список Бестиария", "garden"), ("❓ Помощь", "help")),
         bestiary_link_row(),
     ])
 
@@ -248,7 +247,7 @@ def epic_restart_keyboard():
     return _keyboard([
         [{"action": {"type": "text", "label": "🐲 Такого же заново", "payload": json.dumps({"cmd": "epic_restart", "mode": "same"}, ensure_ascii=False)}, "color": "primary"}],
         [{"action": {"type": "text", "label": "🎲 Нового случайного", "payload": json.dumps({"cmd": "epic_restart", "mode": "random"}, ensure_ascii=False)}, "color": "secondary"}],
-        row(("🔄🥚 Сменить яйцо дракона", "garden"), ("❓ Помощь", "help")),
+        row(("📖 Список Бестиария", "garden"), ("❓ Помощь", "help")),
         bestiary_link_row(),
     ])
 

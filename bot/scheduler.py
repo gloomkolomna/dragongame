@@ -175,9 +175,8 @@ def _check_expired(db, vk, logger, session_factory=None):
             keyboard_json = json.dumps({
                 "one_time": True,
                 "buttons": [
-                    [{"action": {"type": "text", "label": "🥚 Добавить яйцо дракона", "payload": json.dumps({"cmd": "pin"}, ensure_ascii=False)}, "color": "primary"}],
                     [
-                        {"action": {"type": "text", "label": "🔄🥚 Сменить яйцо дракона", "payload": json.dumps({"cmd": "garden"}, ensure_ascii=False)}, "color": "secondary"},
+                        {"action": {"type": "text", "label": "📖 Список Бестиария", "payload": json.dumps({"cmd": "garden"}, ensure_ascii=False)}, "color": "primary"},
                         {"action": {"type": "text", "label": "❓ Помощь", "payload": json.dumps({"cmd": "help"}, ensure_ascii=False)}, "color": "secondary"},
                     ],
                     [{"action": {"type": "open_link", "label": "📖 Мой Бестиарий", "link": "https://vk.com/app54663330"}}],
@@ -232,7 +231,7 @@ def _switch_garden_keyboard(dragon_id: int):
         "one_time": True,
         "buttons": [
             [{"action": {"type": "text", "label": "🥚 Перейти к выращиванию яйца", "payload": json.dumps({"cmd": "switch_to", "dragon_id": dragon_id}, ensure_ascii=False)}, "color": "primary"}],
-            [{"action": {"type": "text", "label": "🔄🥚 Сменить яйцо дракона", "payload": json.dumps({"cmd": "garden"}, ensure_ascii=False)}, "color": "secondary"},
+            [{"action": {"type": "text", "label": "📖 Список Бестиария", "payload": json.dumps({"cmd": "garden"}, ensure_ascii=False)}, "color": "secondary"},
              {"action": {"type": "text", "label": "❓ Помощь", "payload": json.dumps({"cmd": "help"}, ensure_ascii=False)}, "color": "secondary"}],
             [{"action": {"type": "open_link", "label": "📖 Мой Бестиарий", "link": "https://vk.com/app54663330"}}],
         ],
@@ -265,7 +264,7 @@ def _check_care_due(db, vk, logger, session_factory=None):
             "one_time": False,
             "buttons": [
                 [{"action": {"type": "text", "label": "🐲 Продолжить заботу", "payload": json.dumps({"cmd": "epic"}, ensure_ascii=False)}, "color": "primary"}],
-                [{"action": {"type": "text", "label": "🔄🥚 Сменить яйцо дракона", "payload": json.dumps({"cmd": "garden"}, ensure_ascii=False)}, "color": "secondary"}],
+                [{"action": {"type": "text", "label": "📖 Список Бестиария", "payload": json.dumps({"cmd": "garden"}, ensure_ascii=False)}, "color": "secondary"}],
                 [{"action": {"type": "open_link", "label": "📖 Мой Бестиарий", "link": "https://vk.com/app54663330"}}],
             ],
         }, ensure_ascii=False)

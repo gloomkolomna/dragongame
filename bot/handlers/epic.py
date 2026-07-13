@@ -57,7 +57,7 @@ def send_epic_spawn_notice(epic, user, db, send_message, upload_image=None):
         "one_time": False,
         "buttons": [
             [{"action": {"type": "text", "label": "🐲 Растить эпического", "payload": j.dumps({"cmd": "epic"}, ensure_ascii=False)}, "color": "primary"}],
-            [{"action": {"type": "text", "label": "🔄🥚 Сменить яйцо дракона", "payload": j.dumps({"cmd": "garden"}, ensure_ascii=False)}, "color": "secondary"}],
+            [{"action": {"type": "text", "label": "📖 Список Бестиария", "payload": j.dumps({"cmd": "garden"}, ensure_ascii=False)}, "color": "secondary"}],
             [{"action": {"type": "open_link", "label": "📖 Мой Бестиарий", "link": "https://vk.com/app54663330"}}],
         ],
     }, ensure_ascii=False)
@@ -73,7 +73,7 @@ def maybe_offer_epic(user, db, send_message, upload_image=None):
     """Lazy, idempotent first-epic spawn — fires on any interaction after the first
     regular dragon is completed, covering grow/scheduler/admin completion paths."""
     from services.epic_service import maybe_spawn_first_epic
-    if user.epic_unlocked:
+    if user.epic_unlocked and user.epic_dragon_id:
         return
     epic = maybe_spawn_first_epic(db, user.vk_id)
     if epic:

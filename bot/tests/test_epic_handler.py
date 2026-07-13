@@ -99,7 +99,7 @@ def test_epic_spawn_notice_has_garden_button(db):
     sent = {}
     send = lambda m, **k: sent.update(k)
     send_epic_spawn_notice(d, u, db, send)
-    assert "🔄🥚 Сменить яйцо дракона" in sent["keyboard"]
+    assert "📖 Список Бестиария" in sent["keyboard"]
     assert "garden" in sent["keyboard"]
 
 

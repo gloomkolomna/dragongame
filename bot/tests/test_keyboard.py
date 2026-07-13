@@ -103,6 +103,26 @@ def test_await_garden_has_no_garden_button():
         assert "garden" not in _cmds(kb)
 
 
+def test_add_egg_only_in_bestiary_list():
+    add_everywhere = {"idle", "idle_no_active", "growing", "waiting", "start_growing",
+                      "step_buttons", "await_pin", "legend", "epic_egg", "epic_care",
+                      "epic_care_item", "epic_care_optional_item", "care_shop",
+                      "inventory", "sub_step", "sub_action", "sub_confirm", "shop"}
+    for name, kb in _all_keyboards().items():
+        if name in {"await_garden", "await_garden_cancel"}:
+            assert "pin" in _cmds(kb), f"{name} должен содержать кнопку «Добавить яйцо»"
+        elif name in add_everywhere:
+            assert "pin" not in _cmds(kb), f"{name} НЕ должен содержать «Добавить яйцо»"
+
+
+def test_garden_label_renamed():
+    for name, kb in _all_keyboards().items():
+        if name in {"await_garden", "await_garden_cancel"}:
+            continue
+        assert "Сменить яйцо" not in kb, f"{name} содержит устаревшее «Сменить яйцо»"
+        assert "Список Бестиария" in kb or "garden" not in _cmds(kb), f"{name}: garden-кнопка не переименована"
+
+
 def test_keyboard_with_legends_injects_once():
     base = keyboard.growing_keyboard()
     assert "legends" not in _cmds(base)

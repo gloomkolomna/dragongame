@@ -238,14 +238,11 @@ def main():
                             keyboard = keyboard_with_epics(keyboard)
                     except Exception:
                         pass
-                    try:
-                        if (user.state not in (AWAIT_EPICS, AWAIT_EPIC_NAME, AWAIT_INCUBATOR)
-                                and not is_epic_egg(user.state)
-                                and not is_epic_care(user.state)
-                                and user.epic_unlocked):
-                            keyboard = keyboard_with_incubator(keyboard)
-                    except Exception:
-                        pass
+                    if (user.state not in (AWAIT_EPICS, AWAIT_EPIC_NAME, AWAIT_INCUBATOR)
+                            and not is_epic_egg(user.state)
+                            and not is_epic_care(user.state)
+                            and user.epic_unlocked):
+                        keyboard = keyboard_with_incubator(keyboard)
                     kwargs["keyboard"] = keyboard
                 if attachment:
                     kwargs["attachment"] = attachment
@@ -338,7 +335,7 @@ def main():
                 if dragon_id:
                     handle_switch_to(user, dragon_id, db, send_message, upload_image)
                 else:
-                    send_message("Не удалось переключиться. Попробуй через «🔄🥚 Сменить яйцо дракона».")
+                    send_message("Не удалось переключиться. Попробуй через «📖 Список Бестиария».")
                 continue
 
             if cmd == "shop":
@@ -548,7 +545,7 @@ def main():
                 from bot.keyboard import epic_restart_keyboard
                 send_message(
                     "🐲 Выбери, кого растить дальше: «🐲 Такого же заново» или «🎲 Нового случайного».\n"
-                    "Или нажми «🔄🥚 Сменить яйцо дракона», чтобы вернуться к другим драконам.",
+                    "Или нажми «📖 Список Бестиария», чтобы вернуться к другим драконам.",
                     keyboard=epic_restart_keyboard(),
                 )
 
@@ -561,7 +558,7 @@ def main():
                 if has_any:
                     send_message(
                         "🐲 Добро пожаловать в Бестиарий драконьих легенд!\n"
-                        "Нажми «🥚 Добавить яйцо дракона» чтобы начать выращивание."
+                        "Открой «📖 Список Бестиария», чтобы выбрать яйцо или добавить новое."
                     )
                 else:
                     has_intro = db.query(IntroChapter).filter(IntroChapter.is_active == True).first() is not None
@@ -570,7 +567,7 @@ def main():
                     else:
                         send_message(
                             "🐲 У тебя пока нет ни одного яйца дракона для выращивания.\n"
-                            "Нажми «🥚 Добавить яйцо дракона» чтобы начать выращивание."
+                            "Открой «📖 Список Бестиария» → «🥚 Добавить яйцо дракона», чтобы начать."
                         )
 
         except Exception as exc:

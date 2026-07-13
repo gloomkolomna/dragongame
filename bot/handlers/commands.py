@@ -48,7 +48,7 @@ def handle_start(user, db, send_message, upload_image=None):
             send_message(
                 "🐲 Добро пожаловать в Бестиарий драконьих легенд!\n\n"
                 "Здесь ты выращиваешь драконов через вышивку.\n"
-                "Купил яйцо? Нажми «🥚 Добавить яйцо дракона» и введи PIN-код."
+                "Купил яйцо? Открой «📖 Список Бестиария» → «🥚 Добавить яйцо дракона» и введи PIN-код."
             )
         else:
             has_intro = db.query(IntroChapter).filter(IntroChapter.is_active == True).first() is not None
@@ -59,7 +59,7 @@ def handle_start(user, db, send_message, upload_image=None):
             else:
                 send_message(
                     "🐲 У тебя пока нет драконов.\n"
-                    "Нажми «🥚 Добавить яйцо дракона» чтобы начать выращивание."
+                    "Открой «📖 Список Бестиария» → «🥚 Добавить яйцо дракона», чтобы начать выращивание."
                 )
     else:
         dragon = db.query(Dragon).filter(Dragon.id == user.current_dragon_id).first()
@@ -70,8 +70,8 @@ def handle_start(user, db, send_message, upload_image=None):
             user.state = IDLE
             db.commit()
             send_message(
-                "Дракон не найден. Нажми «🥚 Добавить яйцо дракона» чтобы начать.",
-                keyboard=idle_keyboard(has_active=False),
+                "Дракон не найден. Открой «📖 Список Бестиария», чтобы выбрать яйцо или добавить новое.",
+                keyboard=idle_keyboard(),
             )
             return
         step = user.current_step
@@ -115,9 +115,9 @@ def handle_help(send_message):
     send_message(
         "🐲 Добро пожаловать в Бестиарий драконьих легенд!\n\n"
         "📖 Мой Бестиарий — открыть коллекцию в мини-приложении ВК\n"
-        "🥚 Добавить яйцо дракона — ввести PIN-код с яйца и начать выращивание\n"
+        "📖 Список Бестиария — твои драконы и яйца; там же можно добавить новое яйцо по PIN-коду\n"
         "🌱 Перейти к выращиванию — начать/продолжить текущий шаг\n"
-        "🔄🥚 Сменить яйцо дракона — посмотреть все яйца драконов, которые вы выращиваете, и переключиться\n"
+        "📜 Правила — подробные правила игры по разделам\n"
         "❓ Помощь — эта справка\n\n"
         "📸 Как проходить шаги:\n"
         "1. Нажми «🌱 Перейти к выращиванию»\n"
@@ -142,12 +142,12 @@ def handle_garden(user, db, send_message):
     epic_dragons = all_user_epics(db, user.vk_id)
 
     if not all_entries and not epic_dragons:
-        from bot.keyboard import idle_keyboard
-        user.state = IDLE
+        user.state = AWAIT_GARDEN
         db.commit()
         send_message(
-            "🔄🥚 У тебя пока нет яйц драконов для выращивания. Нажми «🥚 Добавить яйцо дракона» чтобы начать.",
-            keyboard=idle_keyboard(has_active=False),
+            "📖 В твоём Бестиарии пока нет драконов.\n"
+            "Нажми «🥚 Добавить яйцо дракона» и введи PIN-код, чтобы вырастить первого.",
+            keyboard=await_garden_keyboard(with_cancel=False),
         )
         return
 
@@ -268,8 +268,9 @@ def cancel_garden(user, db, send_message, upload_image=None):
         user.state = IDLE
         db.commit()
         send_message(
-            "Хорошо, остаёмся без дракона. Нажми «🐲 Добавить яйцо дракона» чтобы начать.",
-            keyboard=idle_keyboard(has_active=False),
+            "Хорошо, остаёмся без активного дракона. "
+            "Открой «📖 Список Бестиария», чтобы выбрать яйцо или добавить новое.",
+            keyboard=idle_keyboard(),
         )
         return
 
@@ -494,7 +495,7 @@ def _completed_keyboard():
         "buttons": [
             [{"action": {"type": "text", "label": "🥚 Добавить яйцо дракона", "payload": json.dumps({"cmd": "pin"}, ensure_ascii=False)}, "color": "primary"}],
             [
-                {"action": {"type": "text", "label": "🔄🥚 Сменить яйцо дракона", "payload": json.dumps({"cmd": "garden"}, ensure_ascii=False)}, "color": "secondary"},
+                {"action": {"type": "text", "label": "📖 Список Бестиария", "payload": json.dumps({"cmd": "garden"}, ensure_ascii=False)}, "color": "secondary"},
                 {"action": {"type": "text", "label": "❓ Помощь", "payload": json.dumps({"cmd": "help"}, ensure_ascii=False)}, "color": "secondary"},
             ],
             [{"action": {"type": "open_link", "label": "📖 Мой Бестиарий", "link": "https://vk.com/app54663330"}}],

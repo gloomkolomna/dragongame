@@ -46,8 +46,6 @@ def maybe_spawn_first_epic(db, vk_id):
     user = db.query(User).filter(User.vk_id == vk_id).first()
     if not user or user.epic_unlocked:
         return None
-    if not get_epic_pool(db):
-        return None
     completed = (
         db.query(UserDragon)
         .join(Dragon, Dragon.id == UserDragon.dragon_id)
@@ -59,6 +57,10 @@ def maybe_spawn_first_epic(db, vk_id):
         .first()
     )
     if not completed:
+        return None
+    user.epic_unlocked = True
+    db.commit()
+    if not get_epic_pool(db):
         return None
     return spawn_random_epic(db, vk_id)
 
