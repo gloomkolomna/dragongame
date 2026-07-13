@@ -177,7 +177,6 @@ class ShopItem(Base):
     is_consumable = Column(Boolean, default=True)
     sort_order = Column(Integer, default=0)
     is_active = Column(Boolean, default=True)
-    is_legend_book = Column(Boolean, default=False)
     is_optional = Column(Boolean, default=False)
 
 

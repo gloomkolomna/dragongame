@@ -77,24 +77,4 @@ def complete_legend_fragment(db, vk_id, dragon_id, fragment_number,
     db.commit()
 
 
-def get_legend_book_item(db):
-    from models import ShopItem
-    return db.query(ShopItem).filter(ShopItem.is_legend_book == True).first()
 
-
-def give_legend_book(db, vk_id):
-    from models import UserInventory
-    book = get_legend_book_item(db)
-    if not book:
-        return None
-    existing = db.query(UserInventory).filter(
-        UserInventory.user_id == vk_id, UserInventory.item_id == book.id
-    ).first()
-    if existing:
-        return book
-    db.add(UserInventory(
-        user_id=vk_id, item_id=book.id, quantity=1,
-        acquired_at=datetime.now().strftime("%Y-%m-%dT%H:%M:%S"),
-    ))
-    db.commit()
-    return book

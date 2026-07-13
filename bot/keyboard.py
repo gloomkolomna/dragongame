@@ -195,6 +195,14 @@ def legend_next_keyboard():
     ])
 
 
+def legend_waiting_keyboard():
+    return _keyboard([
+        garden_row(),
+        help_rules_row(),
+        bestiary_link_row(),
+    ])
+
+
 def epic_egg_buttons_keyboard():
     return _keyboard([
         [{"action": {"type": "text", "label": "🎯 Норма", "payload": json.dumps({"cmd": "norm"}, ensure_ascii=False)}, "color": "positive"}],

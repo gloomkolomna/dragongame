@@ -1,4 +1,4 @@
-from models import Dragon, DragonStep, User, UserDragon, UserInventory, ShopItem, SuspiciousReport
+from models import Dragon, DragonStep, User, UserDragon, SuspiciousReport
 from bot.handlers.legend import handle_legend_start, handle_legend_mode, handle_legend_message, handle_legend_next
 
 
@@ -46,8 +46,6 @@ def test_legend_start_requires_completed(db):
 
 def test_legend_full_flow_gives_book(db):
     d, u = _setup(db, fragments=2)
-    db.add(ShopItem(name="Книга обучения", is_legend_book=True, is_active=True))
-    db.commit()
 
     def send(m, **k):
         pass
@@ -66,8 +64,6 @@ def test_legend_full_flow_gives_book(db):
     db.refresh(u)
     assert u.state == "idle"
     assert u.stitches_balance == 2200
-    inv = db.query(UserInventory).filter(UserInventory.user_id == 1).first()
-    assert inv is not None
 
 
 def test_legend_insufficient_crosses(db):

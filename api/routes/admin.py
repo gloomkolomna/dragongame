@@ -1674,7 +1674,6 @@ async def create_shop_item(request: Request, db: Session = Depends(get_db)):
         is_consumable=bool(b.get("is_consumable", True)),
         sort_order=int(b.get("sort_order", 0) or 0),
         is_active=bool(b.get("is_active", True)),
-        is_legend_book=bool(b.get("is_legend_book", False)),
         is_optional=bool(b.get("is_optional", False)),
     )
     db.add(item)
@@ -1697,7 +1696,6 @@ async def update_shop_item(item_id: int, request: Request, db: Session = Depends
     if "is_consumable" in b: item.is_consumable = bool(b["is_consumable"])
     if "sort_order" in b: item.sort_order = int(b["sort_order"] or 0)
     if "is_active" in b: item.is_active = bool(b["is_active"])
-    if "is_legend_book" in b: item.is_legend_book = bool(b["is_legend_book"])
     if "is_optional" in b: item.is_optional = bool(b["is_optional"])
     db.commit()
     db.refresh(item)

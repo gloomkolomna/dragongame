@@ -6,7 +6,7 @@ import re
 from bot.fsm import IDLE, legend_state, legend_fragment_from_state, is_legend_waiting, state_mode
 from bot.services.legend_service import (
     get_legend_steps, get_legend_total, get_next_legend_fragment,
-    complete_legend_fragment, give_legend_book,
+    complete_legend_fragment,
 )
 from bot.services.grow_service import credit_stitches, is_suspicious, is_blocked, create_suspicious_report, notify_admin
 from bot.keyboard import legend_buttons_keyboard, legend_next_keyboard, idle_keyboard
@@ -216,13 +216,13 @@ def handle_legend_message(user, text, attachments, db, send_message, upload_imag
         send_message(frag_text, attachment=attachment)
 
     if next_frag is None:
-        book = give_legend_book(db, user.vk_id)
         user.state = IDLE
         _clear_legend(user)
         db.commit()
-        msg = f"📖✨ Легенда дракона «{dragon.name if dragon else '?'}» рассказана полностью!\n"
-        if book:
-            msg += f"\n🎁 В инвентарь добавлено: «{book.name}»."
+        msg = (
+            f"📖✨ Легенда дракона «{dragon.name if dragon else '?'}» рассказана полностью!\n\n"
+            f"📖 Легенда добавлена в Библиотеку легенд в мини-приложении."
+        )
         send_message(msg, keyboard=idle_keyboard(has_active=bool(user.current_dragon_id)))
         return True
 
@@ -247,13 +247,13 @@ def handle_legend_next(user, db, send_message, upload_image=None):
         return
     next_frag = get_next_legend_fragment(db, user.vk_id, dragon_id)
     if not next_frag:
-        book = give_legend_book(db, user.vk_id)
         user.state = IDLE
         _clear_legend(user)
         db.commit()
-        msg = f"📖✨ Легенда дракона «{dragon.name}» рассказана полностью!\n"
-        if book:
-            msg += f"\n🎁 В инвентарь добавлено: «{book.name}»."
+        msg = (
+            f"📖✨ Легенда дракона «{dragon.name}» рассказана полностью!\n\n"
+            f"📖 Легенда добавлена в Библиотеку легенд в мини-приложении."
+        )
         send_message(msg, keyboard=idle_keyboard(has_active=bool(user.current_dragon_id)))
         return
     total = get_legend_total(db, dragon_id)
