@@ -380,6 +380,8 @@ def get_completed_epics(vk_id: int, db: Session = Depends(get_db)):
         result.append({
             "name": name,
             "egg_type": dragon.egg_type,
+            "description": dragon.description or "",
+            "finale_description": dragon.finale_description or "",
             "dragon_url": f"/api/static/images/{dragon.dragon_path}" if dragon.dragon_path else "",
             "finale_url": f"/api/static/images/{dragon.finale_image_path}" if dragon.finale_image_path else "",
             "completed_at": ud.completed_at,

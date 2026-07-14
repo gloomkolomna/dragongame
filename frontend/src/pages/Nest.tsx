@@ -31,6 +31,8 @@ interface EpicView {
 interface CompletedEpic {
   name: string;
   egg_type: string;
+  description: string;
+  finale_description: string;
   dragon_url: string;
   finale_url: string;
   completed_at: string;
@@ -86,13 +88,13 @@ function Nest() {
 
   const tabStyle = (t: string) => ({
     flex: 1,
-    padding: '8px 16px',
+    padding: '8px 6px',
     textAlign: 'center' as const,
     cursor: 'pointer',
     fontFamily: 'var(--font-title)',
-    fontSize: 13,
+    fontSize: 11,
     fontWeight: 600,
-    letterSpacing: 1,
+    letterSpacing: 0,
     textTransform: 'uppercase' as const,
     borderBottom: tab === t ? '2px solid var(--gold)' : '2px solid transparent',
     color: tab === t ? 'var(--gold)' : 'var(--parchment-dim)',
@@ -226,15 +228,21 @@ function Nest() {
                     onClick={() => setExpandedEpic(expandedEpic === idx ? null : idx)}
                     style={{ display: 'flex', alignItems: 'center', gap: 12, padding: 12, cursor: 'pointer' }}
                   >
-                    {(epic.dragon_url || epic.finale_url) ? (
-                      <img src={mediaUrl(epic.dragon_url || epic.finale_url)} alt=""
-                           style={{ width: 54, height: 54, objectFit: 'contain', borderRadius: 6, background: 'rgba(0,0,0,0.3)' }} />
+                    {(epic.finale_url || epic.dragon_url) ? (
+                      <img src={mediaUrl(epic.finale_url || epic.dragon_url)} alt=""
+                           onClick={(e) => { e.stopPropagation(); setZoomImg(mediaUrl(epic.finale_url || epic.dragon_url)); }}
+                           style={{ width: 54, height: 54, objectFit: 'contain', borderRadius: 6, background: 'rgba(0,0,0,0.3)', cursor: 'pointer' }} />
                     ) : (
                       <div style={{ width: 54, height: 54, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28 }}>🐲</div>
                     )}
                     <div style={{ flex: 1 }}>
                       <div style={{ fontWeight: 600, color: 'var(--gold)', fontSize: 15 }}>{epic.name}</div>
                       <div style={{ fontSize: 12, color: 'var(--parchment-dim)' }}>{epic.egg_type}</div>
+                      {epic.description ? (
+                        <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 3 }}>{epic.description}</div>
+                      ) : epic.finale_description ? (
+                        <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 3, fontStyle: 'italic' }}>{epic.finale_description}</div>
+                      ) : null}
                       {epic.character && epic.character.length > 0 && (
                         <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 3 }}>
                           🎭 {epic.character.map((c, i) => (
