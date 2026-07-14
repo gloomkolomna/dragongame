@@ -238,11 +238,6 @@ function Nest() {
                     <div style={{ flex: 1 }}>
                       <div style={{ fontWeight: 600, color: 'var(--gold)', fontSize: 15 }}>{epic.name}</div>
                       <div style={{ fontSize: 12, color: 'var(--parchment-dim)' }}>{epic.egg_type}</div>
-                      {epic.description ? (
-                        <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 3 }}>{epic.description}</div>
-                      ) : epic.finale_description ? (
-                        <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 3, fontStyle: 'italic' }}>{epic.finale_description}</div>
-                      ) : null}
                       {epic.character && epic.character.length > 0 && (
                         <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 3 }}>
                           🎭 {epic.character.map((c, i) => (
@@ -255,32 +250,36 @@ function Nest() {
                     </div>
                     <span style={{ color: 'var(--bronze)', fontSize: 16 }}>{expandedEpic === idx ? '▲' : '▼'}</span>
                   </div>
-                  {expandedEpic === idx && epic.moodlets && epic.moodlets.length > 0 && (
+                  {expandedEpic === idx && (
                     <div style={{ borderTop: '1px solid var(--bronze)', padding: 10 }}>
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6 }}>
-                        {epic.moodlets.map((m) => (
-                          <div key={m.key}
-                            onClick={() => setZoomMoodlet(m)}
-                            style={{
-                              cursor: 'pointer', borderRadius: 6, overflow: 'hidden',
-                              border: '2px solid var(--bronze)',
-                              background: m.polarity === 'negative' ? 'rgba(212,116,160,0.08)' : 'rgba(111,207,151,0.06)',
-                              aspectRatio: '1 / 1', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            }}
-                          >
-                            {m.image_path ? (
-                              <img src={mediaUrl(m.image_path)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                            ) : (
-                              <span style={{ fontSize: 28 }}>{m.polarity === 'negative' ? '💔' : '🌟'}</span>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  {expandedEpic === idx && (!epic.moodlets || epic.moodlets.length === 0) && (
-                    <div style={{ borderTop: '1px solid var(--bronze)', padding: '10px 12px', color: 'var(--text-muted)', fontSize: 13 }}>
-                      Воспоминаний пока нет.
+                      {epic.description ? (
+                        <div style={{ fontSize: 14, color: 'var(--parchment)', marginBottom: 10, lineHeight: 1.5 }}>{epic.description}</div>
+                      ) : epic.finale_description ? (
+                        <div style={{ fontSize: 14, color: 'var(--parchment)', marginBottom: 10, lineHeight: 1.5, fontStyle: 'italic' }}>{epic.finale_description}</div>
+                      ) : null}
+                      {epic.moodlets && epic.moodlets.length > 0 ? (
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6 }}>
+                          {epic.moodlets.map((m) => (
+                            <div key={m.key}
+                              onClick={() => setZoomMoodlet(m)}
+                              style={{
+                                cursor: 'pointer', borderRadius: 6, overflow: 'hidden',
+                                border: '2px solid var(--bronze)',
+                                background: m.polarity === 'negative' ? 'rgba(212,116,160,0.08)' : 'rgba(111,207,151,0.06)',
+                                aspectRatio: '1 / 1', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                              }}
+                            >
+                              {m.image_path ? (
+                                <img src={mediaUrl(m.image_path)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                              ) : (
+                                <span style={{ fontSize: 28 }}>{m.polarity === 'negative' ? '💔' : '🌟'}</span>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>Воспоминаний пока нет.</div>
+                      )}
                     </div>
                   )}
                 </div>
