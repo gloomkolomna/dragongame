@@ -607,14 +607,12 @@ def roll_outcome_polarity(db, care):
     balances = db.query(CharacterBalance).filter(
         CharacterBalance.user_dragon_id == care.user_dragon_id
     ).all()
-    pos = sum(max(b.score or 0, 0) for b in balances)
-    neg = sum(max(-(b.score or 0), 0) for b in balances)
-    if pos + neg > 0:
-        char_component = pos / (pos + neg)
-    else:
-        char_component = 0.5
-    penalty_mult = 0.5 if care.sub_had_penalty else 1.0
-    chance = max(0.05, min(0.95, char_component * penalty_mult))
+    net = sum(b.score or 0 for b in balances)
+    bias = net / (abs(net) + 6)
+    chance = 0.5 + bias * 0.3
+    if care.sub_had_penalty:
+        chance -= 0.15
+    chance = max(0.25, min(0.75, chance))
     return "positive" if random.random() < chance else "negative"
 
 
@@ -808,11 +806,12 @@ def _roll_action_polarity(db, care, had_penalty=False):
     balances = db.query(CharacterBalance).filter(
         CharacterBalance.user_dragon_id == care.user_dragon_id
     ).all()
-    pos = sum(max(b.score or 0, 0) for b in balances)
-    neg = sum(max(-(b.score or 0), 0) for b in balances)
-    char_component = pos / (pos + neg) if pos + neg > 0 else 0.5
-    penalty_mult = 0.5 if had_penalty else 1.0
-    chance = max(0.05, min(0.95, char_component * penalty_mult))
+    net = sum(b.score or 0 for b in balances)
+    bias = net / (abs(net) + 6)
+    chance = 0.5 + bias * 0.3
+    if had_penalty:
+        chance -= 0.15
+    chance = max(0.25, min(0.75, chance))
     return "positive" if random.random() < chance else "negative"
 
 

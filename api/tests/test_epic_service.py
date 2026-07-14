@@ -286,6 +286,116 @@ def test_roll_outcome_polarity_neutral(db):
         random.random = original
 
 
+def _care_with_balance(db, vk_id, net_score):
+    d = _epic_dragon(db)
+    db.add(User(vk_id=vk_id, stitches_balance=500))
+    db.commit()
+    epic_service.spawn_random_epic(db, vk_id)
+    st, _ = _stage(db, number=1, cycles=1, actions=0, dragon_id=d.id)
+    ax = CharacterAxis(positive_label="Добрый", negative_label="Злой")
+    db.add(ax)
+    db.flush()
+    action = EpicStageAction(dragon_id=d.id, stage_id=st.id, action_label="Test", order_in_cycle=0, action_type="composite")
+    db.add(action)
+    db.flush()
+    sa = EpicSubAction(action_id=action.id, label="Sub", character_axis_id=ax.id)
+    db.add(sa)
+    db.commit()
+    care = epic_service.start_care(db, vk_id)
+    if net_score != 0:
+        db.add(CharacterBalance(user_dragon_id=care.user_dragon_id, axis_id=ax.id, score=net_score))
+        db.commit()
+    return care
+
+
+def test_roll_polarity_positive_bias(db):
+    import random
+    import services.epic_service as es
+    care = _care_with_balance(db, 200, 6)
+    original = random.random
+    try:
+        random.random = lambda: 0.6
+        assert es.roll_outcome_polarity(db, care) == "positive"
+        random.random = lambda: 0.7
+        assert es.roll_outcome_polarity(db, care) == "negative"
+    finally:
+        random.random = original
+
+
+def test_roll_polarity_negative_bias(db):
+    import random
+    import services.epic_service as es
+    care = _care_with_balance(db, 201, -6)
+    original = random.random
+    try:
+        random.random = lambda: 0.3
+        assert es.roll_outcome_polarity(db, care) == "positive"
+        random.random = lambda: 0.4
+        assert es.roll_outcome_polarity(db, care) == "negative"
+    finally:
+        random.random = original
+
+
+def test_roll_polarity_capped_at_max(db):
+    import random
+    import services.epic_service as es
+    care = _care_with_balance(db, 202, 100)
+    original = random.random
+    try:
+        random.random = lambda: 0.7
+        assert es.roll_outcome_polarity(db, care) == "positive"
+        random.random = lambda: 0.8
+        assert es.roll_outcome_polarity(db, care) == "negative"
+    finally:
+        random.random = original
+
+
+def test_roll_polarity_floored_at_min(db):
+    import random
+    import services.epic_service as es
+    care = _care_with_balance(db, 203, -100)
+    original = random.random
+    try:
+        random.random = lambda: 0.2
+        assert es.roll_outcome_polarity(db, care) == "positive"
+        random.random = lambda: 0.3
+        assert es.roll_outcome_polarity(db, care) == "negative"
+    finally:
+        random.random = original
+
+
+def test_roll_polarity_penalty_lowers_chance(db):
+    import random
+    import services.epic_service as es
+    care = _care_with_balance(db, 204, 0)
+    care.sub_had_penalty = True
+    db.commit()
+    original = random.random
+    try:
+        random.random = lambda: 0.3
+        assert es.roll_outcome_polarity(db, care) == "positive"
+        random.random = lambda: 0.4
+        assert es.roll_outcome_polarity(db, care) == "negative"
+    finally:
+        random.random = original
+
+
+def test_roll_action_polarity_matches_soft_curve(db):
+    import random
+    import services.epic_service as es
+    care = _care_with_balance(db, 205, 6)
+    original = random.random
+    try:
+        random.random = lambda: 0.6
+        assert es._roll_action_polarity(db, care, had_penalty=False) == "positive"
+        random.random = lambda: 0.7
+        assert es._roll_action_polarity(db, care, had_penalty=False) == "negative"
+        random.random = lambda: 0.6
+        assert es._roll_action_polarity(db, care, had_penalty=True) == "negative"
+    finally:
+        random.random = original
+
+
 def test_sub_has_items_and_select_no_consume(db):
     db.add(User(vk_id=110, stitches_balance=500))
     d = _epic_dragon(db)
