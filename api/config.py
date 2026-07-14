@@ -51,6 +51,9 @@ SITE_URL = os.getenv("SITE_URL", "https://belovolovhome.ru/dragons")
 
 API_ERROR_LOG = os.getenv("API_ERROR_LOG", "/var/log/dragons/api-error.log")
 
+DEBUG_LOG_REQUESTS = os.getenv("DEBUG_LOG_REQUESTS", "").strip() == "1"
+DEBUG_LOG_PATH = os.getenv("DEBUG_LOG_PATH", os.path.join(os.path.dirname(os.path.abspath(__file__)), "debug_requests.log"))
+
 
 def get_allowed_vk_ids() -> set[int]:
     raw = os.getenv("VK_ALLOWED_IDS", "")

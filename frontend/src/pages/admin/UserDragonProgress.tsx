@@ -15,6 +15,7 @@ interface CareStage { id: number; stage_number: number; name: string; cycles_cou
 interface CareAction { order_in_cycle: number; action_label: string; action_type: string; }
 interface CareState {
   has_care: boolean;
+  dragon_id: number;
   stage_id: number;
   stage_name: string;
   stage_number: number;
@@ -191,12 +192,11 @@ function UserDragonProgress() {
             </button>
           </div>
 
-          {care && (
+          {care && care.dragon_id === Number(dragonId) && (
             <div className="lair-card" style={{ marginTop: 16 }}>
               <h4 style={{ color: 'var(--gold)', margin: '0 0 12px' }}>🐲 Уход за эпическим драконом</h4>
               <div style={{ fontSize: 14, color: 'var(--parchment-dim)', marginBottom: 12 }}>
                 Стадия <strong style={{ color: 'var(--accent-gold-light)' }}>{care.stage_number}. {care.stage_name}</strong>
-                &nbsp;·&nbsp; цикл {(care.cycles_completed || 0) + 1}/{care.cycles_total || 1}
                 <br />
                 Действие: <strong>{care.current_action_label || '—'}</strong>
                 {care.current_sub_action_id && <span style={{ color: 'var(--gold)' }}> · вариант «{care.current_sub_action_label}» (шаг {(care.current_step_order || 0) + 1})</span>}

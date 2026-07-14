@@ -96,7 +96,7 @@ function Collection() {
         <div style={{ fontSize: 36, marginBottom: 8 }}>⚠</div>
         <p style={{ color: 'var(--text-secondary)', marginBottom: 12 }}>{error}</p>
         <p style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-          Бэкенд: <code style={{ background: 'rgba(21,15,26,0.5)', padding: '2px 6px', borderRadius: 4 }}>http://127.0.0.1:8001/api/</code>
+          Проверьте подключение к интернету и попробуйте обновить страницу.
         </p>
       </div>
     </div>

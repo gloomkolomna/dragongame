@@ -22,7 +22,7 @@ from models import (
     EpicActionOutcome, EpicCareState,
     IntroChapter,
 )
-from config import API_ERROR_LOG, DONOR_SYNC_INTERVAL_HOURS
+from config import API_ERROR_LOG, DONOR_SYNC_INTERVAL_HOURS, DEBUG_LOG_PATH, DEBUG_LOG_REQUESTS
 from services.dragon_service import (
     get_dragons, get_dragon, create_dragon, update_dragon, delete_dragon, sync_steps_count,
 )
@@ -1423,6 +1423,22 @@ def list_api_requests(page: int = Query(1, ge=1), per_page: int = Query(50, ge=1
     total = db.query(ApiRequestLog).count()
     items = db.query(ApiRequestLog).order_by(ApiRequestLog.id.desc()).offset(offset).limit(per_page).all()
     return {"items": items, "total": total, "page": page, "per_page": per_page}
+
+
+@router.get("/logs/debug")
+def list_debug_log(lines: int = Query(200, ge=1, le=5000)):
+    if not DEBUG_LOG_REQUESTS:
+        return {"enabled": False, "lines": []}
+    if not os.path.isfile(DEBUG_LOG_PATH):
+        return {"enabled": True, "lines": [], "total": 0}
+    try:
+        with open(DEBUG_LOG_PATH, "r", encoding="utf-8") as f:
+            all_lines = [ln.rstrip("\n") for ln in f.readlines()]
+    except Exception:
+        return {"enabled": True, "lines": [], "total": 0}
+    total = len(all_lines)
+    chunk = all_lines[-lines:]
+    return {"enabled": True, "lines": chunk, "total": total}
 
 
 @router.post("/logs/clear")

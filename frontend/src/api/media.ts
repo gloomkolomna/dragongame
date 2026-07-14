@@ -1,4 +1,4 @@
-const BASE = '/dragons';
+const BASE = window.location.origin + '/dragons';
 
 export function mediaUrl(path: string | null | undefined): string {
   if (!path) return '';
