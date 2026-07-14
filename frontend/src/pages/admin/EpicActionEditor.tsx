@@ -269,9 +269,13 @@ function SubActionsEditor({ actionId, subActions, axes, reload, setError, sid, a
   const addSub = async () => {
     if (!subLabel.trim()) { setError('Впиши название'); return; }
     setError('');
-    await client.post(`/admin/epic/actions/${actionId}/sub-actions`, { label: subLabel, character_axis_id: subAxisId, order_in_sub: subActions.length + 1 });
-    setSubLabel(''); setSubAxisId(null);
-    reload();
+    try {
+      await client.post(`/admin/epic/actions/${actionId}/sub-actions`, { label: subLabel, character_axis_id: subAxisId, order_in_sub: subActions.length + 1 });
+      setSubLabel(''); setSubAxisId(null);
+      reload();
+    } catch (e: any) {
+      setError(e.response?.data?.detail || 'Ошибка при создании');
+    }
   };
 
   const delSub = async (id: number) => {

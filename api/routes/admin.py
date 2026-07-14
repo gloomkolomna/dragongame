@@ -2109,6 +2109,13 @@ async def create_sub_action(action_id: int, request: Request, db: Session = Depe
     if not action:
         raise HTTPException(status_code=404, detail="Action not found")
     b = await _json_body(request)
+    label = b.get("label", "")
+    existing = db.query(EpicSubAction).filter(
+        EpicSubAction.action_id == action_id,
+        EpicSubAction.label == label,
+    ).first()
+    if existing:
+        raise HTTPException(status_code=409, detail=f"Sub-action with label '{label}' already exists for this action")
     axis_id = b.get("character_axis_id")
     sa = EpicSubAction(
         action_id=action_id,
@@ -2138,7 +2145,16 @@ async def update_sub_action(sub_id: int, request: Request, db: Session = Depends
     if not sa:
         raise HTTPException(status_code=404, detail="Sub-action not found")
     b = await _json_body(request)
-    if "label" in b: sa.label = b["label"]
+    if "label" in b:
+        new_label = b["label"]
+        if new_label != sa.label:
+            dup = db.query(EpicSubAction).filter(
+                EpicSubAction.action_id == sa.action_id,
+                EpicSubAction.label == new_label,
+            ).first()
+            if dup:
+                raise HTTPException(status_code=409, detail=f"Sub-action with label '{new_label}' already exists for this action")
+        sa.label = new_label
     if "description" in b: sa.description = b["description"]
     if "confirm_button_label" in b: sa.confirm_button_label = b["confirm_button_label"]
     if "random_outcome" in b: sa.random_outcome = bool(b["random_outcome"])
