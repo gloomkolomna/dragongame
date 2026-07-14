@@ -5,6 +5,7 @@ const API_BASE = window.location.origin + '/dragons/api';
 const client = axios.create({
   baseURL: API_BASE,
   headers: { 'Content-Type': 'application/json' },
+  timeout: 15000,
 });
 
 client.interceptors.request.use((config) => {
