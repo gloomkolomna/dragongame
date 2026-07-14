@@ -15,7 +15,7 @@ sys.path.insert(0, os.path.join(_root, "api"))
 
 import config
 from db import SessionLocal
-from bot.fsm import IDLE, AWAIT_PIN, AWAIT_GARDEN, AWAIT_LEGENDS, AWAIT_EPICS, AWAIT_INCUBATOR, AWAIT_RULES, is_growing, is_waiting_text, grow_state, step_from_state, is_legend, is_legend_waiting, is_epic_egg, is_epic_egg_waiting, is_epic_care, is_epic_care_waiting, is_epic_care_sub, is_epic_care_sub_waiting, AWAIT_EPIC_NAME, AWAIT_EPIC_RESTART, is_intro_chapter, intro_chapter_from_state
+from bot.fsm import IDLE, AWAIT_PIN, AWAIT_GARDEN, AWAIT_LEGENDS, AWAIT_EPICS, AWAIT_INCUBATOR, AWAIT_RULES, is_growing, is_waiting_text, grow_state, step_from_state, is_legend, is_legend_waiting, is_epic_egg, is_epic_egg_waiting, is_epic_care, is_epic_care_waiting, is_epic_care_sub, is_epic_care_sub_waiting, AWAIT_EPIC_NAME, AWAIT_EPIC_RESTART, AWAIT_EPIC_EGG_INTRO, is_intro_chapter, intro_chapter_from_state
 from bot.handlers.commands import handle_start, handle_help, handle_garden, switch_dragon, cancel_garden, handle_switch_to, handle_balance, handle_legends, handle_legends_pick, cancel_legends, user_has_legendary
 from bot.handlers.pin import handle_pin_command, handle_pin_entry
 from bot.handlers.grow import handle_grow_message, handle_grow_command, handle_norm_command, handle_x2_command, handle_back_command
@@ -78,6 +78,9 @@ def get_keyboard(state: str, user=None, db=None) -> str:
     if state == AWAIT_EPIC_RESTART:
         from bot.keyboard import epic_restart_keyboard
         return epic_restart_keyboard()
+    if state == AWAIT_EPIC_EGG_INTRO:
+        from bot.keyboard import epic_egg_intro_keyboard
+        return epic_egg_intro_keyboard()
     if state == AWAIT_RULES:
         from bot.handlers.rules import SECTIONS_MENU_VIEW
         from bot.keyboard import rules_menu_keyboard
@@ -240,7 +243,7 @@ def main():
                     except Exception:
                         pass
                     try:
-                        if (user.state not in (AWAIT_EPICS, AWAIT_EPIC_NAME)
+                        if (user.state not in (AWAIT_EPICS, AWAIT_EPIC_NAME, AWAIT_EPIC_EGG_INTRO)
                                 and user_has_epic(db, user.vk_id)):
                             keyboard = keyboard_with_epics(keyboard)
                     except Exception:
@@ -499,6 +502,16 @@ def main():
                 handle_epic_restart(user, mode, db, send_message, upload_image)
                 continue
 
+            if cmd == "epic_egg_intro_accept":
+                import json as _j
+                sd = _j.loads(user.state_data or "{}")
+                sd.pop("_needs_egg_intro", None)
+                user.state_data = _j.dumps(sd, ensure_ascii=False)
+                db.commit()
+                from bot.handlers.epic import handle_epic_command
+                handle_epic_command(user, db, send_message, upload_image)
+                continue
+
             if cmd == "start":
                 handle_start(user, db, send_message, upload_image)
             elif cmd == "help":
@@ -554,6 +567,15 @@ def main():
                     "Или нажми «📖 Список Бестиария», чтобы вернуться к другим драконам.",
                     keyboard=epic_restart_keyboard(),
                 )
+
+            elif user.state == AWAIT_EPIC_EGG_INTRO and text and not cmd:
+                import json as _j
+                sd = _j.loads(user.state_data or "{}")
+                sd.pop("_needs_egg_intro", None)
+                user.state_data = _j.dumps(sd, ensure_ascii=False)
+                db.commit()
+                from bot.handlers.epic import handle_epic_command
+                handle_epic_command(user, db, send_message, upload_image)
 
             elif is_intro_chapter(user.state) and text and not cmd:
                 handle_intro_chat(user, db, send_message, upload_image)

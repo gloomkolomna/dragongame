@@ -257,6 +257,14 @@ def epic_name_keyboard():
     ])
 
 
+def epic_egg_intro_keyboard():
+    return _keyboard([
+        row(("🌟 Бережно принять яйцо", "epic_egg_intro_accept")),
+        row(("📖 Список Бестиария", "garden"), ("❓ Помощь", "help")),
+        bestiary_link_row(),
+    ])
+
+
 def epic_restart_keyboard():
     return _keyboard([
         [{"action": {"type": "text", "label": "🐲 Такого же заново", "payload": json.dumps({"cmd": "epic_restart", "mode": "same"}, ensure_ascii=False)}, "color": "primary"}],

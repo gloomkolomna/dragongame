@@ -285,7 +285,7 @@ def cancel_garden(user, db, send_message, upload_image=None):
     sd.pop("_prev_dragon", None)
     sd.pop("_prev_step", None)
     user.state_data = _j.dumps(sd, ensure_ascii=False)
-    if prev_state and (prev_state.startswith("epic_egg_") or prev_state.startswith("epic_care_") or prev_state == "await_epic_name" or prev_state == "await_epic_restart"):
+    if prev_state and (prev_state.startswith("epic_egg_") or prev_state.startswith("epic_care_") or prev_state in ("await_epic_name", "await_epic_restart", "await_epic_egg_intro")):
         user.state = prev_state
         db.commit()
         from bot.handlers.epic import handle_epic_command
@@ -356,7 +356,7 @@ def switch_dragon(user, num: int, db, send_message, upload_image=None):
     import json as _j
     _sd = _j.loads(user.state_data or "{}")
     _prev = _sd.get("_prev_state", "")
-    _was_on_epic = _prev and (_prev.startswith("epic_egg_") or _prev.startswith("epic_care_") or _prev in ("await_epic_name", "await_epic_restart"))
+    _was_on_epic = _prev and (_prev.startswith("epic_egg_") or _prev.startswith("epic_care_") or _prev in ("await_epic_name", "await_epic_restart", "await_epic_egg_intro"))
 
     if ud.dragon_id == user.current_dragon_id and not _was_on_epic:
         user.state = grow_state(user.current_step)

@@ -84,6 +84,7 @@ def maybe_offer_epic(user, db, send_message, upload_image=None):
 
 def handle_epic_command(user, db, send_message, upload_image=None):
     from services.epic_service import get_epic_dragon, is_egg_hatched, get_care
+    import json
     dragon = get_epic_dragon(db, user.vk_id)
     if not dragon:
         send_message(
@@ -97,6 +98,18 @@ def handle_epic_command(user, db, send_message, upload_image=None):
         return
     if is_egg_hatched(db, user.vk_id):
         _prompt_name(user, dragon, db, send_message)
+        return
+    sd = json.loads(user.state_data or "{}")
+    if sd.pop("_needs_egg_intro", None):
+        user.state_data = json.dumps(sd, ensure_ascii=False)
+        user.state = "await_epic_egg_intro"
+        db.commit()
+        from bot.keyboard import epic_egg_intro_keyboard
+        send_message(
+            f"🥚 Перед тобой новое эпическое яйцо — «{dragon.egg_type or dragon.name}».\n"
+            "🌟 Нажми «Бережно принять яйцо», чтобы начать выращивание!",
+            keyboard=epic_egg_intro_keyboard(),
+        )
         return
     _show_egg_step(user, dragon, db, send_message, upload_image)
 

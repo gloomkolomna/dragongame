@@ -109,7 +109,7 @@ def _restore_state(user, db, send_message, upload_image=None):
     prev_state = sd.pop("_inc_prev_state", None)
     sd.pop("_inc_pick_id", None)
     user.state_data = j.dumps(sd, ensure_ascii=False)
-    if prev_state and (prev_state.startswith("epic_egg_") or prev_state.startswith("epic_care_") or prev_state in ("await_epic_name", "await_epic_restart")):
+    if prev_state and (prev_state.startswith("epic_egg_") or prev_state.startswith("epic_care_") or prev_state in ("await_epic_name", "await_epic_restart", "await_epic_egg_intro")):
         user.state = prev_state
         db.commit()
         from bot.handlers.epic import handle_epic_command

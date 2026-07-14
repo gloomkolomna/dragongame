@@ -2,7 +2,7 @@
 
 import os
 import re
-from bot.fsm import IDLE, AWAIT_EPIC_RESTART, epic_care_state, epic_care_sub_state, epic_care_sub_confirm_state, state_mode, is_epic_care_sub, is_epic_care_sub_waiting, is_epic_care_sub_confirm
+from bot.fsm import IDLE, AWAIT_EPIC_RESTART, AWAIT_EPIC_EGG_INTRO, epic_care_state, epic_care_sub_state, epic_care_sub_confirm_state, state_mode, is_epic_care_sub, is_epic_care_sub_waiting, is_epic_care_sub_confirm
 from bot.services.grow_service import (
     credit_stitches, is_suspicious, is_blocked, create_suspicious_report, notify_admin,
 )
@@ -872,8 +872,17 @@ def _finale(user, db, send_message, upload_image, event):
         )
         send_message(msg, attachment=attachment)
 
-        from bot.handlers.epic import handle_epic_command
-        handle_epic_command(user, db, send_message, upload_image)
+        user.state = AWAIT_EPIC_EGG_INTRO
+        sd = json.loads(user.state_data or "{}")
+        sd["_needs_egg_intro"] = True
+        user.state_data = json.dumps(sd, ensure_ascii=False)
+        db.commit()
+        from bot.keyboard import epic_egg_intro_keyboard
+        send_message(
+            f"🥚 Перед тобой новое эпическое яйцо — «{new_dragon.egg_type or new_dragon.name}».\n"
+            "🌟 Нажми «Бережно принять яйцо», чтобы начать выращивание!",
+            keyboard=epic_egg_intro_keyboard(),
+        )
         return
 
     user.state = AWAIT_EPIC_RESTART
