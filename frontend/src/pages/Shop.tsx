@@ -12,6 +12,7 @@ function Shop() {
   const [stageKey, setStageKey] = useState<string | null>(null);
   const [inventory, setInventory] = useState<InvItem[]>([]);
   const [balance, setBalance] = useState(0);
+  const [earned, setEarned] = useState(0);
   const [load, setLoad] = useState(true);
   const [zoom, setZoom] = useState<string | null>(null);
 
@@ -26,6 +27,7 @@ function Shop() {
       setStageKey(s.data.stage_key);
       setInventory(inv.data);
       setBalance(bal.data.stitches_balance);
+      setEarned(bal.data.stitches_earned);
     }).catch(() => {}).finally(() => setLoad(false));
   }, [vkUserId, bl]);
 
@@ -34,7 +36,8 @@ function Shop() {
   return (
     <div style={{ padding: '12px 10px', maxWidth: 560, margin: '0 auto' }}>
       <div className="lair-card" style={{ marginBottom: 12, textAlign: 'center' }}>
-        <div style={{ fontSize: 18, color: 'var(--gold)', fontWeight: 600 }}>✚ Копилка: {balance}</div>
+        <div style={{ fontSize: 18, color: 'var(--gold)', fontWeight: 600 }}>🧵 Всего вышито: {earned.toLocaleString('ru-RU')}</div>
+        <div style={{ fontSize: 16, color: 'var(--gold)', fontWeight: 600, marginTop: 2 }}>✚ Копилка: {balance.toLocaleString('ru-RU')}</div>
         <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>Покупка товаров — в боте.</div>
       </div>
 

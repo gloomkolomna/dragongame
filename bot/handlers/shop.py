@@ -45,7 +45,7 @@ def handle_shop_command(user, db, send_message, page=0):
     page_items = items[page * PAGE_SIZE:(page + 1) * PAGE_SIZE]
     owned_ids = {it.id for it, _ in get_inventory(db, user.vk_id)}
 
-    lines = [f"🛒 Магазин\n✚ Крестиков в копилке: {user.stitches_balance or 0}", ""]
+    lines = [f"🛒 Магазин\n🧵 Всего вышито: {user.stitches_earned or 0}\n✚ Копилка: {user.stitches_balance or 0}", ""]
     for it in page_items:
         owned = " ✅ куплено" if it.id in owned_ids else ""
         lines.append(f"• {it.name} — {it.cost_stitches} крестиков{owned}")

@@ -95,6 +95,7 @@ def handle_start(user, db, send_message, upload_image=None):
             send_message(
                 f"🪴 Ты выращиваешь: {dragon.egg_type or 'яйцо'}\n"
                 f"📋 Завершено шагов: {completed} из {total}\n"
+                f"🧵 Всего вышито: {user.stitches_earned or 0}\n"
                 f"✚ Копилка: {user.stitches_balance or 0}\n"
                 f"{timeout_line}"
             )
@@ -105,6 +106,7 @@ def handle_start(user, db, send_message, upload_image=None):
                 f"🪴 Ты выращиваешь: {dragon.egg_type or 'яйцо'}\n"
                 f"📋 Текущий шаг: {step}\n"
                 f"🎯 Норма крестиков: {norm}\n"
+                f"🧵 Всего вышито: {user.stitches_earned or 0}\n"
                 f"✚ Копилка: {user.stitches_balance or 0}\n"
                 f"{timeout_line}",
                 keyboard=start_growing_keyboard(),
@@ -151,9 +153,11 @@ def handle_help(user, send_message):
 
 
 def handle_balance(user, db, send_message):
+    earned = user.stitches_earned or 0
     balance = user.stitches_balance or 0
     send_message(
-        f"✚ Копилка крестиков: {balance}\n"
+        f"🧵 Всего вышито: {earned}\n"
+        f"✚ Копилка: {balance}\n"
         f"Крестики копятся со всех выполненных шагов выращивания."
     )
 

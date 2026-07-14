@@ -73,6 +73,7 @@ class User(Base):
     state_data = Column(Text, default="{}")
     registered_at = Column(String, default="")
     stitches_balance = Column(Integer, default=0)
+    stitches_earned = Column(Integer, default=0)
     epic_unlocked = Column(Boolean, default=False)
     epic_dragon_id = Column(Integer, nullable=True)
     custom_price_per_dragon = Column(Integer, nullable=True)

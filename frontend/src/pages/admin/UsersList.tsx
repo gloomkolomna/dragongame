@@ -8,7 +8,7 @@ import { DataTableHead, TableToolbar } from '../../components/admin/DataTable';
 const GROUP_ID = 239999455;
 
 interface User { vk_id: number; first_name: string; last_name: string; state: string; registered_at: string; pins_activated: number; last_pin_code: string | null; dragons_collected: number; current_dragon_id: number | null; current_step: number; suspicious_pending: number; is_don: boolean; custom_price_per_dragon: number | null; }
-interface Detail { vk_id: number; first_name: string; last_name: string; registered_at: string; stitches_balance: number; epic_unlocked: boolean; epic_name: string; is_don: boolean; don_since: string | null; don_synced_at: string | null; pins_activated: number; pins: { code: string; dragon_name: string; egg_type: string; status: string; activated_at: string }[]; dragons: { dragon_id: number; name: string | null; egg_type: string; is_epic: boolean; epic_name: string; status: string; progress_pct: number; completed_at: string | null }[]; dragons_collected: number; dragons_active: number; dragons_total: number; suspicious_reports: Suspicious[]; treasures_collected: TreasureCollected[]; custom_price_per_dragon: number | null; }
+interface Detail { vk_id: number; first_name: string; last_name: string; registered_at: string; stitches_balance: number; stitches_earned: number; epic_unlocked: boolean; epic_name: string; is_don: boolean; don_since: string | null; don_synced_at: string | null; pins_activated: number; pins: { code: string; dragon_name: string; egg_type: string; status: string; activated_at: string }[]; dragons: { dragon_id: number; name: string | null; egg_type: string; is_epic: boolean; epic_name: string; status: string; progress_pct: number; completed_at: string | null }[]; dragons_collected: number; dragons_active: number; dragons_total: number; suspicious_reports: Suspicious[]; treasures_collected: TreasureCollected[]; custom_price_per_dragon: number | null; }
 interface TreasureCollected { id: number; name: string; description: string; image_path: string; dragon_id: number; is_active: boolean; }
 interface Suspicious { id: number; user_id: number; dragon_id: number | null; step_number: number; declared_crosses: number; normal_crosses: number; mode: string; status: string; created_at: string; }
 
@@ -26,6 +26,7 @@ function UsersList() {
   const [detail, setDetail] = useState<Detail | null>(null);
   const [suspicious, setSuspicious] = useState<Suspicious[]>([]);
   const [balanceInput, setBalanceInput] = useState('');
+  const [earnedInput, setEarnedInput] = useState('');
   const [priceInput, setPriceInput] = useState('');
   const [load, setLoad] = useState(true);
   const navigate = useNavigate();
@@ -44,6 +45,7 @@ function UsersList() {
     const r = await client.get(`/admin/users/${id}`);
     setDetail(r.data);
     setBalanceInput(String(r.data.stitches_balance ?? 0));
+    setEarnedInput(String(r.data.stitches_earned ?? 0));
     setPriceInput(r.data.custom_price_per_dragon != null ? String(r.data.custom_price_per_dragon / 100) : '');
     setSearchParams({ vk_id: String(id) });
     setSuspicious(r.data.suspicious_reports ?? []);
@@ -52,9 +54,12 @@ function UsersList() {
   const saveBalance = async () => {
     if (!detail) return;
     const val = parseInt(balanceInput, 10);
+    const earnedVal = parseInt(earnedInput, 10);
     if (isNaN(val)) return;
-    const r = await client.post(`/admin/users/${detail.vk_id}/balance`, { balance: val });
-    setDetail({ ...detail, stitches_balance: r.data.stitches_balance });
+    const body: any = { balance: val };
+    if (!isNaN(earnedVal)) body.earned = earnedVal;
+    const r = await client.post(`/admin/users/${detail.vk_id}/balance`, body);
+    setDetail({ ...detail, stitches_balance: r.data.stitches_balance, stitches_earned: body.earned ?? detail.stitches_earned });
   };
 
   const saveCustomPrice = async () => {
@@ -162,10 +167,18 @@ function UsersList() {
 
             <div className="lair-card" style={{ marginBottom: 16 }}>
               <h4 style={{ color: 'var(--gold)', margin: '0 0 12px' }}>✚ Копилка крестиков</h4>
-              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                <input className="lair-input" type="text" inputMode="numeric" value={balanceInput}
-                       onChange={(e) => setBalanceInput(e.target.value)} style={{ width: 160 }} />
-                <button className="lair-btn lair-btn-sm" onClick={saveBalance}>💾 Установить баланс</button>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <span style={{ fontSize: 13, color: 'var(--parchment-dim)', whiteSpace: 'nowrap' }}>Всего вышито:</span>
+                  <input className="lair-input" type="text" inputMode="numeric" value={earnedInput}
+                         onChange={(e) => setEarnedInput(e.target.value)} style={{ width: 120 }} />
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <span style={{ fontSize: 13, color: 'var(--parchment-dim)', whiteSpace: 'nowrap' }}>Копилка:</span>
+                  <input className="lair-input" type="text" inputMode="numeric" value={balanceInput}
+                         onChange={(e) => setBalanceInput(e.target.value)} style={{ width: 120 }} />
+                </div>
+                <button className="lair-btn lair-btn-sm" onClick={saveBalance}>💾 Сохранить</button>
                 {detail.epic_unlocked && <span className="lair-badge" style={{ marginLeft: 'auto' }}>🐲 эпический открыт</span>}
               </div>
               {detail.epic_name && (

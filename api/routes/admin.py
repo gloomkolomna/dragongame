@@ -35,6 +35,8 @@ router = APIRouter(prefix="/api/admin", tags=["admin"], dependencies=[Depends(ge
 
 @router.get("/stats")
 def get_stats(db: Session = Depends(get_db)):
+    total_norm = db.query(func.coalesce(func.sum(DragonStep.crosses_norm), 0)).scalar()
+    total_shop = db.query(func.coalesce(func.sum(ShopItem.cost_stitches), 0)).scalar()
     return {
         "dragons_total": db.query(Dragon).count(),
         "dragons_active": db.query(Dragon).filter(Dragon.is_active == True).count(),
@@ -44,6 +46,8 @@ def get_stats(db: Session = Depends(get_db)):
         "users_total": db.query(User).count(),
         "dragons_collected_total": db.query(UserDragon).count(),
         "suspicious_total": db.query(SuspiciousReport).count(),
+        "total_norm_crosses": total_norm,
+        "total_shop_crosses": total_shop,
     }
 
 
@@ -609,6 +613,7 @@ def get_user_detail(vk_id: int, db: Session = Depends(get_db)):
         "last_name": vk_nm.get("last_name", ""),
         "registered_at": user.registered_at,
         "stitches_balance": user.stitches_balance,
+        "stitches_earned": user.stitches_earned or 0,
         "epic_unlocked": user.epic_unlocked,
         "epic_dragon_id": user.epic_dragon_id,
         "epic_name": epic_name,
@@ -2442,8 +2447,14 @@ async def adjust_balance(vk_id: int, request: Request, db: Session = Depends(get
     b = await _json_body(request)
     if "balance" in b:
         user.stitches_balance = max(0, int(b["balance"] or 0))
+        if "earned" in b:
+            user.stitches_earned = max(0, int(b["earned"] or 0))
+        elif user.stitches_balance > (user.stitches_earned or 0):
+            user.stitches_earned = user.stitches_balance
     elif "delta" in b:
         user.stitches_balance = max(0, (user.stitches_balance or 0) + int(b["delta"] or 0))
+        if int(b["delta"] or 0) > 0:
+            user.stitches_earned = (user.stitches_earned or 0) + int(b["delta"] or 0)
     else:
         raise HTTPException(status_code=400, detail="balance or delta required")
     db.commit()

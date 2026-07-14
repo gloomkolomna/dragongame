@@ -221,13 +221,13 @@ def complete_dragon(db, vk_id: int, dragon_id: int):
 def is_blocked(declared: int, required: int) -> bool:
     if required <= 0:
         return False
-    return declared > required * 5
+    return declared > required * 3
 
 
 def is_suspicious(declared: int, required: int) -> bool:
     if required <= 0:
         return False
-    return declared > required * 3
+    return declared > required * 2
 
 
 def credit_stitches(db, vk_id: int, amount: int) -> int:
@@ -239,6 +239,7 @@ def credit_stitches(db, vk_id: int, amount: int) -> int:
     if not user:
         return 0
     user.stitches_balance = (user.stitches_balance or 0) + amount
+    user.stitches_earned = (user.stitches_earned or 0) + amount
     db.commit()
     return user.stitches_balance
 

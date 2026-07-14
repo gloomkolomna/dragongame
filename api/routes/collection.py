@@ -9,7 +9,12 @@ router = APIRouter(prefix="/api", tags=["collection"])
 @router.get("/collection/{vk_id}/balance")
 def get_balance(vk_id: int, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.vk_id == vk_id).first()
-    return {"stitches_balance": user.stitches_balance if user else 0}
+    if user:
+        return {
+            "stitches_balance": user.stitches_balance or 0,
+            "stitches_earned": user.stitches_earned or 0,
+        }
+    return {"stitches_balance": 0, "stitches_earned": 0}
 
 
 @router.get("/collection/{vk_id}/shop")
