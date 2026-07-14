@@ -14,14 +14,6 @@ from models import (
 
 # ─── Spawn ───
 
-def has_completed_regular_dragon(db, vk_id):
-    return db.query(UserDragon).join(Dragon).filter(
-        UserDragon.user_id == vk_id,
-        UserDragon.completed_at != "",
-        Dragon.is_epic == False,
-    ).first() is not None
-
-
 def get_epic_pool(db, exclude_id=None):
     q = db.query(Dragon).filter(Dragon.is_epic == True)
     if exclude_id:
@@ -830,53 +822,6 @@ def get_moodlets(db, vk_id):
     )
 
 
-# ─── Incubator ───
-
-def get_incubator_epics(db, vk_id):
-    """Return all epic dragons with status/cost for the incubator view."""
-    pool = get_epic_pool(db)
-    user = db.query(User).filter(User.vk_id == vk_id).first()
-    active_id = user.epic_dragon_id if user else None
-    result = []
-    for d in pool:
-        uds = db.query(UserDragon).filter(
-            UserDragon.user_id == vk_id, UserDragon.dragon_id == d.id
-        ).all()
-        growing = [u for u in uds if not u.completed_at]
-        completed = [u for u in uds if u.completed_at]
-        if growing:
-            status = "growing"
-            ud = growing[0]
-        elif completed:
-            status = "completed"
-            ud = completed[0]
-        else:
-            status = "available"
-            ud = None
-        egg_done = db.query(UserProgress).filter(
-            UserProgress.user_id == vk_id,
-            UserProgress.dragon_id == d.id,
-            UserProgress.step_number > 0,
-            UserProgress.completed == True,
-        ).count()
-        egg_total_val = d.steps_count or 0
-        egg_hatched = egg_total_val > 0 and egg_done >= egg_total_val
-        has_care = False
-        if ud:
-            has_care = db.query(EpicCareState).filter(
-                EpicCareState.user_dragon_id == ud.id
-            ).first() is not None
-        is_active = active_id == d.id
-        cost = d.epic_cost_stitches or 0
-        result.append({
-            "dragon": d,
-            "status": status,
-            "cost": cost,
-            "is_active": is_active,
-            "egg_hatched": egg_hatched,
-        })
-    return result
-
 
 def restart_epic(db, vk_id, mode):
     prev = get_epic_dragon(db, vk_id)
@@ -904,35 +849,6 @@ def restart_epic(db, vk_id, mode):
     db.add(UserDragon(user_id=vk_id, dragon_id=target_id, completed_at=""))
     db.commit()
     return db.query(Dragon).filter(Dragon.id == target_id).first(), had_others
-
-
-def purchase_epic_egg(db, vk_id, dragon_id):
-    """Purchase an epic dragon egg. Always creates a new slot — never resets a completed one."""
-    from datetime import datetime
-    user = db.query(User).filter(User.vk_id == vk_id).first()
-    if not user:
-        return False, "Пользователь не найден.", None
-    dragon = db.query(Dragon).filter(Dragon.id == dragon_id, Dragon.is_epic == True).first()
-    if not dragon:
-        return False, "Эпический дракон не найден.", None
-    cost = dragon.epic_cost_stitches or 0
-    if cost <= 0:
-        return False, "Этот эпический дракон недоступен для покупки.", None
-    uds = db.query(UserDragon).filter(
-        UserDragon.user_id == vk_id, UserDragon.dragon_id == dragon_id
-    ).all()
-    growing = [u for u in uds if not u.completed_at]
-    if growing:
-        return False, "Этот эпический дракон уже растёт.", None
-    balance = user.stitches_balance or 0
-    if balance < cost:
-        return False, f"Недостаточно крестиков. Нужно {cost}, у вас {balance}.", None
-    user.stitches_balance = balance - cost
-    user.epic_dragon_id = dragon_id
-    user.epic_unlocked = True
-    db.add(UserDragon(user_id=vk_id, dragon_id=dragon_id, completed_at=""))
-    db.commit()
-    return True, f"Яйцо «{dragon.egg_type or dragon.name}» куплено за {cost} ✚!", dragon
 
 
 def all_user_epics(db, vk_id):

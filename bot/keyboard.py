@@ -58,10 +58,6 @@ def epics_row():
     return row(("🐉 Эпические драконы", "epics"))
 
 
-def incubator_row():
-    return row(("🥚 Инкубатор", "incubator"))
-
-
 def keyboard_with_legends(kb_json):
     data = json.loads(kb_json)
     buttons = data.get("buttons", [])
@@ -110,28 +106,6 @@ def keyboard_with_epics(kb_json):
     return json.dumps(data, ensure_ascii=False)
 
 
-def keyboard_with_incubator(kb_json):
-    data = json.loads(kb_json)
-    buttons = data.get("buttons", [])
-    for r in buttons:
-        for b in r:
-            payload = b.get("action", {}).get("payload")
-            if payload:
-                try:
-                    if json.loads(payload).get("cmd") == "incubator":
-                        return kb_json
-                except (json.JSONDecodeError, TypeError):
-                    pass
-    if len(buttons) >= 10:
-        return kb_json
-    insert_at = len(buttons)
-    for i, r in enumerate(buttons):
-        if any(b.get("action", {}).get("type") == "open_link" for b in r):
-            insert_at = i
-            break
-    buttons.insert(insert_at, incubator_row())
-    data["buttons"] = buttons
-    return json.dumps(data, ensure_ascii=False)
 
 
 def idle_keyboard(has_active=True):
@@ -274,12 +248,10 @@ def epic_restart_keyboard():
     ])
 
 
-def await_garden_keyboard(with_cancel=False, show_incubator=False):
+def await_garden_keyboard(with_cancel=False):
     buttons = [
         row(("🥚 Добавить яйцо дракона", "pin")),
     ]
-    if show_incubator:
-        buttons.append(incubator_row())
     bottom = []
     if with_cancel:
         bottom.insert(0, ("◀ Не менять", "garden_cancel"))
@@ -324,7 +296,7 @@ def shop_keyboard(buyable_items, page, total_pages):
 
 def inventory_keyboard():
     return _keyboard([
-        row(("🛒 Магазин", "shop")),
+        row(("◀ Назад", "shop")),
         row(("🐲 К эпическому дракону", "epic")),
         garden_row(),
         help_rules_row(),
@@ -430,11 +402,3 @@ def rules_section_keyboard():
         row(("◀ К правилам", "rules"), ("❓ Закрыть", "rules_close")),
         bestiary_link_row(),
     ])
-
-
-def incubator_keyboard(epics):
-    buttons = [
-        row(("0. Отмена", "incubator_cancel")),
-        bestiary_link_row(),
-    ]
-    return _keyboard(buttons)

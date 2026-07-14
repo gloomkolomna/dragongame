@@ -28,7 +28,6 @@ function EpicSpeciesForm() {
   const [finalePreview, setFinalePreview] = useState('');
   const [finaleDesc, setFinaleDesc] = useState('');
   const [steps, setSteps] = useState<Step[]>([]);
-  const [epicCost, setEpicCost] = useState<number | null>(null);
 
   useEffect(() => {
     if (!isEdit) return;
@@ -38,7 +37,6 @@ function EpicSpeciesForm() {
     ]).then(([d, s]) => {
       const dr = d.data;
       setName(dr.name); setEggType(dr.egg_type); setDescription(dr.description); setIsActive(dr.is_active);
-      setEpicCost(dr.epic_cost_stitches ?? null);
       if (dr.egg_path) setImagePreview(`/dragons/api/static/images/${dr.egg_path}?t=${Date.now()}`);
       if (dr.dragon_path) setDragonPreview(`/dragons/api/static/images/${dr.dragon_path}?t=${Date.now()}`);
       if (dr.finale_image_path) setFinalePreview(`/dragons/api/static/images/${dr.finale_image_path}?t=${Date.now()}`);
@@ -68,7 +66,6 @@ function EpicSpeciesForm() {
       form.append('description', description);
       form.append('is_active', String(isActive));
       form.append('is_epic', 'true');
-      if (epicCost !== null && epicCost > 0) form.append('epic_cost_stitches', String(epicCost));
       if (imageFile) form.append('image', imageFile);
       if (dragonFile) form.append('silhouette', dragonFile);
       if (finaleFile) form.append('finale_image', finaleFile);
@@ -131,11 +128,6 @@ function EpicSpeciesForm() {
           <div className="lair-form-group">
             <label className="lair-label">Описание</label>
             <textarea className="lair-textarea" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Описание вида" />
-          </div>
-
-          <div className="lair-form-group">
-            <label className="lair-label">Стоимость в крестиках (инкубатор)</label>
-            <input className="lair-input" type="number" value={epicCost ?? ''} onChange={(e) => setEpicCost(e.target.value ? parseInt(e.target.value, 10) : null)} placeholder="0 — бесплатно" style={{ width: 200 }} />
           </div>
 
           <div className="lair-form-group">

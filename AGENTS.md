@@ -223,7 +223,7 @@ api\venv\Scripts\python.exe -m pytest api/tests bot/tests -v --tb=short
 - `sub_action_keyboard(...)` — варианты + Магазин / Список Бестиария / Бестиарий (выбор составного действия)
 - `rules_menu_keyboard(sections)` — кнопки 8 разделов правил + Закрыть правила + Бестиарий (меню правил)
 - `rules_section_keyboard()` — К правилам / Закрыть + Бестиарий (текст конкретного раздела)
-- Кнопка «📜 Правила» (`cmd="rules"`) присутствует во всех основных клавиатурах рядом с «❓ Помощь» (idle, growing, waiting, start_growing, step_buttons, legend, epic_egg, epic_care, await_pin, inventory, care_shop, sub_step). В динамических `shop_keyboard`/`sub_action_keyboard`/`incubator_keyboard` — отсутствует (доступна командой «правила»)
+- Кнопка «📜 Правила» (`cmd="rules"`) присутствует во всех основных клавиатурах рядом с «❓ Помощь» (idle, growing, waiting, start_growing, step_buttons, legend, epic_egg, epic_care, await_pin, inventory, care_shop, sub_step). В динамических `shop_keyboard`/`sub_action_keyboard` — отсутствует (доступна командой «правила»)
 - Кнопка «🐲 Легендарные драконы» автоматически добавляется во все клавиатуры эпического (яйцо/уход/магазин), если у юзера есть выращенный легендарный
 - `keyboard_with_legends(kb_json)` — вставляет кнопку «🐲 Легендарные драконы» если у юзера есть выращенные легендарные
 - `keyboard_with_epics(kb_json)` — вставляет кнопку «🐉 Эпические драконы» если у юзера есть вылупленные эпические (не показывается в состояниях `await_epics`, `await_epic_name`, `epic_egg_*`, `epic_care_*`)

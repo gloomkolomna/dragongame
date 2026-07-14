@@ -10,7 +10,6 @@ AWAIT_EPIC_RESTART = "await_epic_restart"
 AWAIT_EPIC_EGG_INTRO = "await_epic_egg_intro"
 AWAIT_LEGENDS = "await_legends"
 AWAIT_EPICS = "await_epics"
-AWAIT_INCUBATOR = "await_incubator"
 AWAIT_RULES = "await_rules"
 
 

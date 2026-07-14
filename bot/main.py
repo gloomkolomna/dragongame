@@ -15,7 +15,7 @@ sys.path.insert(0, os.path.join(_root, "api"))
 
 import config
 from db import SessionLocal
-from bot.fsm import IDLE, AWAIT_PIN, AWAIT_GARDEN, AWAIT_LEGENDS, AWAIT_EPICS, AWAIT_INCUBATOR, AWAIT_RULES, is_growing, is_waiting_text, grow_state, step_from_state, is_legend, is_legend_waiting, is_epic_egg, is_epic_egg_waiting, is_epic_care, is_epic_care_waiting, is_epic_care_sub, is_epic_care_sub_waiting, AWAIT_EPIC_NAME, AWAIT_EPIC_RESTART, AWAIT_EPIC_EGG_INTRO, is_intro_chapter, intro_chapter_from_state
+from bot.fsm import IDLE, AWAIT_PIN, AWAIT_GARDEN, AWAIT_LEGENDS, AWAIT_EPICS, AWAIT_RULES, is_growing, is_waiting_text, grow_state, step_from_state, is_legend, is_legend_waiting, is_epic_egg, is_epic_egg_waiting, is_epic_care, is_epic_care_waiting, is_epic_care_sub, is_epic_care_sub_waiting, AWAIT_EPIC_NAME, AWAIT_EPIC_RESTART, AWAIT_EPIC_EGG_INTRO, is_intro_chapter, intro_chapter_from_state
 from bot.handlers.commands import handle_start, handle_help, handle_garden, switch_dragon, cancel_garden, handle_switch_to, handle_balance, handle_legends, handle_legends_pick, cancel_legends, user_has_legendary
 from bot.handlers.pin import handle_pin_command, handle_pin_entry
 from bot.handlers.grow import handle_grow_message, handle_grow_command, handle_norm_command, handle_x2_command, handle_back_command
@@ -68,13 +68,7 @@ def get_keyboard(state: str, user=None, db=None) -> str:
     if state == AWAIT_PIN:
         return await_pin_keyboard()
     if state == AWAIT_GARDEN:
-        show_inc = False
-        if user and db:
-            from services.epic_service import has_completed_regular_dragon
-            show_inc = has_completed_regular_dragon(db, user.vk_id)
-        return await_garden_keyboard(with_cancel=True, show_incubator=show_inc)
-    if state == AWAIT_INCUBATOR:
-        return empty_keyboard()
+        return await_garden_keyboard(with_cancel=True)
     if state == AWAIT_EPIC_RESTART:
         from bot.keyboard import epic_restart_keyboard
         return epic_restart_keyboard()
@@ -132,8 +126,6 @@ def extract_cmd(text: str, payload_str: str) -> str | None:
         return "epics"
     if "эпическ" in t or "пещера" in t or "пещеру" in t:
         return "epic"
-    if "инкубатор" in t:
-        return "incubator"
     if "выращиванию" in t:
         return "grow"
     if "читать" in t:
@@ -311,17 +303,6 @@ def main():
                     handle_epics_pick(user, int(t), db, send_message, upload_image)
                     continue
 
-            if user.state == AWAIT_INCUBATOR and not cmd:
-                t = text.strip().lower()
-                if t in ("0", "назад", "отмена"):
-                    from bot.handlers.incubator import handle_incubator_cancel
-                    handle_incubator_cancel(user, db, send_message, upload_image)
-                    continue
-                if t.isdigit():
-                    from bot.handlers.incubator import handle_incubator_pick
-                    handle_incubator_pick(user, int(t), db, send_message, upload_image)
-                    continue
-
             if user.state == AWAIT_RULES and not cmd:
                 t = text.strip().lower()
                 if t in ("0", "закрыть правила", "назад", "отмена"):
@@ -405,32 +386,6 @@ def main():
 
             if cmd == "epic":
                 handle_epic_command(user, db, send_message, upload_image)
-                continue
-
-            if cmd == "incubator":
-                from bot.handlers.incubator import handle_incubator
-                handle_incubator(user, db, send_message, upload_image)
-                continue
-
-            if cmd == "incubator_buy":
-                try:
-                    payload = json.loads(payload_str) if payload_str else {}
-                    idx = payload.get("idx")
-                except (json.JSONDecodeError, TypeError):
-                    idx = None
-                if idx:
-                    from bot.handlers.incubator import handle_incubator_pick
-                    handle_incubator_pick(user, int(idx), db, send_message, upload_image)
-                continue
-
-            if cmd == "incubator_confirm":
-                from bot.handlers.incubator import handle_incubator_confirm
-                handle_incubator_confirm(user, db, send_message, upload_image)
-                continue
-
-            if cmd == "incubator_cancel":
-                from bot.handlers.incubator import handle_incubator_cancel
-                handle_incubator_cancel(user, db, send_message, upload_image)
                 continue
 
             if is_epic_egg(user.state) and cmd in ("norm", "x2"):

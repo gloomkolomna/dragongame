@@ -1,4 +1,4 @@
-"""Check epic_unlocked status for debugging the incubator button."""
+"""Check epic_unlocked status for user account debugging."""
 import sys
 import os
 
@@ -44,7 +44,7 @@ print(f"\n  Completed regular dragons: {regular_completed}")
 epic_pool = db.query(Dragon).filter(Dragon.is_epic == True).all()
 print(f"  Epic dragons in pool: {len(epic_pool)}")
 for d in epic_pool:
-    print(f"    Dragon#{d.id} {d.egg_type or d.name} (cost={d.epic_cost_stitches or 0})")
+    print(f"    Dragon#{d.id} {d.egg_type or d.name}")
 
 epic_ud_rows = db.query(UserDragon).join(Dragon, Dragon.id == UserDragon.dragon_id).filter(
     UserDragon.user_id == vk_id, Dragon.is_epic == True
