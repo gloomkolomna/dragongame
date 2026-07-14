@@ -557,3 +557,212 @@ a:hover { color: var(--molten); }
 .lair-rise-d1 { animation-delay: 0.05s; animation-fill-mode: both; }
 .lair-rise-d2 { animation-delay: 0.1s; animation-fill-mode: both; }
 .lair-rise-d3 { animation-delay: 0.15s; animation-fill-mode: both; }
+
+/* ============================================================
+   RESPONSIVE — мобильная админка
+   ============================================================ */
+.lair-mobile-topbar {
+  display: none;
+  align-items: center;
+  padding: 0 16px;
+  height: 56px;
+  background: linear-gradient(180deg, rgba(21, 15, 28, 0.98) 0%, rgba(21, 15, 28, 0.9) 100%);
+  border-bottom: 1px solid var(--bronze);
+  flex-shrink: 0;
+}
+
+.lair-mobile-topbar-title {
+  font-family: var(--font-title);
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--gold);
+  letter-spacing: 1px;
+  margin-left: 12px;
+}
+
+.lair-mobile-topbar-spacer {
+  flex: 1;
+}
+
+.lair-hamburger {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 5px;
+  width: 36px;
+  height: 36px;
+  padding: 6px;
+  background: none;
+  border: 1px solid var(--bronze);
+  border-radius: 6px;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: border-color 0.2s;
+}
+
+.lair-hamburger span {
+  display: block;
+  height: 2px;
+  background: var(--parchment-dim);
+  border-radius: 1px;
+  transition: background 0.2s;
+}
+
+.lair-hamburger:hover {
+  border-color: var(--copper);
+}
+
+.lair-hamburger:hover span {
+  background: var(--gold);
+}
+
+.lair-sidebar-overlay {
+  display: none;
+}
+
+.lair-sidebar-wrapper {
+  flex-shrink: 0;
+}
+
+.lair-table-responsive {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+@media (max-width: 768px) {
+  .lair-mobile-topbar {
+    display: flex;
+  }
+
+  .lair-sidebar-wrapper {
+    position: fixed;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    z-index: 1000;
+    transform: translateX(-100%);
+    transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+    box-shadow: 4px 0 30px rgba(0, 0, 0, 0.6);
+    pointer-events: none;
+  }
+
+  .lair-sidebar-wrapper.open {
+    transform: translateX(0);
+    pointer-events: auto;
+  }
+
+  .lair-sidebar-wrapper .lair-sidebar {
+    height: 100%;
+    overflow-y: auto;
+  }
+
+  .lair-sidebar-overlay {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.55);
+    z-index: 999;
+    animation: fadeIn 0.2s ease;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  .lair-header {
+    flex-wrap: wrap;
+    padding: 14px 16px;
+    gap: 10px;
+  }
+
+  .lair-header h1 {
+    font-size: 1.5rem;
+  }
+
+  .lair-content {
+    padding: 14px;
+  }
+
+  h1 { font-size: 1.5rem; }
+  h2 { font-size: 1.3rem; }
+  h3 { font-size: 1.15rem; }
+
+  .lair-stat-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+  }
+
+  .lair-stat-card {
+    padding: 16px 12px;
+  }
+
+  .lair-stat-value {
+    font-size: 1.8rem;
+  }
+
+  .lair-stat-label {
+    font-size: 12px;
+    letter-spacing: 1px;
+  }
+
+  .lair-card {
+    padding: 16px;
+    border-radius: 16px;
+  }
+
+  .lair-table {
+    font-size: 14px;
+  }
+
+  .lair-table th,
+  .lair-table td {
+    padding: 8px 10px;
+    white-space: nowrap;
+  }
+
+  .lair-table th {
+    font-size: 13px;
+  }
+
+  .lair-input,
+  .lair-select,
+  .lair-textarea {
+    padding: 12px 14px;
+    font-size: 16px !important;
+  }
+
+  .lair-btn {
+    padding: 8px 16px;
+    font-size: 13px;
+  }
+
+  .lair-btn-sm {
+    padding: 6px 12px;
+    font-size: 12px;
+  }
+
+  .lair-btn-xs {
+    padding: 4px 10px;
+    font-size: 11px;
+  }
+
+  .lair-nav-item {
+    padding: 14px 20px;
+    font-size: 14px;
+  }
+
+  .lair-card {
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+  }
+
+  .lair-card .lair-table {
+    min-width: 600px;
+  }
+
+  .lair-content {
+    padding: 10px;
+  }
+}

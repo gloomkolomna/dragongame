@@ -98,24 +98,26 @@ function Dashboard() {
             <h3 style={{ color: '#d474a0', margin: '0 0 12px', fontSize: 16 }}>
               ⚠ Подозрение на читерство ({cheats?.total_pending ?? cheatItems.length})
             </h3>
-            <table className="lair-table">
-              <thead><tr><th>Дата</th><th>Игрок</th><th>Дракон</th><th>Шаг</th><th>Заявлено</th><th>Норма</th><th></th></tr></thead>
-              <tbody>{cheatItems.map((c) => (
-                <tr key={c.id}>
-                  <td style={{ fontSize: 13 }}>{c.created_at?.slice(0, 16).replace('T', ' ')}</td>
-                  <td style={{ fontWeight: 600 }}>{c.name}</td>
-                  <td style={{ fontSize: 13 }}>{c.dragon_name || '—'}</td>
-                  <td>{c.step_number}</td>
-                  <td style={{ color: '#d474a0', fontWeight: 700 }}>{c.declared_crosses}</td>
-                  <td>{c.normal_crosses}</td>
-                  <td>
-                    <button className="lair-btn lair-btn-sm" onClick={() => navigate(`/admin/users?vk_id=${c.user_id}`)}>
-                      Перейти →
-                    </button>
-                  </td>
-                </tr>
-              ))}</tbody>
-            </table>
+            <div className="lair-table-responsive">
+              <table className="lair-table">
+                <thead><tr><th>Дата</th><th>Игрок</th><th>Дракон</th><th>Шаг</th><th>Заявлено</th><th>Норма</th><th></th></tr></thead>
+                <tbody>{cheatItems.map((c) => (
+                  <tr key={c.id}>
+                    <td style={{ fontSize: 13 }}>{c.created_at?.slice(0, 16).replace('T', ' ')}</td>
+                    <td style={{ fontWeight: 600 }}>{c.name}</td>
+                    <td style={{ fontSize: 13 }}>{c.dragon_name || '—'}</td>
+                    <td>{c.step_number}</td>
+                    <td style={{ color: '#d474a0', fontWeight: 700 }}>{c.declared_crosses}</td>
+                    <td>{c.normal_crosses}</td>
+                    <td>
+                      <button className="lair-btn lair-btn-sm" onClick={() => navigate(`/admin/users?vk_id=${c.user_id}`)}>
+                        Перейти →
+                      </button>
+                    </td>
+                  </tr>
+                ))}</tbody>
+              </table>
+            </div>
           </motion.div>
         )}
 
