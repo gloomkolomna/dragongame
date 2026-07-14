@@ -86,69 +86,73 @@ export function VkBridgeProvider({ children }: { children: ReactNode }) {
 
     async function init() {
       diagMark('02 VkBridge init() старт', 'ok');
-      // 1. ОБЯЗАТЕЛЬНЫЙ запуск приложения в VK. Без VKWebAppInit VK считает
-      //    приложение «не инициализированным». Безопасен вне VK (reject/timeout).
-      try {
-        await withTimeout(bridge.send('VKWebAppInit'), 3000);
-        diagMark('03 VKWebAppInit', 'ok');
-      } catch (e: any) {
-        diagMark('03 VKWebAppInit', 'fail', e?.message || 'timeout/reject');
-      }
-
-      if (cancelled) return;
 
       let id: number | null = null;
       let params: Record<string, string> = {};
       let inVk = false;
 
-      // 2. Основной способ — запрос launch params через VK Bridge.
-      //    Работает везде (мобайл/веб), независимо от того, как VK передал
-      //    параметры (query или hash).
+      // 1. МГНОВЕННЫЙ способ — разбор URL (query + hash). На мобайле ВК всегда
+      //    передаёт vk_user_id в URL, это не требует сети и не таймаутит.
+      //    Делаем ПЕРВЫМ, чтобы интерфейс появлялся мгновенно даже на слабом LTE.
       try {
-        const lp = await withTimeout(bridge.send('VKWebAppGetLaunchParams'), 3000);
-        if (lp && lp.vk_user_id) {
+        const lp = parseURLSearchParamsForGetLaunchParams(
+          window.location.search + window.location.hash,
+        );
+        if (lp && (lp as any).vk_user_id) {
           inVk = true;
-          id = Number(lp.vk_user_id);
+          id = Number((lp as any).vk_user_id);
           params = Object.fromEntries(
             Object.entries(lp).map(([k, v]) => [k, String(v)])
           );
-          diagMark('04 VKWebAppGetLaunchParams', 'ok', String(id));
+          diagMark('03 URL params', 'ok', String(id));
         } else {
-          diagMark('04 VKWebAppGetLaunchParams', 'fail', 'нет vk_user_id');
+          diagMark('03 URL params', 'fail', 'нет vk_user_id в URL');
         }
       } catch (e: any) {
-        diagMark('04 VKWebAppGetLaunchParams', 'fail', e?.message || 'timeout/reject');
+        diagMark('03 URL params', 'fail', e?.message);
       }
 
-      // 3. Запасной способ — разбор URL (query + hash). Нужен для dev-режима
-      //    и прямых переходов, а также если bridge.send почему-то не сработал.
-      if (!id) {
-        try {
-          const lp = parseURLSearchParamsForGetLaunchParams(
-            window.location.search + window.location.hash,
-          );
-          if (lp && (lp as any).vk_user_id) {
-            inVk = true;
-            id = Number((lp as any).vk_user_id);
-            diagMark('05 fallback URL params', 'ok', String(id));
-          } else {
-            diagMark('05 fallback URL params', 'fail', 'нет vk_user_id в URL');
-          }
-        } catch (e: any) {
-          diagMark('05 fallback URL params', 'fail', e?.message);
-        }
-      }
-
+      // 2. Запасной raw-разбор URL (всякие edge-cases передачи параметров).
       if (!id) {
         const fallback = parseVkParamsFromUrl();
         if (fallback.vkUserId) {
           inVk = true;
           id = fallback.vkUserId;
           params = fallback.params;
-          diagMark('06 fallback raw URL', 'ok', String(id));
+          diagMark('04 raw URL fallback', 'ok', String(id));
         } else {
-          diagMark('06 fallback raw URL', 'fail', 'нет vk_user_id');
+          diagMark('04 raw URL fallback', 'fail', 'нет vk_user_id');
         }
+      }
+
+      // 3. ОБЯЗАТЕЛЬНЫЙ запуск приложения в VK (fire-and-forget, не блокируем
+      //    рендер). Без VKWebAppInit VK считает приложение «не инициализированным».
+      bridge.send('VKWebAppInit').then(
+        () => diagMark('05 VKWebAppInit', 'ok'),
+        (e: any) => diagMark('05 VKWebAppInit', 'fail', e?.message || 'reject'),
+      );
+
+      // 4. Дополнительный запрос launch params через VK Bridge — НЕ блокирующий,
+      //    используется только если URL-разбор ничего не дал (прямые переходы,
+      //    десктоп-веб). На мобайле обычно уже есть id из шага 1.
+      if (!id) {
+        try {
+          const lp = await withTimeout(bridge.send('VKWebAppGetLaunchParams'), 3000);
+          if (lp && lp.vk_user_id) {
+            inVk = true;
+            id = Number(lp.vk_user_id);
+            params = Object.fromEntries(
+              Object.entries(lp).map(([k, v]) => [k, String(v)])
+            );
+            diagMark('06 bridge GetLaunchParams', 'ok', String(id));
+          } else {
+            diagMark('06 bridge GetLaunchParams', 'fail', 'нет vk_user_id');
+          }
+        } catch (e: any) {
+          diagMark('06 bridge GetLaunchParams', 'fail', e?.message || 'timeout/reject');
+        }
+      } else {
+        diagMark('06 bridge GetLaunchParams', 'ok', 'пропущен — id уже из URL');
       }
 
       if (id) {
@@ -166,7 +170,7 @@ export function VkBridgeProvider({ children }: { children: ReactNode }) {
         setVkUserId(DEMO_VK_ID);
         diagMark('07 DEMO режим', 'ok', String(DEMO_VK_ID));
       } else {
-        diagMark('07 vkUserId НЕ получен', 'fail', 'ни бридж, ни URL не дали id');
+        diagMark('07 vkUserId НЕ получен', 'fail', 'ни URL, ни бридж не дали id');
       }
 
       if (!cancelled) {
