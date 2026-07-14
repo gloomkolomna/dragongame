@@ -508,7 +508,6 @@ def main():
                 sd.pop("_needs_egg_intro", None)
                 user.state_data = _j.dumps(sd, ensure_ascii=False)
                 db.commit()
-                from bot.handlers.epic import handle_epic_command
                 handle_epic_command(user, db, send_message, upload_image)
                 continue
 
@@ -574,7 +573,6 @@ def main():
                 sd.pop("_needs_egg_intro", None)
                 user.state_data = _j.dumps(sd, ensure_ascii=False)
                 db.commit()
-                from bot.handlers.epic import handle_epic_command
                 handle_epic_command(user, db, send_message, upload_image)
 
             elif is_intro_chapter(user.state) and text and not cmd:
