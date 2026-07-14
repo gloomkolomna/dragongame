@@ -24,6 +24,9 @@ function EpicSpeciesForm() {
   const [imagePreview, setImagePreview] = useState('');
   const [dragonFile, setDragonFile] = useState<File | null>(null);
   const [dragonPreview, setDragonPreview] = useState('');
+  const [finaleFile, setFinaleFile] = useState<File | null>(null);
+  const [finalePreview, setFinalePreview] = useState('');
+  const [finaleDesc, setFinaleDesc] = useState('');
   const [steps, setSteps] = useState<Step[]>([]);
   const [epicCost, setEpicCost] = useState<number | null>(null);
 
@@ -38,6 +41,8 @@ function EpicSpeciesForm() {
       setEpicCost(dr.epic_cost_stitches ?? null);
       if (dr.egg_path) setImagePreview(`/dragons/api/static/images/${dr.egg_path}?t=${Date.now()}`);
       if (dr.dragon_path) setDragonPreview(`/dragons/api/static/images/${dr.dragon_path}?t=${Date.now()}`);
+      if (dr.finale_image_path) setFinalePreview(`/dragons/api/static/images/${dr.finale_image_path}?t=${Date.now()}`);
+      setFinaleDesc(dr.finale_description || '');
       setSteps(s.data);
     }).finally(() => setLoading(false));
   }, [id]);
@@ -66,6 +71,8 @@ function EpicSpeciesForm() {
       if (epicCost !== null && epicCost > 0) form.append('epic_cost_stitches', String(epicCost));
       if (imageFile) form.append('image', imageFile);
       if (dragonFile) form.append('silhouette', dragonFile);
+      if (finaleFile) form.append('finale_image', finaleFile);
+      if (finaleDesc) form.append('finale_description', finaleDesc);
       if (steps.length > 0) {
         form.append('steps', JSON.stringify(steps.map((s, i) => ({ ...s, step_number: i + 1 }))));
       }
@@ -147,6 +154,23 @@ function EpicSpeciesForm() {
               {dragonFile ? dragonFile.name : 'Выбрать файл...'}
             </label>
             {dragonPreview && <img src={dragonPreview} alt="" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} style={{ maxWidth: '100%', maxHeight: 180, marginTop: 8, borderRadius: 'var(--radius-sm)' }} />}
+          </div>
+
+          <div className="lair-form-group">
+            <label className="lair-label">Картинка финала (когда дракон улетает)</label>
+            <label className="lair-file">
+              <input type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) { setFinaleFile(file); setFinalePreview(URL.createObjectURL(file)); }
+              }} />
+              {finaleFile ? finaleFile.name : 'Выбрать файл...'}
+            </label>
+            {finalePreview && <img src={finalePreview} alt="" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} style={{ maxWidth: '100%', maxHeight: 180, marginTop: 8, borderRadius: 'var(--radius-sm)' }} />}
+          </div>
+
+          <div className="lair-form-group">
+            <label className="lair-label">Описание финала</label>
+            <textarea className="lair-textarea" value={finaleDesc} onChange={(e) => setFinaleDesc(e.target.value)} placeholder="Дракон расправил крылья и улетел в небо..." />
           </div>
 
           <div className="lair-form-group">

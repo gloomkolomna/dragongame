@@ -42,6 +42,8 @@ def create_dragon(
     family_id: int,
     image: UploadFile | None = None,
     silhouette: UploadFile | None = None,
+    finale_image: UploadFile | None = None,
+    finale_description: str = "",
     is_epic: bool = False,
     epic_cost_stitches: int | None = None,
 ) -> Dragon:
@@ -52,6 +54,7 @@ def create_dragon(
         family_id=family_id,
         is_epic=is_epic,
         epic_cost_stitches=epic_cost_stitches,
+        finale_description=finale_description,
     )
     db.add(dragon)
     db.flush()
@@ -62,6 +65,9 @@ def create_dragon(
     if silhouette and silhouette.filename:
         filename = _save_upload(silhouette, IMAGES_DIR, f"{dragon.id}_silhouette")
         dragon.dragon_path = f"dragons/{filename}"
+    if finale_image and finale_image.filename:
+        filename = _save_upload(finale_image, IMAGES_DIR, f"{dragon.id}_finale")
+        dragon.finale_image_path = f"dragons/{filename}"
 
     db.commit()
     db.refresh(dragon)
@@ -78,6 +84,8 @@ def update_dragon(
     family_id: int | None = None,
     image: UploadFile | None = None,
     silhouette: UploadFile | None = None,
+    finale_image: UploadFile | None = None,
+    finale_description: str | None = None,
     is_epic: bool | None = None,
     epic_cost_stitches: int | None = None,
 ) -> Dragon | None:
@@ -93,6 +101,7 @@ def update_dragon(
     if family_id is not None: dragon.family_id = family_id
     if is_epic is not None: dragon.is_epic = is_epic
     if epic_cost_stitches is not None: dragon.epic_cost_stitches = epic_cost_stitches
+    if finale_description is not None: dragon.finale_description = finale_description
 
     if image and image.filename:
         _cleanup_old(IMAGES_DIR, str(dragon.id), dragon.egg_path)
@@ -102,6 +111,10 @@ def update_dragon(
         _cleanup_old(IMAGES_DIR, f"{dragon.id}_silhouette", dragon.dragon_path)
         filename = _save_upload(silhouette, IMAGES_DIR, f"{dragon.id}_silhouette")
         dragon.dragon_path = f"dragons/{filename}"
+    if finale_image and finale_image.filename:
+        _cleanup_old(IMAGES_DIR, f"{dragon.id}_finale", dragon.finale_image_path)
+        filename = _save_upload(finale_image, IMAGES_DIR, f"{dragon.id}_finale")
+        dragon.finale_image_path = f"dragons/{filename}"
 
     db.commit()
     db.refresh(dragon)

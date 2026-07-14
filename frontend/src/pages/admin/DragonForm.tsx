@@ -5,7 +5,7 @@ import client from '../../api/client';
 interface Dragon {
   id: number; name: string; rarity: number; egg_type: string;
   steps_count: number; description: string; egg_path: string;
-  dragon_path: string; is_active: boolean; family_id: number | null;
+  dragon_path: string; finale_image_path: string; finale_description: string; is_active: boolean; family_id: number | null;
   is_epic: boolean; epic_cost_stitches: number | null;
 }
 interface Family { id: number; name: string; }
@@ -33,6 +33,9 @@ function DragonForm() {
   const [silhouetteFile, setSilhouetteFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState('');
   const [silhouettePreview, setSilhouettePreview] = useState('');
+  const [finaleFile, setFinaleFile] = useState<File | null>(null);
+  const [finalePreview, setFinalePreview] = useState('');
+  const [finaleDesc, setFinaleDesc] = useState('');
   const [families, setFamilies] = useState<Family[]>([]);
   const [familyId, setFamilyId] = useState<number | null>(null);
   const [steps, setSteps] = useState<Step[]>([]);
@@ -57,6 +60,8 @@ function DragonForm() {
       setEpicCost(dr.epic_cost_stitches ?? null);
       if (dr.egg_path) setImagePreview(`/dragons/api/static/images/${dr.egg_path}?t=${Date.now()}`);
       if (dr.dragon_path) setSilhouettePreview(`/dragons/api/static/images/${dr.dragon_path}?t=${Date.now()}`);
+      if (dr.finale_image_path) setFinalePreview(`/dragons/api/static/images/${dr.finale_image_path}?t=${Date.now()}`);
+      setFinaleDesc(dr.finale_description || '');
       setSteps(s.data);
     }).finally(() => setLoading(false));
   }, [id]);
@@ -81,6 +86,8 @@ function DragonForm() {
       if (epicCost !== null && epicCost > 0) form.append('epic_cost_stitches', String(epicCost));
       if (imageFile) form.append('image', imageFile);
       if (silhouetteFile) form.append('silhouette', silhouetteFile);
+      if (finaleFile) form.append('finale_image', finaleFile);
+      if (finaleDesc) form.append('finale_description', finaleDesc);
       if (steps.length > 0) {
         form.append('steps', JSON.stringify(steps.map((s, i) => ({ ...s, step_number: i + 1 }))));
       }
@@ -188,6 +195,28 @@ function DragonForm() {
               {silhouettePreview && <img src={silhouettePreview} alt="" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} style={{ maxWidth: '100%', maxHeight: 160, marginTop: 8, borderRadius: 'var(--radius-sm)', opacity: 0.6 }} />}
             </div>
           </div>
+
+          {isEpic && (
+            <div className="lair-form-group">
+              <label className="lair-label">Картинка финала</label>
+              <label className="lair-file">
+                <input type="file" accept="image/*" style={{ display: 'none' }}
+                       onChange={(e) => {
+                         const file = e.target.files?.[0];
+                         if (file) { setFinaleFile(file); setFinalePreview(URL.createObjectURL(file)); }
+                       }} />
+                {finaleFile ? finaleFile.name : 'Выбрать файл...'}
+              </label>
+              {finalePreview && <img src={finalePreview} alt="" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} style={{ maxWidth: '100%', maxHeight: 160, marginTop: 8, borderRadius: 'var(--radius-sm)' }} />}
+            </div>
+          )}
+
+          {isEpic && (
+            <div className="lair-form-group">
+              <label className="lair-label">Описание финала</label>
+              <textarea className="lair-textarea" value={finaleDesc} onChange={(e) => setFinaleDesc(e.target.value)} placeholder="Дракон расправил крылья и улетел в небо..." />
+            </div>
+          )}
 
           <div className="lair-form-group">
             <label className="lair-checkbox">

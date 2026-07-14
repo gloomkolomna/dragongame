@@ -821,7 +821,6 @@ def _show_action_outcome(db, vk_id, care, action, send_message, upload_image, ha
 
 
 def _finale(user, db, send_message, upload_image, event):
-    """Finale — dragon flies away, offer restart. (Phase 6)"""
     from services.epic_service import get_epic_name, get_epic_dragon
     import json
     name = get_epic_name(db, user.vk_id) or "малыш"
@@ -829,34 +828,80 @@ def _finale(user, db, send_message, upload_image, event):
 
     _finalize_epic(db, user.vk_id)
 
+    attachment = ""
+    if upload_image:
+        image_to_show = None
+        stage = event.get("stage")
+        if dragon and dragon.finale_image_path:
+            image_to_show = dragon.finale_image_path
+        elif dragon and dragon.dragon_path:
+            image_to_show = dragon.dragon_path
+        elif stage and stage.image_end:
+            image_to_show = stage.image_end
+        elif dragon and dragon.egg_path:
+            image_to_show = dragon.egg_path
+        if image_to_show:
+            fp = os.path.join(_IMAGES, os.path.basename(image_to_show))
+            if os.path.isfile(fp):
+                attachment = upload_image(fp, peer_id=user.vk_id)
+
+    summary = _character_summary(db, user.vk_id)
+    finale_text = (dragon.finale_description or "") if dragon and dragon.finale_description else ""
+    if finale_text:
+        msg = f"🐲✨ «{name}» вырос и стал взрослым драконом!\n{finale_text}\n"
+    else:
+        msg = (
+            f"🐲✨ «{name}» вырос и стал взрослым драконом!\n"
+            f"Он расправил крылья и улетел в небо, оставив тёплые воспоминания.\n"
+        )
+    if summary:
+        msg += f"\n🎭 Характер: {summary}\n"
+
+    new_dragon = _pick_free_epic(db, user.vk_id, dragon.id if dragon else None)
+    if new_dragon:
+        from models import UserDragon
+        ud = UserDragon(user_id=user.vk_id, dragon_id=new_dragon.id, completed_at="")
+        db.add(ud)
+        db.flush()
+        user.epic_dragon_id = new_dragon.id
+        user.state = IDLE
+        db.commit()
+
+        msg += (
+            f"\n🥚 Он подкинул под дверь новое яйцо — «{new_dragon.egg_type or new_dragon.name}»!"
+        )
+        send_message(msg, attachment=attachment)
+
+        from bot.handlers.epic import handle_epic_command
+        handle_epic_command(user, db, send_message, upload_image)
+        return
+
     user.state = AWAIT_EPIC_RESTART
     db.commit()
 
-    attachment = ""
-    image_to_show = None
-    stage = event.get("stage")
-    if dragon and dragon.dragon_path:
-        image_to_show = dragon.dragon_path
-    elif stage and stage.image_end:
-        image_to_show = stage.image_end
-    elif dragon and dragon.egg_path:
-        image_to_show = dragon.egg_path
-    if upload_image and image_to_show:
-        fp = os.path.join(_IMAGES, os.path.basename(image_to_show))
-        if os.path.isfile(fp):
-            attachment = upload_image(fp, peer_id=user.vk_id)
-
-    summary = _character_summary(db, user.vk_id)
-    msg = (
-        f"🐲✨ «{name}» вырос и стал взрослым драконом!\n"
-        f"Он расправил крылья и улетел в небо, оставив тёплые воспоминания.\n"
-    )
-    if summary:
-        msg += f"\n🎭 Характер: {summary}\n"
-    msg += "\nОн подкинул под дверь новое яйцо. Кого будем растить дальше?"
-
+    msg += "\nТы вырастил всех доступных эпических драконов! Хочешь пройти кого-то заново?"
     from bot.keyboard import epic_restart_keyboard
     send_message(msg, attachment=attachment, keyboard=epic_restart_keyboard())
+
+
+def _pick_free_epic(db, vk_id, exclude_dragon_id=None):
+    from models import Dragon, UserDragon
+    completed_ids = set(
+        row[0] for row in db.query(UserDragon.dragon_id).filter(
+            UserDragon.user_id == vk_id,
+            UserDragon.completed_at != "",
+            UserDragon.completed_at != None,
+        ).all()
+    )
+    pool = db.query(Dragon).filter(
+        Dragon.is_epic == True,
+        Dragon.is_active == True,
+        Dragon.id.notin_(completed_ids) if completed_ids else True,
+    ).all()
+    if not pool:
+        return None
+    import random
+    return random.choice(pool)
 
 
 def _finalize_epic(db, vk_id):

@@ -141,12 +141,14 @@ def create_dragon_route(
     family_id: Optional[int] = Form(None),
     image: Optional[UploadFile] = File(None),
     silhouette: Optional[UploadFile] = File(None),
+    finale_image: Optional[UploadFile] = File(None),
+    finale_description: Optional[str] = Form(""),
     steps: Optional[str] = Form(None),
     is_epic: bool = Form(False),
     epic_cost_stitches: Optional[int] = Form(None),
     db: Session = Depends(get_db),
 ):
-    dragon = create_dragon(db, name, rarity, egg_type, description, family_id, image, silhouette, is_epic, epic_cost_stitches)
+    dragon = create_dragon(db, name, rarity, egg_type, description, family_id, image, silhouette, finale_image, finale_description, is_epic, epic_cost_stitches)
 
     if steps:
         try:
@@ -188,13 +190,16 @@ def update_dragon_route(
     family_id: Optional[int] = Form(None),
     image: Optional[UploadFile] = File(None),
     silhouette: Optional[UploadFile] = File(None),
+    finale_image: Optional[UploadFile] = File(None),
+    finale_description: Optional[str] = Form(None),
     steps: Optional[str] = Form(None),
     is_epic: Optional[bool] = Form(None),
     epic_cost_stitches: Optional[int] = Form(None),
     db: Session = Depends(get_db),
 ):
     dragon = update_dragon(db, dragon_id, name, rarity, egg_type, description,
-                           is_active, family_id, image, silhouette, is_epic,
+                           is_active, family_id, image, silhouette, finale_image,
+                           finale_description, is_epic,
                            epic_cost_stitches)
     if not dragon:
         raise HTTPException(status_code=404, detail="Dragon not found")
