@@ -202,6 +202,11 @@ function Nest() {
             ) : (
               <div style={{ fontSize: 64, padding: 32 }}>{zoomMoodlet.polarity === 'negative' ? '💔' : '🌟'}</div>
             )}
+            {zoomMoodlet.title && (
+              <div style={{ padding: '10px 14px', fontSize: 14, color: 'var(--gold)', fontWeight: 600, borderTop: '1px solid var(--bronze)' }}>
+                {zoomMoodlet.title}
+              </div>
+            )}
             <button onClick={() => setZoomMoodlet(null)}
                     style={{ position: 'absolute', top: 8, right: 8, width: 36, height: 36, borderRadius: '50%', border: '2px solid var(--bronze)', background: 'rgba(21,15,26,0.85)', color: 'var(--gold)', fontSize: 18, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1 }}>
               ✕
