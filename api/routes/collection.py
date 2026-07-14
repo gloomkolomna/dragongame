@@ -308,6 +308,88 @@ def get_epic_view(vk_id: int, db: Session = Depends(get_db)):
     return base
 
 
+@router.get("/collection/{vk_id}/epic/completed")
+def get_completed_epics(vk_id: int, db: Session = Depends(get_db)):
+    from services import epic_service
+    from services.character_service import character_summary
+    from models import Dragon, UserDragon, EpicMoodlet
+    import re
+
+    rows = (
+        db.query(UserDragon, Dragon)
+        .join(Dragon, Dragon.id == UserDragon.dragon_id)
+        .filter(
+            UserDragon.user_id == vk_id,
+            Dragon.is_epic == True,
+            UserDragon.completed_at != "",
+            UserDragon.completed_at != None,
+        )
+        .order_by(UserDragon.completed_at.desc())
+        .all()
+    )
+
+    result = []
+    for ud, dragon in rows:
+        name = epic_service.get_epic_name_for(db, vk_id, dragon.id) or dragon.egg_type or dragon.name or "?"
+        moodlets_data = []
+        _sub_outcome_cache = {}
+        _action_outcome_cache = {}
+        for m in db.query(EpicMoodlet).filter(
+            EpicMoodlet.user_dragon_id == ud.id,
+        ).order_by(EpicMoodlet.id).all():
+            sub_m = re.match(r"^sub:(\d+):(.+)$", m.key)
+            action_m = re.match(r"^action_outcome:(\d+):(.+)$", m.key)
+            if not sub_m and not action_m:
+                continue
+            img = m.image_path
+            if not img:
+                if sub_m:
+                    sub_id = int(sub_m.group(1))
+                    pol = sub_m.group(2)
+                    if (sub_id, pol) not in _sub_outcome_cache:
+                        from models import EpicSubActionOutcome
+                        _sub_outcome_cache[(sub_id, pol)] = db.query(EpicSubActionOutcome).filter(
+                            EpicSubActionOutcome.sub_action_id == sub_id,
+                            EpicSubActionOutcome.polarity == pol,
+                        ).first()
+                    outcome = _sub_outcome_cache.get((sub_id, pol))
+                    if outcome and outcome.image_path:
+                        img = outcome.image_path
+                if action_m:
+                    act_id = int(action_m.group(1))
+                    pol = action_m.group(2)
+                    if (act_id, pol) not in _action_outcome_cache:
+                        from models import EpicActionOutcome
+                        _action_outcome_cache[(act_id, pol)] = db.query(EpicActionOutcome).filter(
+                            EpicActionOutcome.action_id == act_id,
+                            EpicActionOutcome.polarity == pol,
+                        ).first()
+                    outcome = _action_outcome_cache.get((act_id, pol))
+                    if outcome and outcome.image_path:
+                        img = outcome.image_path
+            moodlets_data.append({
+                "key": m.key,
+                "title": m.title,
+                "polarity": m.polarity,
+                "text": m.text,
+                "image_path": f"/api/static/images/{img}" if img else "",
+            })
+
+        character = character_summary(db, ud.id)
+
+        result.append({
+            "name": name,
+            "egg_type": dragon.egg_type,
+            "dragon_url": f"/api/static/images/{dragon.dragon_path}" if dragon.dragon_path else "",
+            "finale_url": f"/api/static/images/{dragon.finale_image_path}" if dragon.finale_image_path else "",
+            "completed_at": ud.completed_at,
+            "character": character,
+            "moodlets": moodlets_data,
+        })
+
+    return result
+
+
 @router.get("/collection/{vk_id}/families")
 def get_collection_families(vk_id: int, db: Session = Depends(get_db)):
     families = db.query(Family).order_by(Family.sort_order, Family.id).all()

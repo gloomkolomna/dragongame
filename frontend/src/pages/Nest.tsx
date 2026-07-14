@@ -28,6 +28,16 @@ interface EpicView {
   character?: { axis: string; label: string; polarity: string }[];
 }
 
+interface CompletedEpic {
+  name: string;
+  egg_type: string;
+  dragon_url: string;
+  finale_url: string;
+  completed_at: string;
+  character: { axis: string; label: string; polarity: string }[];
+  moodlets: Moodlet[];
+}
+
 function fmtRemaining(sec: number): string {
   const h = Math.floor(sec / 3600);
   const m = Math.floor((sec % 3600) / 60);
@@ -38,10 +48,13 @@ function Nest() {
   const { vkUserId, loading: bl } = useVkBridge();
   const [data, setData] = useState<EpicView | null>(null);
   const [load, setLoad] = useState(true);
-  const [tab, setTab] = useState<'nest' | 'memories'>('nest');
+  const [tab, setTab] = useState<'nest' | 'memories' | 'completed'>('nest');
   const [zoomMoodlet, setZoomMoodlet] = useState<Moodlet | null>(null);
   const [zoomImg, setZoomImg] = useState('');
   const [memPage, setMemPage] = useState(0);
+  const [completed, setCompleted] = useState<CompletedEpic[]>([]);
+  const [compLoaded, setCompLoaded] = useState(false);
+  const [expandedEpic, setExpandedEpic] = useState<number | null>(null);
 
   useEffect(() => {
     if (bl || !vkUserId) { setLoad(false); return; }
@@ -50,6 +63,15 @@ function Nest() {
       .catch(() => setData(null))
       .finally(() => setLoad(false));
   }, [vkUserId, bl]);
+
+  useEffect(() => {
+    if (tab === 'completed' && !compLoaded && vkUserId && !bl) {
+      client.get(`/collection/${vkUserId}/epic/completed`)
+        .then((r) => setCompleted(r.data || []))
+        .catch(() => setCompleted([]))
+        .finally(() => setCompLoaded(true));
+    }
+  }, [tab, compLoaded, vkUserId, bl]);
 
   if (bl || load) return <div style={{ padding: 40, textAlign: 'center' }}><div className="lair-skeleton" style={{ height: 200 }} /></div>;
 
@@ -85,6 +107,7 @@ function Nest() {
       <div style={{ display: 'flex', marginBottom: 12, borderRadius: 8, overflow: 'hidden', background: 'rgba(28,20,36,0.5)', border: '1px solid var(--bronze)' }}>
         <div style={tabStyle('nest')} onClick={() => setTab('nest')}>🐲 Гнездо</div>
         <div style={tabStyle('memories')} onClick={() => setTab('memories')}>📔 Воспоминания</div>
+        <div style={tabStyle('completed')} onClick={() => { setTab('completed'); setExpandedEpic(null); }}>📜 Завершённые</div>
       </div>
 
       {tab === 'nest' && (
@@ -186,6 +209,75 @@ function Nest() {
                 </>
               );
             })()
+          )}
+        </div>
+      )}
+
+      {tab === 'completed' && (
+        <div className="lair-card" style={{ marginBottom: 12 }}>
+          <h4 style={{ color: 'var(--gold)', marginTop: 0 }}>📜 Завершённые эпические драконы</h4>
+          {completed.length === 0 ? (
+            <div style={{ color: 'var(--text-muted)', fontSize: 14 }}>Пока нет завершённых эпических драконов.</div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {completed.map((epic, idx) => (
+                <div key={idx} style={{ borderRadius: 8, border: '1px solid var(--bronze)', overflow: 'hidden', background: 'rgba(28,20,36,0.4)' }}>
+                  <div
+                    onClick={() => setExpandedEpic(expandedEpic === idx ? null : idx)}
+                    style={{ display: 'flex', alignItems: 'center', gap: 12, padding: 12, cursor: 'pointer' }}
+                  >
+                    {(epic.dragon_url || epic.finale_url) ? (
+                      <img src={mediaUrl(epic.dragon_url || epic.finale_url)} alt=""
+                           style={{ width: 54, height: 54, objectFit: 'contain', borderRadius: 6, background: 'rgba(0,0,0,0.3)' }} />
+                    ) : (
+                      <div style={{ width: 54, height: 54, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28 }}>🐲</div>
+                    )}
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: 600, color: 'var(--gold)', fontSize: 15 }}>{epic.name}</div>
+                      <div style={{ fontSize: 12, color: 'var(--parchment-dim)' }}>{epic.egg_type}</div>
+                      {epic.character && epic.character.length > 0 && (
+                        <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 3 }}>
+                          🎭 {epic.character.map((c, i) => (
+                            <span key={i} style={{ color: c.polarity === 'positive' ? '#6fcf97' : '#d474a0' }}>
+                              {c.label}{i < epic.character.length - 1 ? ', ' : ''}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    <span style={{ color: 'var(--bronze)', fontSize: 16 }}>{expandedEpic === idx ? '▲' : '▼'}</span>
+                  </div>
+                  {expandedEpic === idx && epic.moodlets && epic.moodlets.length > 0 && (
+                    <div style={{ borderTop: '1px solid var(--bronze)', padding: 10 }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6 }}>
+                        {epic.moodlets.map((m) => (
+                          <div key={m.key}
+                            onClick={() => setZoomMoodlet(m)}
+                            style={{
+                              cursor: 'pointer', borderRadius: 6, overflow: 'hidden',
+                              border: '2px solid var(--bronze)',
+                              background: m.polarity === 'negative' ? 'rgba(212,116,160,0.08)' : 'rgba(111,207,151,0.06)',
+                              aspectRatio: '1 / 1', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            }}
+                          >
+                            {m.image_path ? (
+                              <img src={mediaUrl(m.image_path)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                            ) : (
+                              <span style={{ fontSize: 28 }}>{m.polarity === 'negative' ? '💔' : '🌟'}</span>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {expandedEpic === idx && (!epic.moodlets || epic.moodlets.length === 0) && (
+                    <div style={{ borderTop: '1px solid var(--bronze)', padding: '10px 12px', color: 'var(--text-muted)', fontSize: 13 }}>
+                      Воспоминаний пока нет.
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
           )}
         </div>
       )}
