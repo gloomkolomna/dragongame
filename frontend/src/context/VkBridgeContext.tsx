@@ -130,7 +130,7 @@ export function VkBridgeProvider({ children }: { children: ReactNode }) {
       bridge.send('VKWebAppInit').then(
         () => diagMark('05 VKWebAppInit', 'ok'),
         (e: any) => diagMark('05 VKWebAppInit', 'fail', e?.message || 'reject'),
-      );
+      ).catch(() => {});
 
       // 4. Дополнительный запрос launch params через VK Bridge — НЕ блокирующий,
       //    используется только если URL-разбор ничего не дал (прямые переходы,

@@ -180,6 +180,12 @@ a:hover { color: var(--molten); }
 
 .lair-card > * { position: relative; z-index: 1; }
 
+@supports (-webkit-touch-callout: none) {
+  .lair-card {
+    clip-path: none;
+  }
+}
+
 /* ============================================================
    BUTTONS — массивные, с двойной рамкой, эффект тиснения
    ============================================================ */
