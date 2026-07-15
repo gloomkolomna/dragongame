@@ -20,6 +20,7 @@ from bot.handlers.commands import handle_start, handle_help, handle_garden, swit
 from bot.handlers.pin import handle_pin_command, handle_pin_entry
 from bot.handlers.grow import handle_grow_message, handle_grow_command, handle_norm_command, handle_x2_command, handle_back_command
 from bot.handlers.shop import handle_shop_command, handle_buy, handle_inventory
+from bot.handlers.buy_eggs import handle_buy_eggs, handle_buy_set, handle_partial_confirm
 from bot.handlers.legend import handle_legend_start, handle_legend_mode, handle_legend_message, handle_legend_next
 from bot.handlers.epic import handle_epic_command, handle_epic_egg_mode, handle_epic_egg_message, handle_epic_name, handle_epics, handle_epics_pick, cancel_epics, user_has_epic
 from bot.handlers.rules import handle_rules, handle_rules_section, handle_rules_pick, cancel_rules
@@ -285,6 +286,13 @@ def main():
                     handle_epic_name(user, text, db, send_message, upload_image)
                 continue
 
+            if text:
+                t = text.strip().lower()
+                sd = json.loads(user.state_data or "{}")
+                if sd.get("_partial_set_id") and (t in ("ок", "да", "согласен", "ок.", "+")):
+                    handle_partial_confirm(user, db, send_message)
+                    continue
+
             if user.state == AWAIT_GARDEN and not cmd:
                 t = text.strip().lower()
                 if t in ("0", "не менять"):
@@ -357,6 +365,22 @@ def main():
                     handle_buy(user, int(item_id), db, send_message, upload_image)
                 else:
                     send_message("Не удалось купить товар.")
+                continue
+
+            if cmd == "buy_eggs":
+                handle_buy_eggs(user, db, send_message)
+                continue
+
+            if cmd == "buy_set":
+                try:
+                    payload = json.loads(payload_str) if payload_str else {}
+                    set_id = payload.get("set_id")
+                except (json.JSONDecodeError, TypeError):
+                    set_id = None
+                if set_id:
+                    handle_buy_set(user, int(set_id), db, send_message)
+                else:
+                    send_message("Не удалось оформить заказ.")
                 continue
 
             if cmd == "legend":

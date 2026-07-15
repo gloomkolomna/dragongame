@@ -46,6 +46,10 @@ def garden_row():
     return row(("📖 Список Бестиария", "garden"))
 
 
+def buy_eggs_row():
+    return row(("🛒 Купить яйца", "buy_eggs"))
+
+
 def help_rules_row():
     return row(("📜 Правила", "rules"), ("❓ Помощь", "help"))
 
@@ -259,6 +263,7 @@ def finale_new_dragon_keyboard():
 def await_garden_keyboard(with_cancel=False):
     buttons = [
         row(("🥚 Добавить яйцо дракона", "pin")),
+        buy_eggs_row(),
     ]
     bottom = []
     if with_cancel:
@@ -408,5 +413,39 @@ def rules_menu_keyboard(sections):
 def rules_section_keyboard():
     return _keyboard([
         row(("◀ К правилам", "rules"), ("❓ Закрыть", "rules_close")),
+        bestiary_link_row(),
+    ])
+
+
+def buy_eggs_keyboard(sets):
+    buttons = []
+    for s in sets:
+        label = f"🥚 {s['name']} — {s['quantity']} шт., {s['price_rub']} ₽"
+        discount = s.get("discount_percent", 0)
+        if discount:
+            label += f" (-{discount}%)"
+        buttons.append([{
+            "action": {
+                "type": "text",
+                "label": label[:40],
+                "payload": json.dumps({"cmd": "buy_set", "set_id": s["id"]}, ensure_ascii=False),
+            },
+            "color": "positive",
+        }])
+    buttons.append(garden_row())
+    buttons.append(bestiary_link_row())
+    return _keyboard(buttons)
+
+
+def payment_link_keyboard(payment_url):
+    return _keyboard([
+        [{
+            "action": {
+                "type": "open_link",
+                "label": "💳 Перейти к оплате",
+                "link": payment_url,
+            },
+        }],
+        garden_row(),
         bestiary_link_row(),
     ])
