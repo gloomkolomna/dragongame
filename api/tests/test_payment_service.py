@@ -103,3 +103,21 @@ def test_select_dragons_fewer_available(db):
     _dragon(db, "B", family_id=2, pin="B0009")
     picked = select_dragons(1, 5, db)
     assert len(picked) == 2
+
+
+def test_count_available_excludes_epic(db):
+    _dragon(db, "A", pin="EPIC1")
+    d2 = _dragon(db, "EpicDragon", pin="EPIC2")
+    d2.is_epic = True
+    db.commit()
+    assert count_available(1, db) == 1
+
+
+def test_select_dragons_excludes_epic(db):
+    _dragon(db, "A", pin="EPIC3")
+    d2 = _dragon(db, "EpicDragon", pin="EPIC4")
+    d2.is_epic = True
+    db.commit()
+    picked = select_dragons(1, 5, db)
+    assert len(picked) == 1
+    assert picked[0].is_epic is False

@@ -3,7 +3,7 @@
 import os
 from bot.fsm import AWAIT_PIN, IDLE, grow_state
 from bot.services.pin_service import validate_pin_code, activate_pin
-from bot.keyboard import start_growing_keyboard, await_garden_keyboard
+from bot.keyboard import start_growing_keyboard, await_garden_keyboard, row, bestiary_link_row, buy_eggs_row, _keyboard as kb_json
 
 _IMAGES = os.path.join(os.path.dirname(__file__), "..", "..", "images", "dragons")
 
@@ -32,22 +32,28 @@ def handle_my_pins(user, db, send_message):
         .all()
     )
 
+    kb = kb_json([
+        row(("🥚 Добавить яйцо дракона", "pin")),
+        buy_eggs_row(),
+        row(("◀ Назад", "garden")),
+        bestiary_link_row(),
+    ])
+
     if not reservations:
         send_message(
             "🔑 У тебя пока нет неактивированных PIN-кодов.\n\n"
             "PIN-коды появляются здесь после покупки яиц или получения бесплатных.",
-            keyboard=await_garden_keyboard(with_cancel=True),
+            keyboard=kb,
         )
         return
 
     lines = ["🔑 Твои неактивированные PIN-коды:\n"]
     for i, r in enumerate(reservations, 1):
         dragon = db.query(Dragon).filter(Dragon.id == r.dragon_id).first()
-        name = dragon.name if dragon else f"Дракон #{r.dragon_id}"
-        lines.append(f"{i}. 🥚 {name} — PIN: {dragon.pin_code if dragon else '—'}")
+        lines.append(f"{i}. {dragon.pin_code if dragon else '—'}")
     lines.append("\nНажми «🥚 Добавить яйцо дракона» чтобы ввести PIN-код.")
 
-    send_message("\n".join(lines), keyboard=await_garden_keyboard(with_cancel=True))
+    send_message("\n".join(lines), keyboard=kb)
 
 
 def handle_pin_entry(user, text, db, send_message, upload_image=None):
