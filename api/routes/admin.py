@@ -20,7 +20,7 @@ from models import (
     CharacterAxis, CharacterBalance,
     EpicSubAction, EpicSubActionItem, EpicSubActionStep, EpicSubActionOutcome,
     EpicActionOutcome, EpicCareState,
-    IntroChapter,
+    IntroChapter, RewardConfig, UserRewardPin,
 )
 from config import API_ERROR_LOG, DONOR_SYNC_INTERVAL_HOURS, DEBUG_LOG_PATH, DEBUG_LOG_REQUESTS
 from services.dragon_service import (
@@ -2715,3 +2715,100 @@ def delete_intro_chapter(chapter_id: int, db: Session = Depends(get_db)):
     db.delete(ch)
     db.commit()
     return {"ok": True}
+
+
+# ─── Бесплатные яйца (reward configs) ───
+
+@router.get("/reward-configs")
+def list_reward_configs(db: Session = Depends(get_db)):
+    return db.query(RewardConfig).order_by(RewardConfig.id).all()
+
+
+@router.post("/reward-configs")
+async def create_reward_config(request: Request, db: Session = Depends(get_db)):
+    b = await _json_body(request)
+    user_type = (b.get("user_type") or "donor").strip()
+    if user_type not in ("regular", "donor"):
+        raise HTTPException(status_code=400, detail="user_type must be 'regular' or 'donor'")
+    now = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
+    cfg = RewardConfig(
+        user_type=user_type,
+        eggs_per_period=max(0, int(b.get("eggs_per_period", 1) or 1)),
+        period_days=max(1, int(b.get("period_days", 30) or 30)),
+        is_active=bool(b.get("is_active", True)),
+        rarity_filter=(b.get("rarity_filter") or "").strip(),
+        created_at=now,
+        updated_at=now,
+    )
+    db.add(cfg)
+    db.commit()
+    db.refresh(cfg)
+    return cfg
+
+
+@router.put("/reward-configs/{config_id}")
+async def update_reward_config(config_id: int, request: Request, db: Session = Depends(get_db)):
+    cfg = db.query(RewardConfig).filter(RewardConfig.id == config_id).first()
+    if not cfg:
+        raise HTTPException(status_code=404, detail="Config not found")
+    b = await _json_body(request)
+    if "user_type" in b:
+        ut = b["user_type"].strip()
+        if ut not in ("regular", "donor"):
+            raise HTTPException(status_code=400, detail="user_type must be 'regular' or 'donor'")
+        cfg.user_type = ut
+    if "eggs_per_period" in b:
+        cfg.eggs_per_period = max(0, int(b["eggs_per_period"] or 1))
+    if "period_days" in b:
+        cfg.period_days = max(1, int(b["period_days"] or 30))
+    if "is_active" in b:
+        cfg.is_active = bool(b["is_active"])
+    if "rarity_filter" in b:
+        cfg.rarity_filter = (b["rarity_filter"] or "").strip()
+    cfg.updated_at = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
+    db.commit()
+    db.refresh(cfg)
+    return cfg
+
+
+@router.delete("/reward-configs/{config_id}")
+def delete_reward_config(config_id: int, db: Session = Depends(get_db)):
+    cfg = db.query(RewardConfig).filter(RewardConfig.id == config_id).first()
+    if not cfg:
+        raise HTTPException(status_code=404, detail="Config not found")
+    db.delete(cfg)
+    db.commit()
+    return {"ok": True}
+
+
+@router.get("/reward-pins")
+def list_reward_pins(
+    page: int = Query(1, ge=1),
+    per_page: int = Query(50, ge=1, le=200),
+    db: Session = Depends(get_db),
+):
+    total = db.query(func.count(UserRewardPin.id)).scalar() or 0
+    items = (
+        db.query(UserRewardPin)
+        .order_by(UserRewardPin.issued_at.desc(), UserRewardPin.id.desc())
+        .offset((page - 1) * per_page)
+        .limit(per_page)
+        .all()
+    )
+    result = []
+    for pin in items:
+        dragon = db.query(Dragon).filter(Dragon.id == pin.dragon_id).first()
+        result.append({
+            "id": pin.id,
+            "user_id": pin.user_id,
+            "dragon_id": pin.dragon_id,
+            "dragon_name": dragon.name if dragon else "",
+            "egg_type": dragon.egg_type if dragon else "",
+            "pin_code": pin.pin_code,
+            "config_id": pin.config_id,
+            "issued_at": pin.issued_at,
+            "activated": pin.activated,
+            "activated_at": pin.activated_at,
+            "notified": pin.notified,
+        })
+    return {"items": result, "total": total, "page": page, "per_page": per_page}

@@ -40,6 +40,7 @@ import UserDragonProgress from './pages/admin/UserDragonProgress';
 import LogsList from './pages/admin/LogsList';
 import SuspiciousList from './pages/admin/SuspiciousList';
 import IntroChaptersList from './pages/admin/IntroChaptersList';
+import RewardConfigs from './pages/admin/RewardConfigs';
 
 import ProtectedRoute from './components/ProtectedRoute';
 
@@ -156,6 +157,7 @@ function App() {
           <Route path="suspicious" element={<SuspiciousList />} />
           <Route path="intro" element={<IntroChaptersList />} />
           <Route path="logs" element={<LogsList />} />
+          <Route path="rewards" element={<RewardConfigs />} />
         </Route>
 
         {/* Fallback */}

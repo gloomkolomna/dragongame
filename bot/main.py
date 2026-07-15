@@ -27,6 +27,7 @@ from bot.handlers.intro import handle_intro_next, handle_intro_chat, start_intro
 from bot.services.user_service import get_or_create_user
 from bot.scheduler import run_timeout_checker
 from bot.services.donor_sync import run_donor_sync
+from bot.services.reward_service import run_reward_scheduler
 from bot.keyboard import idle_keyboard, growing_keyboard, waiting_keyboard, start_growing_keyboard, step_buttons_keyboard, await_pin_keyboard, await_garden_keyboard, keyboard_with_legends, keyboard_with_epics, intro_keyboard, empty_keyboard
 from datetime import datetime
 
@@ -168,6 +169,14 @@ def main():
     )
     donor_sync_thread.start()
     print("Donor sync started")
+
+    reward_thread = threading.Thread(
+        target=run_reward_scheduler,
+        args=(SessionLocal, vk, config.REWARD_CHECK_INTERVAL_HOURS),
+        daemon=True,
+    )
+    reward_thread.start()
+    print("Reward scheduler started")
 
     def upload_image(filepath: str, log_error=None, peer_id=0) -> str:
         last_error = None

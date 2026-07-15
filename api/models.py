@@ -472,6 +472,31 @@ class DonorCache(Base):
     last_synced_at = Column(String, default="")
 
 
+class RewardConfig(Base):
+    __tablename__ = "reward_configs"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_type = Column(String(20), nullable=False, default="donor")
+    eggs_per_period = Column(Integer, default=1)
+    period_days = Column(Integer, default=30)
+    is_active = Column(Boolean, default=True)
+    rarity_filter = Column(String, default="")
+    created_at = Column(String, default="")
+    updated_at = Column(String, default="")
+
+
+class UserRewardPin(Base):
+    __tablename__ = "user_reward_pins"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.vk_id", ondelete="CASCADE"), nullable=False)
+    dragon_id = Column(Integer, ForeignKey("dragons.id", ondelete="SET NULL"), nullable=True)
+    pin_code = Column(String(5), default="")
+    config_id = Column(Integer, ForeignKey("reward_configs.id", ondelete="SET NULL"), nullable=True)
+    issued_at = Column(String, default="")
+    activated = Column(Boolean, default=False)
+    activated_at = Column(String, nullable=True)
+    notified = Column(Boolean, default=False)
+
+
 class IntroChapter(Base):
     __tablename__ = "intro_chapters"
     id = Column(Integer, primary_key=True, autoincrement=True)

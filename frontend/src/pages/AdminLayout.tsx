@@ -13,6 +13,7 @@ const NAV_ITEMS = [
   { path: '/admin/shop', label: 'Магазин', icon: '🛒' },
   { path: '/admin/character-axes', label: 'Черты характера', icon: '🎭' },
   { path: '/admin/finance', label: 'Финансы', icon: '💳' },
+  { path: '/admin/rewards', label: 'Бесплатные яйца', icon: '🎁' },
   { path: '/admin/grid', label: 'Сетка', icon: '📐' },
   { path: '/admin/users', label: 'Игроки', icon: '👥' },
   { path: '/admin/suspicious', label: 'Подозрительные', icon: '⚠' },
