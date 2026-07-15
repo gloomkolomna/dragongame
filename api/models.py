@@ -441,6 +441,7 @@ class DragonSet(Base):
     discount_percent = Column(Integer, default=0)
     donor_discount_percent = Column(Integer, default=0)
     is_active = Column(Boolean, default=True)
+    sort_order = Column(Integer, default=0)
     created_at = Column(String, default="")
 
 

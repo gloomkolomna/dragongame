@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import client from '../../api/client';
 import { useTableControls, type Column } from '../../components/admin/useTableControls';
-import { DataTableHead, TableToolbar } from '../../components/admin/DataTable';
+import { TableToolbar } from '../../components/admin/DataTable';
 
 interface DragonSet {
   id: number;
@@ -10,6 +10,7 @@ interface DragonSet {
   discount_percent: number;
   donor_discount_percent: number;
   is_active: boolean;
+  sort_order: number;
 }
 
 const EMPTY = { name: '', quantity: 5, discount_percent: 0, donor_discount_percent: 0, is_active: true };
@@ -22,6 +23,9 @@ function DragonSets({ hideHeader }: { hideHeader?: boolean }) {
   const [form, setForm] = useState({ ...EMPTY });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+
+  const dragIndex = useRef<number | null>(null);
+  const dropIndex = useRef<number | null>(null);
 
   const reload = () => Promise.all([
     client.get('/admin/sets'),
@@ -88,6 +92,40 @@ function DragonSets({ hideHeader }: { hideHeader?: boolean }) {
 
   const num = (v: string) => Math.max(0, Number(v.replace(/\D/g, '')) || 0);
 
+  const handleDragStart = (e: React.DragEvent, idx: number) => {
+    dragIndex.current = idx;
+    (e.currentTarget as HTMLElement).style.opacity = '0.4';
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragOver = (e: React.DragEvent, idx: number) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    dropIndex.current = idx;
+  };
+
+  const handleDragEnd = (e: React.DragEvent) => {
+    (e.currentTarget as HTMLElement).style.opacity = '1';
+    const drag = dragIndex.current;
+    const drop = dropIndex.current;
+    if (drag === null || drop === null || drag === drop) {
+      dragIndex.current = null;
+      dropIndex.current = null;
+      return;
+    }
+    const reordered = [...t.rows];
+    const [moved] = reordered.splice(drag, 1);
+    reordered.splice(drop, 0, moved);
+    const payload = reordered.map((s, i) => ({ id: s.id, sort_order: i }));
+    setSets((prev) => prev.map((s) => {
+      const upd = payload.find((p) => p.id === s.id);
+      return upd ? { ...s, sort_order: upd.sort_order } : s;
+    }));
+    client.put('/admin/sets/reorder', payload).catch(() => reload());
+    dragIndex.current = null;
+    dropIndex.current = null;
+  };
+
   return (
     <>
       {!hideHeader && <div className="lair-header"><h2>📦 Наборы драконов</h2></div>}
@@ -139,10 +177,34 @@ function DragonSets({ hideHeader }: { hideHeader?: boolean }) {
             <>
               <div style={{ padding: '12px 16px 0' }}><TableToolbar controls={t} /></div>
               <table className="lair-table">
-                <DataTableHead controls={t} allRows={sets} />
+                <thead>
+                  <tr>
+                    <th style={{ width: 28 }}></th>
+                    <th style={{ width: 40 }}>#</th>
+                    <th>Название</th>
+                    <th>Кол-во</th>
+                    <th>Скидка</th>
+                    <th>Скидка дона</th>
+                    <th>Цена</th>
+                    <th>Цена дона</th>
+                    <th>Акт.</th>
+                    <th style={{ width: 100 }}></th>
+                  </tr>
+                </thead>
                 <tbody>
-                  {t.rows.map((s) => (
-                    <tr key={s.id} className="clickable" onClick={() => startEdit(s)} style={{ opacity: s.is_active ? 1 : 0.5 }}>
+                  {t.rows.map((s, i) => (
+                    <tr key={s.id}
+                      draggable
+                      onDragStart={(e) => handleDragStart(e, i)}
+                      onDragOver={(e) => handleDragOver(e, i)}
+                      onDragEnd={handleDragEnd}
+                      onClick={() => startEdit(s)}
+                      style={{ opacity: s.is_active ? 1 : 0.5, cursor: 'default' }}>
+                      <td
+                        style={{ cursor: 'grab', textAlign: 'center', fontSize: 16, color: 'var(--parchment-dim)', userSelect: 'none', width: 28 }}
+                        onClick={(e) => e.stopPropagation()}
+                        title="Перетащите, чтобы изменить порядок"
+                      >⋮⋮</td>
                       <td>{s.id}</td>
                       <td style={{ fontWeight: 600 }}>{s.name}</td>
                       <td>{s.quantity}</td>
@@ -159,7 +221,7 @@ function DragonSets({ hideHeader }: { hideHeader?: boolean }) {
                       </td>
                     </tr>
                   ))}
-                  {t.rows.length === 0 && <tr><td colSpan={9} style={{ textAlign: 'center', color: 'var(--text-muted)', padding: 16 }}>Наборов пока нет</td></tr>}
+                  {t.rows.length === 0 && <tr><td colSpan={10} style={{ textAlign: 'center', color: 'var(--text-muted)', padding: 16 }}>Наборов пока нет</td></tr>}
                 </tbody>
               </table>
             </>

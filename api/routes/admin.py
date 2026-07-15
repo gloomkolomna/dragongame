@@ -2516,7 +2516,7 @@ async def update_pricing(request: Request, db: Session = Depends(get_db)):
 
 @router.get("/sets")
 def list_sets(db: Session = Depends(get_db)):
-    return db.query(DragonSet).order_by(DragonSet.id).all()
+    return db.query(DragonSet).order_by(DragonSet.sort_order, DragonSet.id).all()
 
 
 @router.post("/sets")
@@ -2528,12 +2528,14 @@ async def create_set(request: Request, db: Session = Depends(get_db)):
     quantity = int(b.get("quantity", 0) or 0)
     if quantity < 1:
         raise HTTPException(status_code=400, detail="quantity must be >= 1")
+    max_sort = db.query(func.coalesce(func.max(DragonSet.sort_order), -1)).scalar()
     s = DragonSet(
         name=name,
         quantity=quantity,
         discount_percent=max(0, int(b.get("discount_percent", 0) or 0)),
         donor_discount_percent=max(0, int(b.get("donor_discount_percent", 0) or 0)),
         is_active=bool(b.get("is_active", True)),
+        sort_order=max_sort + 1,
         created_at=datetime.now().strftime("%Y-%m-%dT%H:%M:%S"),
     )
     db.add(s)
@@ -2556,6 +2558,21 @@ async def update_set(set_id: int, request: Request, db: Session = Depends(get_db
     db.commit()
     db.refresh(s)
     return s
+
+
+@router.put("/sets/reorder")
+async def reorder_sets(request: Request, db: Session = Depends(get_db)):
+    items = await request.json()
+    if not isinstance(items, list):
+        raise HTTPException(status_code=400, detail="Expected array of {id, sort_order}")
+    for idx, item in enumerate(items):
+        set_id = item.get("id")
+        if set_id:
+            s = db.query(DragonSet).filter(DragonSet.id == set_id).first()
+            if s:
+                s.sort_order = idx
+    db.commit()
+    return {"ok": True}
 
 
 @router.delete("/sets/{set_id}")
