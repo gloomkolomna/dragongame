@@ -420,10 +420,7 @@ def rules_section_keyboard():
 def buy_eggs_keyboard(sets):
     buttons = []
     for s in sets:
-        label = f"🥚 {s['name']} — {s['quantity']} шт., {s['price_rub']} ₽"
-        discount = s.get("discount_percent", 0)
-        if discount:
-            label += f" (-{discount}%)"
+        label = f"🥚 {s['name']} — {s['quantity']} шт."
         buttons.append([{
             "action": {
                 "type": "text",
