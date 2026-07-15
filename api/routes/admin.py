@@ -3019,7 +3019,27 @@ def list_available_for_reservation(
             Dragon.pin_code != "",
             ~Dragon.id.in_(reserved_ids) if reserved_ids else True,
         )
-        .order_by(Dragon.name)
         .all()
     )
-    return [{"id": d.id, "name": d.name, "pin_code": d.pin_code, "egg_type": d.egg_type} for d in dragons]
+
+    family_map = {}
+    family_ids = {d.family_id for d in dragons if d.family_id}
+    if family_ids:
+        from models import Family
+        families = db.query(Family).filter(Family.id.in_(family_ids)).all()
+        family_map = {f.id: f for f in families}
+
+    result = []
+    for d in dragons:
+        fam = family_map.get(d.family_id)
+        result.append({
+            "id": d.id,
+            "name": d.name,
+            "pin_code": d.pin_code,
+            "egg_type": d.egg_type,
+            "family_id": d.family_id,
+            "family_name": fam.name if fam else "",
+        })
+
+    result.sort(key=lambda d: (d["family_name"] or "\uffff", d["name"]))
+    return result

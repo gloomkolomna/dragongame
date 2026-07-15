@@ -7,6 +7,8 @@ interface DragonOption {
   name: string;
   pin_code: string;
   egg_type: string;
+  family_id: number | null;
+  family_name: string;
 }
 
 interface Reservation {
@@ -162,12 +164,43 @@ function ReservationsList() {
                   onChange={(e) => handleFormVkChange(e.target.value)} />
               </div>
               <div>
-                <label className="lair-label">Дракон (PIN — название)</label>
+                <label className="lair-label">Дракон (PIN — название) — доступно {dragons.length}</label>
                 <select className="lair-input" value={form.dragon_id} onChange={(e) => setForm({ ...form, dragon_id: parseInt(e.target.value) || 0 })}>
                   <option value={0}>— Выберите —</option>
-                  {dragons.map((d) => (
-                    <option key={d.id} value={d.id}>{d.pin_code} — {d.name} ({d.egg_type})</option>
-                  ))}
+                  {(() => {
+                    const groups: Record<string, DragonOption[]> = {};
+                    const noFamily: DragonOption[] = [];
+                    dragons.forEach((d) => {
+                      if (d.family_name) {
+                        if (!groups[d.family_name]) groups[d.family_name] = [];
+                        groups[d.family_name].push(d);
+                      } else {
+                        noFamily.push(d);
+                      }
+                    });
+                    const sortedFamilies = Object.keys(groups).sort();
+                    const elements: JSX.Element[] = [];
+                    if (noFamily.length > 0) {
+                      elements.push(
+                        <optgroup key="nofam" label="Без семейства ({noFamily.length})">
+                          {noFamily.map((d) => (
+                            <option key={d.id} value={d.id}>{d.pin_code} — {d.name} ({d.egg_type})</option>
+                          ))}
+                        </optgroup>
+                      );
+                    }
+                    sortedFamilies.forEach((fam) => {
+                      const items = groups[fam];
+                      elements.push(
+                        <optgroup key={fam} label={`${fam} (${items.length})`}>
+                          {items.map((d) => (
+                            <option key={d.id} value={d.id}>{d.pin_code} — {d.name} ({d.egg_type})</option>
+                          ))}
+                        </optgroup>
+                      );
+                    });
+                    return elements;
+                  })()}
                 </select>
               </div>
               <div>
