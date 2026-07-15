@@ -3,7 +3,7 @@ import hashlib
 from datetime import datetime
 from urllib.parse import urlencode
 from fastapi import APIRouter, Depends, Request, HTTPException
-from fastapi.responses import PlainTextResponse, HTMLResponse
+from fastapi.responses import PlainTextResponse, RedirectResponse
 from sqlalchemy.orm import Session
 import config
 from db import get_db
@@ -196,19 +196,9 @@ async def payment_result(request: Request, db: Session = Depends(get_db)):
 
 @router.get("/success")
 def payment_success(InvId: str = "", Culture: str = "ru"):
-    return HTMLResponse(
-        "<html><head><meta charset='utf-8'></head><body>"
-        "<h2>Оплата прошла успешно!</h2>"
-        "<p>PIN-коды придут в бота. Введи код командой «дракона [PIN]».</p>"
-        "</body></html>"
-    )
+    return RedirectResponse(config.VK_GROUP_URL, status_code=302)
 
 
 @router.get("/fail")
 def payment_fail(InvId: str = "", Culture: str = "ru"):
-    return HTMLResponse(
-        "<html><head><meta charset='utf-8'></head><body>"
-        "<h2>Оплата не прошла.</h2>"
-        "<p>Попробуйте снова в боте.</p>"
-        "</body></html>"
-    )
+    return RedirectResponse(config.VK_GROUP_URL, status_code=302)

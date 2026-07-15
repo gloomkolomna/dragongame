@@ -238,14 +238,15 @@ def test_robokassa_result_vk_mismatch(client, db, monkeypatch):
 # ─── Success / fail pages ───
 
 def test_payment_success_page(client):
-    resp = client.get("/api/payment/success?InvId=1")
-    assert resp.status_code == 200
-    assert "успешно" in resp.text
+    resp = client.get("/api/payment/success?InvId=1", follow_redirects=False)
+    assert resp.status_code == 302
+    assert resp.headers["location"] == config.VK_GROUP_URL
 
 
 def test_payment_fail_page(client):
-    resp = client.get("/api/payment/fail?InvId=1")
-    assert resp.status_code == 200
+    resp = client.get("/api/payment/fail?InvId=1", follow_redirects=False)
+    assert resp.status_code == 302
+    assert resp.headers["location"] == config.VK_GROUP_URL
 
 
 # ─── Admin payment-orders list ───
