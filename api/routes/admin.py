@@ -21,6 +21,7 @@ from models import (
     EpicSubAction, EpicSubActionItem, EpicSubActionStep, EpicSubActionOutcome,
     EpicActionOutcome, EpicCareState,
     IntroChapter, RewardConfig, UserRewardPin,
+    DragonReservation,
 )
 from config import API_ERROR_LOG, DONOR_SYNC_INTERVAL_HOURS, DEBUG_LOG_PATH, DEBUG_LOG_REQUESTS
 from services.dragon_service import (
@@ -2812,3 +2813,205 @@ def list_reward_pins(
             "notified": pin.notified,
         })
     return {"items": result, "total": total, "page": page, "per_page": per_page}
+
+
+# ─── Бронирования драконов (предпродажи) ───
+
+def _parse_vk_id(vk_url: str) -> int | None:
+    import re
+    m = re.search(r'vk\.com/id(\d+)', vk_url)
+    if m:
+        return int(m.group(1))
+    m = re.search(r'vk\.com/([^/\s?]+)', vk_url)
+    if m:
+        slug = m.group(1)
+        if slug and slug not in ("id", "public", "club", "event"):
+            import config
+            if config.VK_GROUP_TOKEN:
+                try:
+                    import vk_api
+                    vk = vk_api.VkApi(token=config.VK_GROUP_TOKEN, api_version="5.199").get_api()
+                    resolved = vk.utils.resolveScreenName(screen_name=slug)
+                    if resolved and isinstance(resolved, dict):
+                        obj_type = resolved.get("type")
+                        obj_id = resolved.get("object_id")
+                        if obj_type == "user" and obj_id:
+                            return int(obj_id)
+                except Exception:
+                    pass
+    return None
+
+
+def _resolve_vk_name(vk_url: str) -> str:
+    vk_user_id = _parse_vk_id(vk_url)
+    if vk_user_id:
+        import config
+        if config.VK_GROUP_TOKEN:
+            try:
+                import vk_api
+                vk = vk_api.VkApi(token=config.VK_GROUP_TOKEN, api_version="5.199").get_api()
+                users = vk.users.get(user_ids=str(vk_user_id), fields="first_name,last_name")
+                if users:
+                    u = users[0]
+                    return f"{u.get('first_name', '')} {u.get('last_name', '')}".strip()
+            except Exception:
+                pass
+    return ""
+
+
+def _reservation_dict(db, r: DragonReservation) -> dict:
+    dragon = db.query(Dragon).filter(Dragon.id == r.dragon_id).first()
+    return {
+        "id": r.id,
+        "vk_url": r.vk_url,
+        "vk_user_id": r.vk_user_id,
+        "vk_name": r.vk_name,
+        "dragon_id": r.dragon_id,
+        "dragon_name": dragon.name if dragon else "",
+        "egg_type": dragon.egg_type if dragon else "",
+        "pin_code": dragon.pin_code if dragon else "",
+        "is_activated": r.is_activated,
+        "activated_at": r.activated_at,
+        "notes": r.notes,
+        "created_at": r.created_at,
+        "updated_at": r.updated_at,
+    }
+
+
+@router.get("/reservations")
+def list_reservations(search: str = Query(""), db: Session = Depends(get_db)):
+    q = db.query(DragonReservation)
+    if search:
+        term = f"%{search.strip()}%"
+        q = q.filter(
+            (DragonReservation.vk_name.ilike(term))
+            | (DragonReservation.vk_url.ilike(term))
+        )
+    items = q.order_by(DragonReservation.id.desc()).all()
+    return [_reservation_dict(db, r) for r in items]
+
+
+@router.post("/reservations")
+async def create_reservation(request: Request, db: Session = Depends(get_db)):
+    b = await _json_body(request)
+    vk_url = (b.get("vk_url") or "").strip()
+    dragon_id = b.get("dragon_id")
+    notes = (b.get("notes") or "").strip()
+
+    if not vk_url:
+        raise HTTPException(status_code=400, detail="VK URL is required")
+    if not dragon_id:
+        raise HTTPException(status_code=400, detail="dragon_id is required")
+
+    dragon = db.query(Dragon).filter(Dragon.id == dragon_id).first()
+    if not dragon:
+        raise HTTPException(status_code=404, detail="Dragon not found")
+    if not dragon.pin_code:
+        raise HTTPException(status_code=400, detail="У дракона нет PIN-кода")
+
+    existing = db.query(DragonReservation).filter(
+        DragonReservation.dragon_id == dragon_id,
+        DragonReservation.is_activated == False,
+    ).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="Дракон уже забронирован")
+
+    vk_user_id = _parse_vk_id(vk_url)
+    vk_name = _resolve_vk_name(vk_url)
+    now = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
+    reservation = DragonReservation(
+        vk_url=vk_url,
+        vk_user_id=vk_user_id,
+        vk_name=vk_name,
+        dragon_id=dragon_id,
+        is_activated=False,
+        notes=notes,
+        created_at=now,
+        updated_at=now,
+    )
+    db.add(reservation)
+    db.commit()
+    db.refresh(reservation)
+    return _reservation_dict(db, reservation)
+
+
+@router.put("/reservations/{reservation_id}")
+async def update_reservation(reservation_id: int, request: Request, db: Session = Depends(get_db)):
+    r = db.query(DragonReservation).filter(DragonReservation.id == reservation_id).first()
+    if not r:
+        raise HTTPException(status_code=404, detail="Reservation not found")
+
+    b = await _json_body(request)
+    if "vk_url" in b:
+        vk_url = (b["vk_url"] or "").strip()
+        if not vk_url:
+            raise HTTPException(status_code=400, detail="VK URL is required")
+        r.vk_url = vk_url
+        r.vk_user_id = _parse_vk_id(vk_url)
+        r.vk_name = _resolve_vk_name(vk_url)
+
+    if "dragon_id" in b:
+        dragon_id = b["dragon_id"]
+        dragon = db.query(Dragon).filter(Dragon.id == dragon_id).first()
+        if not dragon:
+            raise HTTPException(status_code=404, detail="Dragon not found")
+        existing = db.query(DragonReservation).filter(
+            DragonReservation.dragon_id == dragon_id,
+            DragonReservation.is_activated == False,
+            DragonReservation.id != reservation_id,
+        ).first()
+        if existing:
+            raise HTTPException(status_code=400, detail="Дракон уже забронирован")
+        r.dragon_id = dragon_id
+
+    if "notes" in b:
+        r.notes = b["notes"]
+
+    r.updated_at = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
+    db.commit()
+    db.refresh(r)
+    return _reservation_dict(db, r)
+
+
+@router.delete("/reservations/{reservation_id}")
+def delete_reservation(reservation_id: int, db: Session = Depends(get_db)):
+    r = db.query(DragonReservation).filter(DragonReservation.id == reservation_id).first()
+    if not r:
+        raise HTTPException(status_code=404, detail="Reservation not found")
+    db.delete(r)
+    db.commit()
+    return {"ok": True}
+
+
+@router.get("/reservations/available-dragons")
+def list_available_for_reservation(
+    exclude_vk_url: str = Query(""),
+    db: Session = Depends(get_db),
+):
+    reserved_ids = {
+        row[0] for row in db.query(DragonReservation.dragon_id).filter(
+            DragonReservation.is_activated == False,
+        ).all()
+    }
+    if exclude_vk_url:
+        vk_user_id = _parse_vk_id(exclude_vk_url)
+        if vk_user_id:
+            already_for_user = {
+                row[0] for row in db.query(DragonReservation.dragon_id).filter(
+                    DragonReservation.vk_user_id == vk_user_id,
+                ).all()
+            }
+            reserved_ids |= already_for_user
+
+    dragons = (
+        db.query(Dragon)
+        .filter(
+            Dragon.is_active == True,
+            Dragon.pin_code.isnot(None),
+            Dragon.pin_code != "",
+            ~Dragon.id.in_(reserved_ids) if reserved_ids else True,
+        )
+        .order_by(Dragon.name)
+        .all()
+    )
+    return [{"id": d.id, "name": d.name, "pin_code": d.pin_code, "egg_type": d.egg_type} for d in dragons]

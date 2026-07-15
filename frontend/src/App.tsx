@@ -41,6 +41,7 @@ import LogsList from './pages/admin/LogsList';
 import SuspiciousList from './pages/admin/SuspiciousList';
 import IntroChaptersList from './pages/admin/IntroChaptersList';
 import RewardConfigs from './pages/admin/RewardConfigs';
+import ReservationsList from './pages/admin/ReservationsList';
 
 import ProtectedRoute from './components/ProtectedRoute';
 
@@ -158,6 +159,7 @@ function App() {
           <Route path="intro" element={<IntroChaptersList />} />
           <Route path="logs" element={<LogsList />} />
           <Route path="rewards" element={<RewardConfigs />} />
+          <Route path="reservations" element={<ReservationsList />} />
         </Route>
 
         {/* Fallback */}

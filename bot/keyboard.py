@@ -263,6 +263,7 @@ def finale_new_dragon_keyboard():
 def await_garden_keyboard(with_cancel=False):
     buttons = [
         row(("🥚 Добавить яйцо дракона", "pin")),
+        row(("🔑 Мои PIN-коды", "my_pins")),
         buy_eggs_row(),
     ]
     bottom = []

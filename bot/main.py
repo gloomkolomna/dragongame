@@ -17,7 +17,7 @@ import config
 from db import SessionLocal
 from bot.fsm import IDLE, AWAIT_PIN, AWAIT_GARDEN, AWAIT_LEGENDS, AWAIT_EPICS, AWAIT_RULES, is_growing, is_waiting_text, grow_state, step_from_state, is_legend, is_legend_waiting, is_epic_egg, is_epic_egg_waiting, is_epic_care, is_epic_care_waiting, is_epic_care_sub, is_epic_care_sub_waiting, AWAIT_EPIC_NAME, AWAIT_EPIC_RESTART, AWAIT_EPIC_EGG_INTRO, is_intro_chapter, intro_chapter_from_state
 from bot.handlers.commands import handle_start, handle_help, handle_garden, switch_dragon, cancel_garden, handle_switch_to, handle_balance, handle_legends, handle_legends_pick, cancel_legends, user_has_legendary
-from bot.handlers.pin import handle_pin_command, handle_pin_entry
+from bot.handlers.pin import handle_pin_command, handle_pin_entry, handle_my_pins
 from bot.handlers.grow import handle_grow_message, handle_grow_command, handle_norm_command, handle_x2_command, handle_back_command
 from bot.handlers.shop import handle_shop_command, handle_buy, handle_inventory
 from bot.handlers.buy_eggs import handle_buy_eggs, handle_buy_set, handle_partial_confirm, handle_open_payment
@@ -124,6 +124,9 @@ def extract_cmd(text: str, payload_str: str) -> str | None:
         return "shop"
     if "инвентарь" in t:
         return "inventory"
+    if "пин" in t or "pin" in t:
+        if "мои" in t or "мой" in t:
+            return "my_pins"
     if "эпические драконы" in t:
         return "epics"
     if "эпическ" in t or "пещера" in t or "пещеру" in t:
@@ -552,6 +555,8 @@ def main():
                 cancel_garden(user, db, send_message, upload_image)
             elif cmd == "pin":
                 handle_pin_command(user, db, send_message)
+            elif cmd == "my_pins":
+                handle_my_pins(user, db, send_message)
             elif cmd == "grow":
                 handle_grow_command(user, db, send_message, upload_image)
             elif cmd == "norm":

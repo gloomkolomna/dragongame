@@ -1068,3 +1068,148 @@ def test_epic_care_advance_requires_care(client, db):
     db.commit()
     r = client.post("/api/admin/users/7708/epic-care/advance")
     assert r.status_code == 400
+
+
+# ─── Reservations ───
+
+def _create_reservation_dragon(client, db):
+    fam = client.post("/api/admin/families", data={"name": "RFam", "color": "#0000ff"})
+    family_id = fam.json()["id"]
+    resp = client.post(
+        "/api/admin/dragons",
+        data={"name": "ResDragon", "rarity": 2, "egg_type": "red", "description": "", "family_id": family_id},
+    )
+    dragon_id = resp.json()["id"]
+    from models import Dragon
+    d = db.query(Dragon).filter(Dragon.id == dragon_id).first()
+    d.pin_code = "12345"
+    db.commit()
+    return dragon_id
+
+
+def test_list_reservations_empty(client):
+    resp = client.get("/api/admin/reservations")
+    assert resp.status_code == 200
+    assert resp.json() == []
+
+
+def test_create_reservation(client, db):
+    dragon_id = _create_reservation_dragon(client, db)
+    resp = client.post(
+        "/api/admin/reservations",
+        json={"vk_url": "https://vk.com/id123456", "dragon_id": dragon_id},
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["vk_url"] == "https://vk.com/id123456"
+    assert data["vk_user_id"] == 123456
+    assert data["dragon_id"] == dragon_id
+    assert data["is_activated"] is False
+    assert data["pin_code"] == "12345"
+    assert data["dragon_name"] == "ResDragon"
+
+
+def test_create_reservation_duplicate(client, db):
+    dragon_id = _create_reservation_dragon(client, db)
+    client.post("/api/admin/reservations", json={"vk_url": "https://vk.com/id111", "dragon_id": dragon_id})
+    resp = client.post("/api/admin/reservations", json={"vk_url": "https://vk.com/id222", "dragon_id": dragon_id})
+    assert resp.status_code == 400
+    assert "забронирован" in resp.json()["detail"].lower()
+
+
+def test_create_reservation_no_pin(client, db):
+    fam = client.post("/api/admin/families", data={"name": "NPFam", "color": "#00ff00"})
+    family_id = fam.json()["id"]
+    resp = client.post(
+        "/api/admin/dragons",
+        data={"name": "NoPinDragon", "rarity": 1, "egg_type": "grey", "description": "", "family_id": family_id},
+    )
+    dragon_id = resp.json()["id"]
+    from models import Dragon
+    d = db.query(Dragon).filter(Dragon.id == dragon_id).first()
+    d.pin_code = None
+    db.commit()
+    resp = client.post("/api/admin/reservations", json={"vk_url": "https://vk.com/id999", "dragon_id": dragon_id})
+    assert resp.status_code == 400
+    assert "pin" in resp.json()["detail"].lower()
+
+
+def test_reservation_search(client, db):
+    d1 = _create_reservation_dragon(client, db)
+    fam = client.post("/api/admin/families", data={"name": "RF2", "color": "#ff00ff"})
+    fid = fam.json()["id"]
+    r2 = client.post(
+        "/api/admin/dragons",
+        data={"name": "Res2", "rarity": 1, "egg_type": "blue", "description": "", "family_id": fid},
+    )
+    d2 = r2.json()["id"]
+    from models import Dragon
+    d = db.query(Dragon).filter(Dragon.id == d2).first()
+    d.pin_code = "22222"
+    db.commit()
+
+    client.post("/api/admin/reservations", json={"vk_url": "https://vk.com/id111", "dragon_id": d1})
+    client.post("/api/admin/reservations", json={"vk_url": "https://vk.com/targetuser", "dragon_id": d2})
+
+    resp = client.get("/api/admin/reservations", params={"search": "targetuser"})
+    assert resp.status_code == 200
+    items = resp.json()
+    assert len(items) == 1
+    assert "targetuser" in items[0]["vk_url"]
+
+
+def test_delete_reservation(client, db):
+    dragon_id = _create_reservation_dragon(client, db)
+    r = client.post("/api/admin/reservations", json={"vk_url": "https://vk.com/id1", "dragon_id": dragon_id})
+    rid = r.json()["id"]
+
+    resp = client.delete(f"/api/admin/reservations/{rid}")
+    assert resp.status_code == 200
+    assert resp.json()["ok"] is True
+
+    list_resp = client.get("/api/admin/reservations")
+    assert list_resp.json() == []
+
+
+def test_list_reservations_with_data(client, db):
+    dragon_id = _create_reservation_dragon(client, db)
+    client.post("/api/admin/reservations", json={"vk_url": "https://vk.com/id1", "dragon_id": dragon_id, "notes": "test note"})
+
+    resp = client.get("/api/admin/reservations")
+    assert resp.status_code == 200
+    items = resp.json()
+    assert len(items) == 1
+    assert items[0]["notes"] == "test note"
+    assert items[0]["pin_code"] == "12345"
+
+
+def test_available_dragons_excludes_reserved(client, db):
+    dragon_id = _create_reservation_dragon(client, db)
+    client.post("/api/admin/reservations", json={"vk_url": "https://vk.com/id1", "dragon_id": dragon_id})
+
+    resp = client.get("/api/admin/reservations/available-dragons")
+    available = resp.json()
+    assert all(d["id"] != dragon_id for d in available)
+
+
+def test_available_dragons_exclude_same_user(client, db):
+    d1 = _create_reservation_dragon(client, db)
+    fam = client.post("/api/admin/families", data={"name": "RF3", "color": "#0000aa"})
+    fid = fam.json()["id"]
+    r = client.post(
+        "/api/admin/dragons",
+        data={"name": "D2", "rarity": 1, "egg_type": "green", "description": "", "family_id": fid},
+    )
+    d2 = r.json()["id"]
+    from models import Dragon
+    d = db.query(Dragon).filter(Dragon.id == d2).first()
+    d.pin_code = "99999"
+    db.commit()
+
+    client.post("/api/admin/reservations", json={"vk_url": "https://vk.com/id55555", "dragon_id": d1})
+
+    resp = client.get("/api/admin/reservations/available-dragons", params={"exclude_vk_url": "https://vk.com/id55555"})
+    available = resp.json()
+    available_ids = {d["id"] for d in available}
+    assert d1 not in available_ids
+    assert d2 in available_ids

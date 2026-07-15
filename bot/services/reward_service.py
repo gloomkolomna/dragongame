@@ -59,7 +59,7 @@ def run_reward_scheduler(session_factory, vk, interval_hours=24):
 
 def _process_rewards(db, vk, logger):
     from datetime import datetime, timedelta
-    from models import RewardConfig, User, UserRewardPin, UserDragon, Dragon, DonorCache
+    from models import RewardConfig, User, UserRewardPin, UserDragon, Dragon, DonorCache, DragonReservation
     from services.payment_service import is_donor
 
     configs = db.query(RewardConfig).filter(RewardConfig.is_active == True).all()
@@ -122,6 +122,14 @@ def _process_rewards(db, vk, logger):
 
             excluded = user_dragon_ids | already_received
 
+            reserved_for_user = {
+                r[0] for r in db.query(DragonReservation.dragon_id).filter(
+                    DragonReservation.is_activated == False,
+                    ((DragonReservation.vk_user_id == user.vk_id) | (DragonReservation.vk_user_id == None)),
+                ).all()
+            }
+            excluded = excluded | reserved_for_user
+
             available = [d for d in eligible_dragons if d.id not in excluded]
             if not available:
                 continue
@@ -141,6 +149,34 @@ def _process_rewards(db, vk, logger):
                     notified=False,
                 )
                 db.add(pin_record)
+
+                existing_reservation = db.query(DragonReservation).filter(
+                    DragonReservation.dragon_id == dragon.id,
+                    DragonReservation.is_activated == False,
+                ).first()
+                if not existing_reservation:
+                    reservation = DragonReservation(
+                        vk_url=f"https://vk.com/id{user.vk_id}",
+                        vk_user_id=user.vk_id,
+                        dragon_id=dragon.id,
+                        is_activated=False,
+                        notes=f"Бесплатное яйцо (конфигурация #{cfg.id})",
+                        created_at=now_str,
+                        updated_at=now_str,
+                    )
+                    db.add(reservation)
+                    try:
+                        import config
+                        if config.VK_GROUP_TOKEN:
+                            import vk_api
+                            vk_api_obj = vk_api.VkApi(token=config.VK_GROUP_TOKEN, api_version="5.199").get_api()
+                            users = vk_api_obj.users.get(user_ids=str(user.vk_id), fields="first_name,last_name")
+                            if users:
+                                u = users[0]
+                                reservation.vk_name = f"{u.get('first_name', '')} {u.get('last_name', '')}".strip()
+                    except Exception:
+                        pass
+
                 db.commit()
 
                 attachment = ""

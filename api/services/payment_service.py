@@ -66,11 +66,17 @@ def _reserved_dragon_ids(vk_id: int, db) -> set:
 
 
 def _available_dragons(vk_id: int, db) -> list:
-    from models import Dragon, UserDragon
+    from models import Dragon, UserDragon, DragonReservation
     owned = {
         r[0] for r in db.query(UserDragon.dragon_id).filter(UserDragon.user_id == vk_id).all()
     }
-    exclude = owned | _reserved_dragon_ids(vk_id, db)
+    reserved = {
+        r[0] for r in db.query(DragonReservation.dragon_id).filter(
+            DragonReservation.is_activated == False,
+            ((DragonReservation.vk_user_id == vk_id) | (DragonReservation.vk_user_id == None)),
+        ).all()
+    }
+    exclude = owned | _reserved_dragon_ids(vk_id, db) | reserved
     dragons = db.query(Dragon).filter(Dragon.is_active == True).all()
     return [d for d in dragons if d.id not in exclude]
 

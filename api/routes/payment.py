@@ -54,8 +54,41 @@ def verify_result_signature(out_sum: str, inv_id: str, signature: str, vk_id: st
     return expected.lower() == (signature or "").lower()
 
 
-def _send_pins(vk_id: int, dragons: list) -> bool:
+def _send_pins(vk_id: int, dragons: list, db=None) -> bool:
     from routes.admin import _notify_user
+    from models import DragonReservation
+
+    now_str = _now()
+    for d in dragons:
+        existing = db.query(DragonReservation).filter(
+            DragonReservation.dragon_id == d.id,
+            DragonReservation.is_activated == False,
+        ).first() if db else None
+        if not existing and db:
+            reservation = DragonReservation(
+                vk_url=f"https://vk.com/id{vk_id}",
+                vk_user_id=vk_id,
+                dragon_id=d.id,
+                is_activated=False,
+                notes="Покупка через Robokassa",
+                created_at=now_str,
+                updated_at=now_str,
+            )
+            db.add(reservation)
+            try:
+                import config as _cfg
+                if _cfg.VK_GROUP_TOKEN:
+                    import vk_api as _vk
+                    _vk_obj = _vk.VkApi(token=_cfg.VK_GROUP_TOKEN, api_version="5.199").get_api()
+                    users = _vk_obj.users.get(user_ids=str(vk_id), fields="first_name,last_name")
+                    if users:
+                        u = users[0]
+                        reservation.vk_name = f"{u.get('first_name', '')} {u.get('last_name', '')}".strip()
+            except Exception:
+                pass
+    if db:
+        db.commit()
+
     lines = [f"🥚 Дракон «{d.name}» — PIN: {d.pin_code}" for d in dragons]
     message = (
         "🎉 Покупка прошла успешно!\n\n"
@@ -188,7 +221,7 @@ async def payment_result(request: Request, db: Session = Depends(get_db)):
     order.dragon_ids = json.dumps([d.id for d in dragons])
     db.commit()
 
-    order.notified = _send_pins(order.vk_id, dragons)
+    order.notified = _send_pins(order.vk_id, dragons, db)
     db.commit()
 
     return PlainTextResponse(f"OK{inv_id}")

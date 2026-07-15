@@ -497,6 +497,20 @@ class UserRewardPin(Base):
     notified = Column(Boolean, default=False)
 
 
+class DragonReservation(Base):
+    __tablename__ = "dragon_reservations"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    vk_url = Column(String, nullable=False)
+    vk_user_id = Column(Integer, nullable=True)
+    vk_name = Column(String, default="")
+    dragon_id = Column(Integer, ForeignKey("dragons.id", ondelete="CASCADE"), nullable=False)
+    is_activated = Column(Boolean, default=False)
+    activated_at = Column(String, nullable=True, default=None)
+    notes = Column(Text, default="")
+    created_at = Column(String, default="")
+    updated_at = Column(String, default="")
+
+
 class IntroChapter(Base):
     __tablename__ = "intro_chapters"
     id = Column(Integer, primary_key=True, autoincrement=True)
