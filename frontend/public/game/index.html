@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="description" content="Бестиарий драконьих легенд — коллекционная игра, где драконы вырастают через вышивку. Приобретайте наборы драконов и соберите уникальную коллекцию." />
+<title>🐲 Бестиарий драконьих легенд</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@400;700;900&family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=Lora:wght@400;500;600&display=swap" />
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><ellipse cx='16' cy='14' rx='10' ry='8' fill='%231a1a24'/><ellipse cx='11' cy='12' rx='3' ry='3.5' fill='%2344cc44'/><ellipse cx='21' cy='12' rx='3' ry='3.5' fill='%2344cc44'/><ellipse cx='11' cy='12' rx='1.5' ry='3' fill='%23000'/><ellipse cx='21' cy='12' rx='1.5' ry='3' fill='%23000'/><path d='M8 10 Q5 4 3 2' stroke='%231a1a24' stroke-width='2' fill='none'/><path d='M24 9 Q27 3 29 1' stroke='%231a1a24' stroke-width='2' fill='none'/></svg>" />
+<style>
+:root {
+  --bg: #0d0d14;
+  --bg-card: #161624;
+  --bg-elev: #1d1d2e;
+  --gold: #d4af37;
+  --gold-soft: #c9a227;
+  --emerald: #44cc44;
+  --emerald-soft: #2d8b2d;
+  --text: #e8e6e0;
+  --text-muted: #9a968a;
+  --border: #2a2a3e;
+  --serif: 'Cormorant Garamond', Georgia, serif;
+  --display: 'Cinzel Decorative', serif;
+  --body: 'Lora', Georgia, serif;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  font-family: var(--body);
+  background: var(--bg);
+  background-image:
+    radial-gradient(ellipse at 20% 0%, rgba(68, 204, 68, 0.06) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 100%, rgba(212, 175, 55, 0.05) 0%, transparent 50%);
+  color: var(--text);
+  line-height: 1.7;
+  min-height: 100vh;
+}
+
+.wrap { max-width: 960px; margin: 0 auto; padding: 0 20px; }
+
+header {
+  text-align: center;
+  padding: 64px 20px 32px;
+  border-bottom: 1px solid var(--border);
+}
+header .crest { font-size: 56px; margin-bottom: 12px; }
+header h1 {
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: clamp(28px, 5vw, 44px);
+  color: var(--gold);
+  letter-spacing: 0.02em;
+  line-height: 1.2;
+  margin-bottom: 12px;
+}
+header .tagline {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: clamp(16px, 2.5vw, 20px);
+  color: var(--text-muted);
+}
+
+section { padding: 48px 0; border-bottom: 1px solid var(--border); }
+section:last-of-type { border-bottom: none; }
+h2 {
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: clamp(22px, 3.5vw, 30px);
+  color: var(--gold);
+  margin-bottom: 24px;
+  text-align: center;
+}
+.lede {
+  font-family: var(--serif);
+  font-size: clamp(18px, 2.5vw, 22px);
+  text-align: center;
+  max-width: 640px;
+  margin: 0 auto 32px;
+  color: var(--text);
+}
+
+.features {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 20px;
+  margin-top: 8px;
+}
+.feature {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 24px 20px;
+  text-align: center;
+}
+.feature .icon { font-size: 32px; margin-bottom: 12px; }
+.feature h3 {
+  font-family: var(--display);
+  font-size: 16px;
+  color: var(--gold);
+  margin-bottom: 8px;
+}
+.feature p { font-size: 15px; color: var(--text-muted); }
+
+.price-base {
+  text-align: center;
+  margin-bottom: 28px;
+  font-size: 18px;
+  color: var(--text-muted);
+}
+.price-base strong {
+  color: var(--emerald);
+  font-family: var(--display);
+  font-size: 28px;
+  font-weight: 700;
+}
+
+.sets { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 18px; }
+.set-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 24px 20px;
+  text-align: center;
+  position: relative;
+  transition: border-color 0.2s, transform 0.2s;
+}
+.set-card:hover { border-color: var(--gold-soft); transform: translateY(-2px); }
+.set-card .qty {
+  font-family: var(--display);
+  font-size: 36px;
+  font-weight: 700;
+  color: var(--emerald);
+  line-height: 1;
+}
+.set-card .qty-unit { font-size: 14px; color: var(--text-muted); display: block; margin-top: 4px; }
+.set-card .name { font-family: var(--serif); font-size: 18px; margin: 12px 0 8px; color: var(--text); }
+.set-card .per-each { font-size: 13px; color: var(--text-muted); margin-top: 6px; }
+.set-card .price-row { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }
+.set-card .price-line { display: flex; align-items: baseline; justify-content: center; gap: 8px; flex-wrap: wrap; }
+.set-card .price-line .label { font-size: 13px; color: var(--text-muted); }
+.set-card .price-line .val { font-family: var(--display); font-weight: 700; font-size: 20px; color: var(--gold); }
+.set-card .price-line.donor .val { color: var(--emerald); font-size: 20px; }
+.set-card .price-line .badge {
+  font-size: 11px; padding: 1px 7px; border-radius: 10px;
+  color: var(--emerald); background: rgba(68, 204, 68, 0.1);
+}
+.set-card .divider { width: 60%; margin: 10px auto 0; border: none; border-top: 1px dashed var(--border); }
+
+.cta { text-align: center; padding: 56px 0; }
+.cta-btn {
+  display: inline-block;
+  font-family: var(--display);
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--bg);
+  background: linear-gradient(135deg, var(--gold), var(--gold-soft));
+  text-decoration: none;
+  padding: 16px 40px;
+  border-radius: 8px;
+  letter-spacing: 0.04em;
+  transition: transform 0.2s, box-shadow 0.2s;
+  box-shadow: 0 4px 20px rgba(212, 175, 55, 0.2);
+}
+.cta-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 28px rgba(212, 175, 55, 0.35); }
+.cta-note { margin-top: 16px; font-size: 14px; color: var(--text-muted); }
+
+.how { counter-reset: step; }
+.how ol { list-style: none; max-width: 640px; margin: 0 auto; }
+.how li {
+  position: relative;
+  padding: 14px 0 14px 56px;
+  font-size: 17px;
+  border-bottom: 1px solid var(--border);
+}
+.how li:last-child { border-bottom: none; }
+.how li::before {
+  counter-increment: step;
+  content: counter(step);
+  position: absolute;
+  left: 0;
+  top: 12px;
+  width: 36px;
+  height: 36px;
+  background: var(--bg-elev);
+  border: 1px solid var(--gold-soft);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--display);
+  color: var(--gold);
+  font-weight: 700;
+}
+
+.legal-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 24px; }
+.legal-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 24px;
+}
+.legal-card h3 { font-family: var(--display); font-size: 16px; color: var(--gold); margin-bottom: 12px; }
+.legal-card p, .legal-card li { font-size: 15px; color: var(--text-muted); }
+.legal-card ul { list-style: none; padding: 0; }
+.legal-card li { padding: 4px 0; }
+.legal-card a { color: var(--emerald); text-decoration: none; }
+.legal-card a:hover { text-decoration: underline; }
+.offerta-link {
+  display: inline-block;
+  margin-top: 12px;
+  font-family: var(--display);
+  font-size: 14px;
+  color: var(--gold);
+  border: 1px solid var(--gold-soft);
+  padding: 8px 18px;
+  border-radius: 6px;
+  text-decoration: none;
+}
+.offerta-link:hover { background: rgba(212, 175, 55, 0.1); }
+
+footer {
+  text-align: center;
+  padding: 32px 20px;
+  font-size: 13px;
+  color: var(--text-muted);
+  border-top: 1px solid var(--border);
+}
+
+.loading { text-align: center; color: var(--text-muted); padding: 24px; font-style: italic; }
+.err-msg { text-align: center; color: var(--text-muted); padding: 12px; font-size: 14px; }
+
+@media (max-width: 600px) {
+  header { padding: 40px 20px 24px; }
+  header .crest { font-size: 44px; }
+  section { padding: 36px 0; }
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <div class="crest">🐲</div>
+    <h1>Бестиарий драконьих легенд</h1>
+    <p class="tagline">Коллекционная игра, где каждый дракон рождается вашей вышивкой</p>
+  </div>
+</header>
+
+<section id="about">
+  <div class="wrap">
+    <p class="lede">Активируйте дракона по PIN-коду, проходите шаги — сообщайте количество вышитых крестиков — и в конце получайте уникального дракона в личную коллекцию.</p>
+    <div class="features">
+      <div class="feature">
+        <div class="icon">🥚</div>
+        <h3>Яйца и драконы</h3>
+        <p>Десятки драконов разных семейств и редкостей — от обычных до легендарных</p>
+      </div>
+      <div class="feature">
+        <div class="icon">✨</div>
+        <h3>Вышивка как магия</h3>
+        <p>Каждый шаг — реальная вышивка. Крестики превращаются в прогресс дракона</p>
+      </div>
+      <div class="feature">
+        <div class="icon">📜</div>
+        <h3>Легенды и коллекция</h3>
+        <p>Собирайте бестиарий, открывайте легенды семейств, наполняйте сокровищницу</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="prices">
+  <div class="wrap">
+    <h2>Наборы драконов</h2>
+    <p class="price-base">Базовая цена: <strong id="base-price">— ₽</strong> за дракона</p>
+    <div id="sets-container" class="sets">
+      <div class="loading">Загрузка наборов…</div>
+    </div>
+    <p class="err-msg" id="sets-error" style="display:none"></p>
+    <p class="cta-note" style="margin-top:24px">Приобретённые наборы зачисляются на ваш аккаунт (vk_id) в виде PIN-кодов активации драконов.</p>
+  </div>
+</section>
+
+<section id="how" class="how">
+  <div class="wrap">
+    <h2>Как это работает</h2>
+    <ol>
+      <li>Приобретаете набор драконов — получаете PIN-коды в личные сообщения бота</li>
+      <li>Вводите PIN-код в боте командой «дракона [PIN]» — дракон активирован</li>
+      <li>Вышиваете и сообщаете количество крестиков на каждом шаге</li>
+      <li>По завершении шагов дракон вырастает и попадает в вашу коллекцию</li>
+    </ol>
+  </div>
+</section>
+
+<section id="legal">
+  <div class="wrap">
+    <h2>Продавец и документы</h2>
+    <div class="legal-grid">
+      <div class="legal-card">
+        <h3>Реквизиты продавца</h3>
+        <ul>
+          <li><strong>Беловолова Анастасия Владимировна</strong></li>
+          <li>Плательщик НПД (самозанятый)</li>
+          <li>ИНН: 502266051515</li>
+        </ul>
+      </div>
+      <div class="legal-card">
+        <h3>Контакты</h3>
+        <ul>
+          <li>Телефон: <a href="tel:+79160683111">+7 916 068-31-11</a></li>
+          <li>E-mail: <a href="mailto:belovolova90@gmail.com">belovolova90@gmail.com</a></li>
+        </ul>
+      </div>
+      <div class="legal-card">
+        <h3>Документы</h3>
+        <p>Договор-оферта на приобретение цифровых товаров. Подробные правила игры.</p>
+        <div style="margin-top:12px;display:flex;flex-wrap:wrap;gap:10px">
+          <a class="offerta-link" href="../offerta.docx" download>📄 Оферта</a>
+          <a class="offerta-link" href="guide.html">📜 Правила игры</a>
+        </div>
+      </div>
+    </div>
+    <p class="err-msg" style="margin-top:20px">
+      Товар является цифровым. После зачисления на аккаунт возврату не подлежит (ст. 26.1 Закона РФ «О защите прав потребителей»).
+    </p>
+  </div>
+</section>
+
+<section class="cta">
+  <div class="wrap">
+    <h2>Начать коллекцию</h2>
+    <p class="lede" style="margin-bottom:28px">Вступайте в сообщество коллекционеров драконьих легенд</p>
+    <a class="cta-btn" href="https://vk.com/bestiaryofdragonlegends" target="_blank" rel="noopener">Перейти в сообщество</a>
+    <p class="cta-note">Доступ к игре — через бот и мини-приложение ВКонтакте</p>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    © 2026 Бестиарий драконьих легенд · Беловолова А. В. · Самозанятый (НПД)
+  </div>
+</footer>
+
+<script>
+(async function() {
+  var baseEl = document.getElementById('base-price');
+  var container = document.getElementById('sets-container');
+  var errEl = document.getElementById('sets-error');
+
+  try {
+    var resp = await fetch('/dragons/api/public/pricing');
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    var data = await resp.json();
+
+    baseEl.textContent = data.base_price_rub + ' ₽';
+
+    if (!data.sets || data.sets.length === 0) {
+      container.innerHTML = '<div class="loading">Наборы скоро появятся. Следите за обновлениями.</div>';
+      return;
+    }
+
+    container.innerHTML = data.sets.map(function(s) {
+      var per = Math.round(s.price_rub / s.quantity);
+      var perDonor = Math.round(s.donor_price_rub / s.quantity);
+
+      var discountBadge = s.discount_percent > 0
+        ? ' <span class="badge">−' + s.discount_percent + '%</span>'
+        : '';
+      var donorBadge = s.donor_discount_percent > 0
+        ? ' <span class="badge">−' + s.donor_discount_percent + '%</span>'
+        : '';
+
+      return '<div class="set-card">' +
+        '<div class="qty">' + s.quantity + '<span class="qty-unit">драконов</span></div>' +
+        '<div class="name">' + escapeHtml(s.name) + '</div>' +
+        '<div class="price-row">' +
+          '<div class="price-line">' +
+            '<span class="label">Обычная:</span>' +
+            '<span class="val">' + s.price_rub + ' ₽</span>' + discountBadge +
+          '</div>' +
+          '<div class="price-line donor">' +
+            '<span class="label">Донам:</span>' +
+            '<span class="val">' + s.donor_price_rub + ' ₽</span>' + donorBadge +
+          '</div>' +
+        '</div>' +
+        '<hr class="divider" />' +
+        '<div class="per-each">' + per + ' ₽ за дракона · донам ' + perDonor + ' ₽</div>' +
+        '</div>';
+    }).join('');
+  } catch (e) {
+    container.innerHTML = '';
+    errEl.style.display = 'block';
+    errEl.textContent = 'Не удалось загрузить актуальные цены. Обновите страницу или свяжитесь с продавцом.';
+  }
+
+  function escapeHtml(s) {
+    var d = document.createElement('div');
+    d.textContent = s;
+    return d.innerHTML;
+  }
+})();
+</script>
+
+</body>
+</html>

@@ -1,9 +1,33 @@
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 from db import get_db
-from models import CollectionGrid, UserDragon, UserProgress, Dragon, Family, User
+from models import CollectionGrid, UserDragon, UserProgress, Dragon, Family, User, DragonSet, PricingConfig
 
 router = APIRouter(prefix="/api", tags=["collection"])
+
+
+@router.get("/public/pricing")
+def get_public_pricing(db: Session = Depends(get_db)):
+    cfg = db.query(PricingConfig).filter(PricingConfig.id == 1).first()
+    base = cfg.base_price_per_dragon if cfg else 10000
+    sets = db.query(DragonSet).filter(
+        DragonSet.is_active == True
+    ).order_by(DragonSet.sort_order, DragonSet.quantity).all()
+    return {
+        "base_price_rub": base // 100,
+        "sets": [
+            {
+                "id": s.id,
+                "name": s.name,
+                "quantity": s.quantity,
+                "discount_percent": s.discount_percent,
+                "donor_discount_percent": s.donor_discount_percent,
+                "price_rub": s.quantity * base * (100 - s.discount_percent) // 100 // 100,
+                "donor_price_rub": s.quantity * base * (100 - s.donor_discount_percent) // 100 // 100,
+            }
+            for s in sets
+        ],
+    }
 
 
 @router.get("/collection/{vk_id}/balance")
