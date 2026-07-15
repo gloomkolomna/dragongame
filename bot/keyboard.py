@@ -248,6 +248,14 @@ def epic_restart_keyboard():
     ])
 
 
+def finale_new_dragon_keyboard():
+    return _keyboard([
+        [{"action": {"type": "text", "label": "🐲 Получить нового эпического дракона", "payload": json.dumps({"cmd": "finale_get_new"}, ensure_ascii=False)}, "color": "primary"}],
+        row(("📖 Список Бестиария", "garden"), ("❓ Помощь", "help")),
+        bestiary_link_row(),
+    ])
+
+
 def await_garden_keyboard(with_cancel=False):
     buttons = [
         row(("🥚 Добавить яйцо дракона", "pin")),

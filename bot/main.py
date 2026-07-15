@@ -457,6 +457,35 @@ def main():
                 handle_epic_restart(user, mode, db, send_message, upload_image)
                 continue
 
+            if cmd == "finale_get_new":
+                import json as _j
+                from bot.handlers.epic_care import _pick_free_epic
+                from services.epic_service import get_epic_dragon
+                from models import UserDragon
+                from bot.keyboard import epic_egg_intro_keyboard
+
+                current = get_epic_dragon(db, user.vk_id)
+                free_dragon = _pick_free_epic(db, user.vk_id, current.id if current else None)
+                if not free_dragon:
+                    send_message("Все эпические драконы уже выращены.")
+                    continue
+
+                db.add(UserDragon(user_id=user.vk_id, dragon_id=free_dragon.id, completed_at=""))
+                db.flush()
+                user.epic_dragon_id = free_dragon.id
+                user.state = AWAIT_EPIC_EGG_INTRO
+                sd = _j.loads(user.state_data or "{}")
+                sd["_needs_egg_intro"] = True
+                user.state_data = _j.dumps(sd, ensure_ascii=False)
+                db.commit()
+                from bot.keyboard import epic_egg_intro_keyboard
+                send_message(
+                    f"🥚 Перед тобой новое эпическое яйцо — «{free_dragon.egg_type or free_dragon.name}».\n"
+                    "🌟 Нажми «Бережно принять яйцо», чтобы начать выращивание!",
+                    keyboard=epic_egg_intro_keyboard(),
+                )
+                continue
+
             if cmd == "epic_egg_intro_accept":
                 import json as _j
                 sd = _j.loads(user.state_data or "{}")

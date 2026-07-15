@@ -857,37 +857,20 @@ def _finale(user, db, send_message, upload_image, event):
     if summary:
         msg += f"\n🎭 Характер: {summary}\n"
 
-    new_dragon = _pick_free_epic(db, user.vk_id, dragon.id if dragon else None)
-    if new_dragon:
-        from models import UserDragon
-        ud = UserDragon(user_id=user.vk_id, dragon_id=new_dragon.id, completed_at="")
-        db.add(ud)
-        db.flush()
-        user.epic_dragon_id = new_dragon.id
+    free_dragon = _pick_free_epic(db, user.vk_id, dragon.id if dragon else None)
+    if free_dragon:
+        msg += (
+            f"\n🥚 Вдалеке виднеется новое яйцо — «{free_dragon.egg_type or free_dragon.name}».\n"
+            "Нажми кнопку, чтобы получить его!"
+        )
         user.state = IDLE
         db.commit()
-
-        msg += (
-            f"\n🥚 Он подкинул под дверь новое яйцо — «{new_dragon.egg_type or new_dragon.name}»!"
-        )
-        send_message(msg, attachment=attachment)
-
-        user.state = AWAIT_EPIC_EGG_INTRO
-        sd = json.loads(user.state_data or "{}")
-        sd["_needs_egg_intro"] = True
-        user.state_data = json.dumps(sd, ensure_ascii=False)
-        db.commit()
-        from bot.keyboard import epic_egg_intro_keyboard
-        send_message(
-            f"🥚 Перед тобой новое эпическое яйцо — «{new_dragon.egg_type or new_dragon.name}».\n"
-            "🌟 Нажми «Бережно принять яйцо», чтобы начать выращивание!",
-            keyboard=epic_egg_intro_keyboard(),
-        )
+        from bot.keyboard import finale_new_dragon_keyboard
+        send_message(msg, attachment=attachment, keyboard=finale_new_dragon_keyboard())
         return
 
     user.state = AWAIT_EPIC_RESTART
     db.commit()
-
     msg += "\nТы вырастил всех доступных эпических драконов! Хочешь пройти кого-то заново?"
     from bot.keyboard import epic_restart_keyboard
     send_message(msg, attachment=attachment, keyboard=epic_restart_keyboard())
@@ -902,11 +885,15 @@ def _pick_free_epic(db, vk_id, exclude_dragon_id=None):
             UserDragon.completed_at != None,
         ).all()
     )
-    pool = db.query(Dragon).filter(
+    filters = [
         Dragon.is_epic == True,
         Dragon.is_active == True,
-        Dragon.id.notin_(completed_ids) if completed_ids else True,
-    ).all()
+    ]
+    if completed_ids:
+        filters.append(Dragon.id.notin_(completed_ids))
+    if exclude_dragon_id:
+        filters.append(Dragon.id != exclude_dragon_id)
+    pool = db.query(Dragon).filter(*filters).all()
     if not pool:
         return None
     import random

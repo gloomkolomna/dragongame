@@ -515,7 +515,7 @@ def test_cancel_epics_restores_state(db):
     assert u.state == "grow_step_2"
 
 
-def test_finale_with_new_dragon_starts_egg_not_name(db):
+def test_finale_shows_button_not_auto_spawn(db):
     d1 = Dragon(name="Первый", rarity=1, steps_count=1, is_active=True, is_epic=True, egg_type="Яйцо1")
     d2 = Dragon(name="Второй", rarity=1, steps_count=1, is_active=True, is_epic=True, egg_type="Яйцо2")
     db.add_all([d1, d2])
@@ -536,54 +536,100 @@ def test_finale_with_new_dragon_starts_egg_not_name(db):
     db.add(a)
     db.commit()
     epic_service.set_epic_name(db, 300, "Уголёк")
-    care = epic_service.start_care(db, 300)
+    epic_service.start_care(db, 300)
+
+    msgs = []
+    kb = {}
+
+    def send(m, **k):
+        msgs.append(m)
+        kb.update(k)
+
+    from bot.handlers.epic_care import handle_care_message
+
+    handle_care_message(u, "вышито 100", _photos(), db, send)
+    db.refresh(u)
+
+    assert u.state == "idle", (
+        f"после финала должен быть idle (не авто-спавн), а не {u.state}"
+    )
+    assert not u.epic_dragon_id or u.epic_dragon_id == d1.id, (
+        "epic_dragon_id не должен меняться авто-спавном"
+    )
+    keyboard_str = kb.get("keyboard", "")
+    assert "Получить нового" in keyboard_str, (
+        f"должна быть кнопка 'Получить нового эпического дракона' в клавиатуре: {keyboard_str}"
+    )
+
+
+def test_finale_get_new_command_spawns_egg(db):
+    from models import UserDragon
+    from bot.handlers.epic_care import _pick_free_epic
+    from services.epic_service import get_epic_dragon
+    from bot.fsm import AWAIT_EPIC_EGG_INTRO
+    import json as _j
+
+    d1 = Dragon(name="Первый", rarity=1, steps_count=1, is_active=True, is_epic=True, egg_type="Яйцо1")
+    d2 = Dragon(name="Второй", rarity=1, steps_count=1, is_active=True, is_epic=True, egg_type="Яйцо2")
+    db.add_all([d1, d2])
+    db.flush()
+    db.add(DragonStep(dragon_id=d1.id, step_number=1, phase=0, crosses_norm=100))
+    db.add(DragonStep(dragon_id=d2.id, step_number=1, phase=0, crosses_norm=100))
+    u = User(vk_id=310, state="idle", stitches_balance=500, epic_unlocked=True, epic_dragon_id=d1.id)
+    db.add(u)
+    db.flush()
+    db.add(UserDragon(user_id=310, dragon_id=d1.id, completed_at=""))
+    db.commit()
+
+    st = EpicStage(dragon_id=d1.id, stage_number=1, name="S1")
+    db.add(st)
+    db.flush()
+    a = EpicStageAction(dragon_id=d1.id, stage_id=st.id, action_label="кормить",
+                        order_in_cycle=0, crosses_norm=100)
+    db.add(a)
+    db.commit()
+    epic_service.set_epic_name(db, 310, "Уголёк")
+    epic_service.start_care(db, 310)
+
+    from bot.handlers.epic_care import handle_care_message
+
+    handle_care_message(u, "вышито 100", _photos(), db, lambda m, **k: None)
+    db.refresh(u)
+    assert u.state == "idle"
+
+    current = get_epic_dragon(db, u.vk_id)
+    free_dragon = _pick_free_epic(db, u.vk_id, current.id if current else None)
+    assert free_dragon is not None
+    assert free_dragon.id == d2.id, "должен выбрать второго (невыращенного)"
+
+    db.add(UserDragon(user_id=u.vk_id, dragon_id=free_dragon.id, completed_at=""))
+    db.flush()
+    u.epic_dragon_id = free_dragon.id
+    u.state = AWAIT_EPIC_EGG_INTRO
+    sd = _j.loads(u.state_data or "{}")
+    sd["_needs_egg_intro"] = True
+    u.state_data = _j.dumps(sd, ensure_ascii=False)
+    db.commit()
 
     msgs = []
 
     def send(m, **k):
         msgs.append(m)
 
-    from bot.handlers.epic_care import handle_care_message, handle_epic_restart
-
-    handle_care_message(u, "вышито 100", _photos(), db, send)
-    db.refresh(u)
-
-    assert u.state == "await_epic_egg_intro", (
-        f"после финала должен быть egg_intro, а не {u.state}"
-    )
-    assert "_needs_egg_intro" in (u.state_data or ""), "должен быть флаг _needs_egg_intro"
-    assert u.epic_dragon_id == d2.id, "должен переключиться на нового дракона"
-
-    from bot.main import extract_cmd
-
-    payload = '{"cmd":"epic_egg_intro_accept"}'
     from bot.handlers.epic import handle_epic_command
-    from bot.main import get_keyboard
     from bot.fsm import is_epic_egg
 
-    cmd = extract_cmd("", payload)
-    assert cmd == "epic_egg_intro_accept"
-
-    msgs2 = []
-
-    def send2(m, **k):
-        msgs2.append(m)
-
-    import json as _j
-    sd = _j.loads(u.state_data or "{}")
-    sd.pop("_needs_egg_intro", None)
-    u.state_data = _j.dumps(sd, ensure_ascii=False)
+    sd2 = _j.loads(u.state_data or "{}")
+    sd2.pop("_needs_egg_intro", None)
+    u.state_data = _j.dumps(sd2, ensure_ascii=False)
     db.commit()
-    handle_epic_command(u, db, send2)
+    handle_epic_command(u, db, send)
     db.refresh(u)
 
     assert is_epic_egg(u.state), (
-        f"после egg_intro_accept должен быть egg_step, а не {u.state}"
+        f"после finale_get_new должен быть egg_step, а не {u.state}"
     )
-    assert u.state not in ("await_epic_name",), (
-        f"не должен запрашивать имя после финала, state={u.state}"
-    )
-    assert any("вышито" in m.lower() or "крестиков" in m.lower() for m in msgs2), (
-        f"должны показываться шаги яйца, а не ввод имени: {msgs2}"
+    assert any("вышито" in m.lower() or "крестиков" in m.lower() for m in msgs), (
+        f"должны показываться шаги яйца: {msgs}"
     )
 
