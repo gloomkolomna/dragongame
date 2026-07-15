@@ -39,6 +39,13 @@ def _build_payment_url(order, vk_id: int, description: str) -> str:
     return f"{ROBOKASSA_URL}?{urlencode(params)}"
 
 
+def _store_payment(user, order_id, db):
+    sd = json.loads(user.state_data or "{}")
+    sd["_payment_order_id"] = order_id
+    user.state_data = json.dumps(sd, ensure_ascii=False)
+    db.commit()
+
+
 def handle_buy_eggs(user, db, send_message):
     from models import DragonSet
     from services.payment_service import is_donor, calc_set_price
@@ -96,16 +103,16 @@ def handle_buy_set(user, set_id, db, send_message):
         PaymentOrder.status == "pending",
     ).first()
     if pending:
+        _store_payment(user, pending.id, db)
         pending_dset = db.query(DragonSet).filter(DragonSet.id == pending.set_id).first()
         set_name = pending_dset.name if pending_dset else "?"
         price_rub = pending.amount_rub // 100
-        url = _build_payment_url(pending, user.vk_id, f"Набор «{set_name}»")
         from bot.keyboard import payment_link_keyboard
         send_message(
             f"⚠ У тебя уже есть неоплаченный заказ:\n"
             f"🛒 Набор «{set_name}» — {pending.quantity} шт. за {price_rub} ₽\n\n"
-            f"Заверши оплату или дождись отмены.",
-            keyboard=payment_link_keyboard(url),
+            f"Нажми кнопку ниже, чтобы перейти к оплате.",
+            keyboard=payment_link_keyboard(),
         )
         return
 
@@ -149,7 +156,7 @@ def handle_buy_set(user, set_id, db, send_message):
     db.commit()
     db.refresh(order)
 
-    url = _build_payment_url(order, user.vk_id, f"Набор «{dset.name}»")
+    _store_payment(user, order.id, db)
     from bot.keyboard import payment_link_keyboard
 
     donor_text = " (дон-скидка)" if donor else ""
@@ -158,7 +165,7 @@ def handle_buy_set(user, set_id, db, send_message):
         f"🥚 {quantity} шт.\n"
         f"💰 {amount_rub} ₽{donor_text}\n\n"
         f"Нажми кнопку ниже, чтобы перейти к оплате:",
-        keyboard=payment_link_keyboard(url),
+        keyboard=payment_link_keyboard(),
     )
 
 
@@ -199,7 +206,7 @@ def handle_partial_confirm(user, db, send_message):
     db.commit()
     db.refresh(order)
 
-    url = _build_payment_url(order, user.vk_id, f"Набор «{dset.name}»")
+    _store_payment(user, order.id, db)
     from bot.keyboard import payment_link_keyboard
 
     amount_rub = amount // 100
@@ -209,5 +216,40 @@ def handle_partial_confirm(user, db, send_message):
         f"🥚 {quantity} шт.\n"
         f"💰 {amount_rub} ₽{donor_text}\n\n"
         f"Нажми кнопку ниже, чтобы перейти к оплате:",
-        keyboard=payment_link_keyboard(url),
+        keyboard=payment_link_keyboard(),
+    )
+
+
+def handle_open_payment(user, db, send_message):
+    from models import PaymentOrder, DragonSet
+
+    sd = json.loads(user.state_data or "{}")
+    order_id = sd.get("_payment_order_id")
+    if not order_id:
+        send_message("❌ Заказ не найден. Попробуй выбрать набор заново.")
+        return
+
+    order = db.query(PaymentOrder).filter(PaymentOrder.id == order_id).first()
+    if not order:
+        send_message("❌ Заказ не найден.")
+        return
+
+    dset = db.query(DragonSet).filter(DragonSet.id == order.set_id).first()
+    set_name = dset.name if dset else "?"
+    url = _build_payment_url(order, user.vk_id, f"Набор «{set_name}»")
+
+    send_message(
+        f"💳 Ссылка для оплаты набора «{set_name}»:\n{url}",
+        keyboard=json.dumps({
+            "one_time": False,
+            "buttons": [
+                [{
+                    "action": {
+                        "type": "open_link",
+                        "label": "💳 Перейти к оплате",
+                        "link": url,
+                    },
+                }],
+            ],
+        }, ensure_ascii=False),
     )

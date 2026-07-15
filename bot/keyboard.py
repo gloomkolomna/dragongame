@@ -434,14 +434,15 @@ def buy_eggs_keyboard(sets):
     return _keyboard(buttons)
 
 
-def payment_link_keyboard(payment_url):
+def payment_link_keyboard():
     return _keyboard([
         [{
             "action": {
-                "type": "open_link",
+                "type": "text",
                 "label": "💳 Перейти к оплате",
-                "link": payment_url,
+                "payload": json.dumps({"cmd": "open_payment"}, ensure_ascii=False),
             },
+            "color": "primary",
         }],
         garden_row(),
         bestiary_link_row(),
