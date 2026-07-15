@@ -30,7 +30,7 @@ def build_payment_url(order: PaymentOrder, vk_id: int, description: str) -> str:
     out_sum = f"{order.amount_rub / 100:.2f}"
     inv_id = str(order.id)
     signature = _md5(
-        f"{login}:{out_sum}:{inv_id}:{config.ROBOKASSA_PASSWORD1}:Shp_vk_id={vk_id}"
+        f"{login}:{out_sum}:{inv_id}:{config.robokassa_password1()}:Shp_vk_id={vk_id}"
     )
     params = {
         "MerchantLogin": login,
@@ -42,14 +42,14 @@ def build_payment_url(order: PaymentOrder, vk_id: int, description: str) -> str:
         "Culture": "ru",
         "Encoding": "utf-8",
     }
-    if str(config.ROBOKASSA_TEST_MODE) == "1":
+    if config.robokassa_is_test():
         params["IsTest"] = "1"
     return f"{ROBOKASSA_URL}?{urlencode(params)}"
 
 
 def verify_result_signature(out_sum: str, inv_id: str, signature: str, vk_id: str) -> bool:
     expected = _md5(
-        f"{out_sum}:{inv_id}:{config.ROBOKASSA_PASSWORD2}:Shp_vk_id={vk_id}"
+        f"{out_sum}:{inv_id}:{config.robokassa_password2()}:Shp_vk_id={vk_id}"
     )
     return expected.lower() == (signature or "").lower()
 

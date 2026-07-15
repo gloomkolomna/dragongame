@@ -145,7 +145,8 @@ def _make_pending_order(client, db, quantity=2):
 
 
 def test_robokassa_result_callback_success(client, db, monkeypatch):
-    monkeypatch.setattr(config, "ROBOKASSA_PASSWORD2", "pass2")
+    monkeypatch.setattr(config, "ROBOKASSA_TEST_PASSWORD2", "pass2")
+    monkeypatch.setattr(config, "ROBOKASSA_TEST_MODE", "1")
     order = _make_pending_order(client, db, quantity=2)
     inv_id = str(order["order_id"])
     out_sum = f"{order['amount_rub'] / 100:.2f}"
@@ -163,7 +164,8 @@ def test_robokassa_result_callback_success(client, db, monkeypatch):
 
 
 def test_robokassa_result_callback_idempotent(client, db, monkeypatch):
-    monkeypatch.setattr(config, "ROBOKASSA_PASSWORD2", "pass2")
+    monkeypatch.setattr(config, "ROBOKASSA_TEST_PASSWORD2", "pass2")
+    monkeypatch.setattr(config, "ROBOKASSA_TEST_MODE", "1")
     order = _make_pending_order(client, db, quantity=2)
     inv_id = str(order["order_id"])
     out_sum = f"{order['amount_rub'] / 100:.2f}"
@@ -180,7 +182,8 @@ def test_robokassa_result_callback_idempotent(client, db, monkeypatch):
 
 
 def test_robokassa_result_callback_get_method(client, db, monkeypatch):
-    monkeypatch.setattr(config, "ROBOKASSA_PASSWORD2", "pass2")
+    monkeypatch.setattr(config, "ROBOKASSA_TEST_PASSWORD2", "pass2")
+    monkeypatch.setattr(config, "ROBOKASSA_TEST_MODE", "1")
     order = _make_pending_order(client, db, quantity=2)
     inv_id = str(order["order_id"])
     out_sum = f"{order['amount_rub'] / 100:.2f}"
@@ -197,7 +200,8 @@ def test_robokassa_result_callback_get_method(client, db, monkeypatch):
 
 
 def test_robokassa_result_prod_six_decimals(client, db, monkeypatch):
-    monkeypatch.setattr(config, "ROBOKASSA_PASSWORD2", "pass2")
+    monkeypatch.setattr(config, "ROBOKASSA_TEST_PASSWORD2", "pass2")
+    monkeypatch.setattr(config, "ROBOKASSA_TEST_MODE", "1")
     order = _make_pending_order(client, db, quantity=2)
     inv_id = str(order["order_id"])
     out_sum = f"{order['amount_rub'] / 100:.6f}"
@@ -210,7 +214,8 @@ def test_robokassa_result_prod_six_decimals(client, db, monkeypatch):
 
 
 def test_robokassa_result_signature_mismatch(client, db, monkeypatch):
-    monkeypatch.setattr(config, "ROBOKASSA_PASSWORD2", "pass2")
+    monkeypatch.setattr(config, "ROBOKASSA_TEST_PASSWORD2", "pass2")
+    monkeypatch.setattr(config, "ROBOKASSA_TEST_MODE", "1")
     order = _make_pending_order(client, db, quantity=2)
     inv_id = str(order["order_id"])
     out_sum = f"{order['amount_rub'] / 100:.2f}"
@@ -224,7 +229,8 @@ def test_robokassa_result_signature_mismatch(client, db, monkeypatch):
 
 
 def test_robokassa_result_vk_mismatch(client, db, monkeypatch):
-    monkeypatch.setattr(config, "ROBOKASSA_PASSWORD2", "pass2")
+    monkeypatch.setattr(config, "ROBOKASSA_TEST_PASSWORD2", "pass2")
+    monkeypatch.setattr(config, "ROBOKASSA_TEST_MODE", "1")
     order = _make_pending_order(client, db, quantity=2)
     inv_id = str(order["order_id"])
     out_sum = f"{order['amount_rub'] / 100:.2f}"
@@ -233,6 +239,72 @@ def test_robokassa_result_vk_mismatch(client, db, monkeypatch):
         "OutSum": out_sum, "InvId": inv_id, "SignatureValue": sig, "Shp_vk_id": "999",
     })
     assert resp.status_code == 400
+
+
+def test_robokassa_test_mode_uses_test_password(client, db, monkeypatch):
+    monkeypatch.setattr(config, "ROBOKASSA_TEST_MODE", "1")
+    monkeypatch.setattr(config, "ROBOKASSA_TEST_PASSWORD2", "testpass")
+    monkeypatch.setattr(config, "ROBOKASSA_PASSWORD2", "prodpass")
+    order = _make_pending_order(client, db, quantity=1)
+    inv_id = str(order["order_id"])
+    out_sum = f"{order['amount_rub'] / 100:.2f}"
+
+    sig_test = _result_sig(out_sum, inv_id, 42, "testpass")
+    resp_test = client.post("/api/payment/result", data={
+        "OutSum": out_sum, "InvId": inv_id, "SignatureValue": sig_test, "Shp_vk_id": "42",
+    })
+    assert resp_test.status_code == 200
+    assert resp_test.text == f"OK{inv_id}"
+
+
+def test_robokassa_prod_mode_uses_prod_password(client, db, monkeypatch):
+    monkeypatch.setattr(config, "ROBOKASSA_TEST_MODE", "0")
+    monkeypatch.setattr(config, "ROBOKASSA_PASSWORD2", "prodpass")
+    monkeypatch.setattr(config, "ROBOKASSA_TEST_PASSWORD2", "testpass")
+    order = _make_pending_order(client, db, quantity=1)
+    inv_id = str(order["order_id"])
+    out_sum = f"{order['amount_rub'] / 100:.2f}"
+
+    sig_prod = _result_sig(out_sum, inv_id, 42, "prodpass")
+    resp_prod = client.post("/api/payment/result", data={
+        "OutSum": out_sum, "InvId": inv_id, "SignatureValue": sig_prod, "Shp_vk_id": "42",
+    })
+    assert resp_prod.status_code == 200
+    assert resp_prod.text == f"OK{inv_id}"
+
+
+def test_robokassa_prod_mode_rejects_test_password(client, db, monkeypatch):
+    monkeypatch.setattr(config, "ROBOKASSA_TEST_MODE", "0")
+    monkeypatch.setattr(config, "ROBOKASSA_PASSWORD2", "prodpass")
+    monkeypatch.setattr(config, "ROBOKASSA_TEST_PASSWORD2", "testpass")
+    order = _make_pending_order(client, db, quantity=1)
+    inv_id = str(order["order_id"])
+    out_sum = f"{order['amount_rub'] / 100:.2f}"
+
+    sig_test = _result_sig(out_sum, inv_id, 42, "testpass")
+    resp_wrong = client.post("/api/payment/result", data={
+        "OutSum": out_sum, "InvId": inv_id,
+        "SignatureValue": sig_test, "Shp_vk_id": "42",
+    })
+    assert resp_wrong.status_code == 400
+
+
+def test_robokassa_payment_url_contains_istest_in_test_mode(client, db, monkeypatch):
+    monkeypatch.setattr(config, "ROBOKASSA_TEST_MODE", "1")
+    for i in range(3):
+        _dragon(db, f"T{i}", family_id=i, pin=f"R{i:04d}")
+    s = _set(db, quantity=1)
+    resp = client.post("/api/payment/create-order", json={"vk_id": 7, "set_id": s.id})
+    assert "IsTest=1" in resp.json()["payment_url"]
+
+
+def test_robokassa_payment_url_no_istest_in_prod_mode(client, db, monkeypatch):
+    monkeypatch.setattr(config, "ROBOKASSA_TEST_MODE", "0")
+    for i in range(3):
+        _dragon(db, f"T{i}", family_id=i, pin=f"S{i:04d}")
+    s = _set(db, quantity=1)
+    resp = client.post("/api/payment/create-order", json={"vk_id": 8, "set_id": s.id})
+    assert "IsTest" not in resp.json()["payment_url"]
 
 
 # ─── Success / fail pages ───

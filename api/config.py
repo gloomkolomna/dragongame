@@ -47,9 +47,23 @@ REWARD_CHECK_INTERVAL_HOURS = _env_int("REWARD_CHECK_INTERVAL_HOURS", 24)
 ROBOKASSA_MERCHANT_LOGIN = os.getenv("ROBOKASSA_MERCHANT_LOGIN", "")
 ROBOKASSA_PASSWORD1 = os.getenv("ROBOKASSA_PASSWORD1", "")
 ROBOKASSA_PASSWORD2 = os.getenv("ROBOKASSA_PASSWORD2", "")
+ROBOKASSA_TEST_PASSWORD1 = os.getenv("ROBOKASSA_TEST_PASSWORD1", "")
+ROBOKASSA_TEST_PASSWORD2 = os.getenv("ROBOKASSA_TEST_PASSWORD2", "")
 ROBOKASSA_TEST_MODE = os.getenv("ROBOKASSA_TEST_MODE", "1")
 SITE_URL = os.getenv("SITE_URL", "https://belovolovhome.ru/dragons")
 VK_GROUP_URL = os.getenv("VK_GROUP_URL", "https://vk.com/bestiaryofdragonlegends")
+
+
+def robokassa_is_test() -> bool:
+    return str(ROBOKASSA_TEST_MODE).strip() == "1"
+
+
+def robokassa_password1() -> str:
+    return ROBOKASSA_TEST_PASSWORD1 if robokassa_is_test() else ROBOKASSA_PASSWORD1
+
+
+def robokassa_password2() -> str:
+    return ROBOKASSA_TEST_PASSWORD2 if robokassa_is_test() else ROBOKASSA_PASSWORD2
 
 API_ERROR_LOG = os.getenv("API_ERROR_LOG", "/var/log/dragons/api-error.log")
 
