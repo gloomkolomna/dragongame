@@ -2544,6 +2544,21 @@ async def create_set(request: Request, db: Session = Depends(get_db)):
     return s
 
 
+@router.put("/sets/reorder")
+async def reorder_sets(request: Request, db: Session = Depends(get_db)):
+    items = await request.json()
+    if not isinstance(items, list):
+        raise HTTPException(status_code=400, detail="Expected array of {id, sort_order}")
+    for idx, item in enumerate(items):
+        set_id = item.get("id")
+        if set_id:
+            s = db.query(DragonSet).filter(DragonSet.id == set_id).first()
+            if s:
+                s.sort_order = idx
+    db.commit()
+    return {"ok": True}
+
+
 @router.put("/sets/{set_id}")
 async def update_set(set_id: int, request: Request, db: Session = Depends(get_db)):
     s = db.query(DragonSet).filter(DragonSet.id == set_id).first()
@@ -2558,21 +2573,6 @@ async def update_set(set_id: int, request: Request, db: Session = Depends(get_db
     db.commit()
     db.refresh(s)
     return s
-
-
-@router.put("/sets/reorder")
-async def reorder_sets(request: Request, db: Session = Depends(get_db)):
-    items = await request.json()
-    if not isinstance(items, list):
-        raise HTTPException(status_code=400, detail="Expected array of {id, sort_order}")
-    for idx, item in enumerate(items):
-        set_id = item.get("id")
-        if set_id:
-            s = db.query(DragonSet).filter(DragonSet.id == set_id).first()
-            if s:
-                s.sort_order = idx
-    db.commit()
-    return {"ok": True}
 
 
 @router.delete("/sets/{set_id}")
