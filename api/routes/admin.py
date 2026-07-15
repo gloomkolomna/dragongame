@@ -3015,6 +3015,7 @@ def list_available_for_reservation(
         db.query(Dragon)
         .filter(
             Dragon.is_active == True,
+            Dragon.is_epic == False,
             Dragon.pin_code.isnot(None),
             Dragon.pin_code != "",
             ~Dragon.id.in_(reserved_ids) if reserved_ids else True,

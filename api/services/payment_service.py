@@ -77,7 +77,7 @@ def _available_dragons(vk_id: int, db) -> list:
         ).all()
     }
     exclude = owned | _reserved_dragon_ids(vk_id, db) | reserved
-    dragons = db.query(Dragon).filter(Dragon.is_active == True).all()
+    dragons = db.query(Dragon).filter(Dragon.is_active == True, Dragon.is_epic == False).all()
     return [d for d in dragons if d.id not in exclude]
 
 
