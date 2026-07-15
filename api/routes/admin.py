@@ -2909,14 +2909,15 @@ async def create_reservation(request: Request, db: Session = Depends(get_db)):
     if not dragon.pin_code:
         raise HTTPException(status_code=400, detail="У дракона нет PIN-кода")
 
+    vk_user_id = _parse_vk_id(vk_url)
     existing = db.query(DragonReservation).filter(
         DragonReservation.dragon_id == dragon_id,
         DragonReservation.is_activated == False,
+        ((DragonReservation.vk_user_id == vk_user_id) if vk_user_id else (DragonReservation.vk_url == vk_url)),
     ).first()
     if existing:
-        raise HTTPException(status_code=400, detail="Дракон уже забронирован")
+        raise HTTPException(status_code=400, detail="У этого покупателя уже есть бронь на данного дракона")
 
-    vk_user_id = _parse_vk_id(vk_url)
     vk_name = _resolve_vk_name(vk_url)
     now = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
     reservation = DragonReservation(
@@ -2955,13 +2956,18 @@ async def update_reservation(reservation_id: int, request: Request, db: Session 
         dragon = db.query(Dragon).filter(Dragon.id == dragon_id).first()
         if not dragon:
             raise HTTPException(status_code=404, detail="Dragon not found")
-        existing = db.query(DragonReservation).filter(
+        buyer_id = r.vk_user_id
+        existing_q = db.query(DragonReservation).filter(
             DragonReservation.dragon_id == dragon_id,
             DragonReservation.is_activated == False,
             DragonReservation.id != reservation_id,
-        ).first()
-        if existing:
-            raise HTTPException(status_code=400, detail="Дракон уже забронирован")
+        )
+        if buyer_id:
+            existing_q = existing_q.filter(DragonReservation.vk_user_id == buyer_id)
+        else:
+            existing_q = existing_q.filter(DragonReservation.vk_url == r.vk_url)
+        if existing_q.first():
+            raise HTTPException(status_code=400, detail="У этого покупателя уже есть бронь на данного дракона")
         r.dragon_id = dragon_id
 
     if "notes" in b:
@@ -2988,20 +2994,22 @@ def list_available_for_reservation(
     exclude_vk_url: str = Query(""),
     db: Session = Depends(get_db),
 ):
-    reserved_ids = {
-        row[0] for row in db.query(DragonReservation.dragon_id).filter(
-            DragonReservation.is_activated == False,
-        ).all()
-    }
+    reserved_ids = set()
     if exclude_vk_url:
         vk_user_id = _parse_vk_id(exclude_vk_url)
         if vk_user_id:
-            already_for_user = {
+            reserved_ids = {
                 row[0] for row in db.query(DragonReservation.dragon_id).filter(
                     DragonReservation.vk_user_id == vk_user_id,
                 ).all()
             }
-            reserved_ids |= already_for_user
+            from models import UserDragon
+            owned_ids = {
+                row[0] for row in db.query(UserDragon.dragon_id).filter(
+                    UserDragon.user_id == vk_user_id,
+                ).all()
+            }
+            reserved_ids |= owned_ids
 
     dragons = (
         db.query(Dragon)

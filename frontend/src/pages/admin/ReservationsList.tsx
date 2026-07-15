@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import client from '../../api/client';
 
@@ -31,7 +31,11 @@ function ReservationsList() {
   const [load, setLoad] = useState(true);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
-  const [search, setSearch] = useState('');
+  const [fBuyer, setFBuyer] = useState('');
+  const [fDragon, setFDragon] = useState('');
+  const [fPin, setFPin] = useState('');
+  const [fStatus, setFStatus] = useState('');
+  const [fNotes, setFNotes] = useState('');
 
   const [form, setForm] = useState({ vk_url: '', dragon_id: 0, notes: '' });
   const [showForm, setShowForm] = useState(false);
@@ -39,11 +43,11 @@ function ReservationsList() {
   const navigate = useNavigate();
 
   const fetchReservations = useCallback(() => {
-    client.get('/admin/reservations', { params: { search } })
+    client.get('/admin/reservations')
       .then((r) => setReservations(r.data))
       .catch((e) => setError(e?.response?.data?.detail || 'Ошибка загрузки'))
       .finally(() => setLoad(false));
-  }, [search]);
+  }, []);
 
   const fetchDragons = (vkUrl?: string) => {
     const params: any = {};
@@ -53,23 +57,12 @@ function ReservationsList() {
       .catch(() => {});
   };
 
-  useEffect(() => {
-    fetchReservations();
-    fetchDragons();
-  }, [fetchReservations]);
-
-  const handleSearchChange = (val: string) => {
-    setSearch(val);
-    setLoad(true);
-  };
+  useEffect(() => { fetchReservations(); fetchDragons(); }, [fetchReservations]);
 
   const handleFormVkChange = (url: string) => {
     setForm({ ...form, vk_url: url });
-    if (url.length > 10) {
-      fetchDragons(url);
-    } else {
-      fetchDragons();
-    }
+    if (url.length > 10) fetchDragons(url);
+    else fetchDragons();
   };
 
   const handleCreate = async () => {
@@ -108,21 +101,50 @@ function ReservationsList() {
     } catch { return s; }
   };
 
+  const uniqueBuyers = useMemo(() => {
+    const set = new Set<string>();
+    reservations.forEach((r) => { if (r.vk_name) set.add(r.vk_name); });
+    return [...set].sort();
+  }, [reservations]);
+
+  const uniqueDragons = useMemo(() => {
+    const set = new Set<string>();
+    reservations.forEach((r) => { if (r.dragon_name) set.add(r.dragon_name); });
+    return [...set].sort();
+  }, [reservations]);
+
+  const filtered = useMemo(() => {
+    const tBuyer = fBuyer.toLowerCase().trim();
+    const tDragon = fDragon.toLowerCase().trim();
+    const tPin = fPin.toLowerCase().trim();
+    const tNotes = fNotes.toLowerCase().trim();
+    return reservations.filter((r) => {
+      if (tBuyer) {
+        const name = (r.vk_name || '').toLowerCase();
+        const url = (r.vk_url || '').toLowerCase();
+        const uid = r.vk_user_id ? String(r.vk_user_id) : '';
+        if (!name.includes(tBuyer) && !url.includes(tBuyer) && !uid.includes(tBuyer)) return false;
+      }
+      if (tDragon) {
+        const dn = (r.dragon_name || '').toLowerCase();
+        const de = (r.egg_type || '').toLowerCase();
+        if (!dn.includes(tDragon) && !de.includes(tDragon)) return false;
+      }
+      if (tPin && !(r.pin_code || '').toLowerCase().includes(tPin)) return false;
+      if (tNotes && !(r.notes || '').toLowerCase().includes(tNotes)) return false;
+      if (fStatus === 'active' && r.is_activated) return false;
+      if (fStatus === 'done' && !r.is_activated) return false;
+      return true;
+    });
+  }, [reservations, fBuyer, fDragon, fPin, fStatus, fNotes]);
+
   if (load) return <div className="lair-content"><div className="lair-skeleton" /></div>;
 
   return (
     <>
       <div className="lair-header">
         <h2>🔖 Бронирования драконов</h2>
-        <input
-          className="lair-input"
-          type="text"
-          placeholder="Поиск по имени или ссылке..."
-          value={search}
-          onChange={(e) => handleSearchChange(e.target.value)}
-          style={{ marginLeft: 16, width: 260, fontSize: 14 }}
-        />
-        <span style={{ marginLeft: 'auto', color: 'var(--parchment-faded)', fontSize: 14 }}>{reservations.length} записей</span>
+        <span style={{ marginLeft: 'auto', color: 'var(--parchment-faded)', fontSize: 14 }}>{filtered.length} из {reservations.length}</span>
         <button className="lair-btn" style={{ marginLeft: 12 }} onClick={() => { setShowForm(!showForm); setError(''); fetchDragons(form.vk_url); }}>
           {showForm ? 'Скрыть' : '+ Новая бронь'}
         </button>
@@ -164,7 +186,7 @@ function ReservationsList() {
 
         {reservations.length === 0 ? (
           <div className="lair-card" style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)' }}>
-            {search ? 'Ничего не найдено.' : 'Нет бронирований. Нажмите «+ Новая бронь».'}
+            Нет бронирований. Нажмите «+ Новая бронь».
           </div>
         ) : (
           <div className="lair-card" style={{ padding: 0, overflow: 'hidden' }}>
@@ -175,25 +197,65 @@ function ReservationsList() {
                     <th>Покупатель</th>
                     <th>Дракон</th>
                     <th>PIN</th>
-                    <th>Активирован</th>
+                    <th>Статус</th>
                     <th>Заметка</th>
                     <th>Создано</th>
                     <th></th>
                   </tr>
+                  <tr>
+                    <th><input className="lair-input" value={fBuyer} onChange={(e) => setFBuyer(e.target.value)} placeholder="..." style={{ width: '100%', padding: '4px 8px', fontSize: 24, marginTop: 2 }} /></th>
+                    <th><input className="lair-input" value={fDragon} onChange={(e) => setFDragon(e.target.value)} placeholder="..." style={{ width: '100%', padding: '4px 8px', fontSize: 24, marginTop: 2 }} /></th>
+                    <th><input className="lair-input" value={fPin} onChange={(e) => setFPin(e.target.value)} placeholder="..." style={{ width: '100%', padding: '4px 8px', fontSize: 24, marginTop: 2 }} /></th>
+                    <th>
+                      <select className="lair-input" value={fStatus} onChange={(e) => setFStatus(e.target.value)}
+                              style={{ width: '100%', padding: '4px 8px', fontSize: 24, marginTop: 2 }}>
+                        <option value="">Все</option>
+                        <option value="active">⏳ Ожидание</option>
+                        <option value="done">✅ Активирован</option>
+                      </select>
+                    </th>
+                    <th><input className="lair-input" value={fNotes} onChange={(e) => setFNotes(e.target.value)} placeholder="..." style={{ width: '100%', padding: '4px 8px', fontSize: 24, marginTop: 2 }} /></th>
+                    <th></th>
+                    <th></th>
+                  </tr>
+                  <tr>
+                    <th>
+                      <select className="lair-input" value={fBuyer} onChange={(e) => setFBuyer(e.target.value)}
+                              style={{ width: '100%', padding: '4px 8px', fontSize: 24, marginTop: 2 }}>
+                        <option value="">— Все покупатели —</option>
+                        {uniqueBuyers.map((name) => (<option key={name} value={name}>{name}</option>))}
+                      </select>
+                    </th>
+                    <th>
+                      <select className="lair-input" value={fDragon} onChange={(e) => setFDragon(e.target.value)}
+                              style={{ width: '100%', padding: '4px 8px', fontSize: 24, marginTop: 2 }}>
+                        <option value="">— Все драконы —</option>
+                        {uniqueDragons.map((name) => (<option key={name} value={name}>{name}</option>))}
+                      </select>
+                    </th>
+                    <th></th>
+                    <th></th>
+                    <th></th>
+                    <th></th>
+                    <th></th>
+                  </tr>
                 </thead>
                 <tbody>
-                  {reservations.map((r) => (
+                  {filtered.map((r) => (
                     <tr key={r.id} style={{ background: r.is_activated ? undefined : 'rgba(240,173,78,0.06)' }}>
                       <td>
                         {r.vk_name ? (
-                          <span style={{ fontWeight: 600, fontSize: 14 }}>{r.vk_name}</span>
+                          <a href={r.vk_url} target="_blank" rel="noopener noreferrer"
+                            style={{ fontWeight: 600, fontSize: 14, color: 'var(--gold)', textDecoration: 'none' }}>
+                            {r.vk_name}
+                          </a>
                         ) : (
                           <a href={r.vk_url} target="_blank" rel="noopener noreferrer"
                             style={{ color: 'var(--gold)', fontSize: 13 }}>
                             {r.vk_url.length > 30 ? r.vk_url.slice(0, 30) + '...' : r.vk_url}
                           </a>
                         )}
-                        {r.vk_user_id && !r.vk_name && <div style={{ fontSize: 11, color: 'var(--parchment-faded)' }}>ID: {r.vk_user_id}</div>}
+                        {r.vk_user_id && <div style={{ fontSize: 11, color: 'var(--parchment-faded)' }}>ID: {r.vk_user_id}</div>}
                       </td>
                       <td>
                         <span style={{ cursor: 'pointer', color: 'var(--gold)', fontWeight: 600, fontSize: 14 }}

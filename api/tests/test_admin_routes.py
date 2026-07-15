@@ -1112,9 +1112,11 @@ def test_create_reservation(client, db):
 def test_create_reservation_duplicate(client, db):
     dragon_id = _create_reservation_dragon(client, db)
     client.post("/api/admin/reservations", json={"vk_url": "https://vk.com/id111", "dragon_id": dragon_id})
-    resp = client.post("/api/admin/reservations", json={"vk_url": "https://vk.com/id222", "dragon_id": dragon_id})
+    resp = client.post("/api/admin/reservations", json={"vk_url": "https://vk.com/id111", "dragon_id": dragon_id})
     assert resp.status_code == 400
-    assert "забронирован" in resp.json()["detail"].lower()
+
+    resp = client.post("/api/admin/reservations", json={"vk_url": "https://vk.com/id222", "dragon_id": dragon_id})
+    assert resp.status_code == 200
 
 
 def test_create_reservation_no_pin(client, db):
@@ -1187,7 +1189,7 @@ def test_available_dragons_excludes_reserved(client, db):
     dragon_id = _create_reservation_dragon(client, db)
     client.post("/api/admin/reservations", json={"vk_url": "https://vk.com/id1", "dragon_id": dragon_id})
 
-    resp = client.get("/api/admin/reservations/available-dragons")
+    resp = client.get("/api/admin/reservations/available-dragons", params={"exclude_vk_url": "https://vk.com/id1"})
     available = resp.json()
     assert all(d["id"] != dragon_id for d in available)
 
