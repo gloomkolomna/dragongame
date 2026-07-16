@@ -3,7 +3,7 @@
 import hashlib
 import json
 from datetime import datetime
-from urllib.parse import urlencode
+from urllib.parse import urlencode, quote
 
 ROBOKASSA_URL = "https://auth.robokassa.ru/Merchant/Index.aspx"
 
@@ -16,13 +16,27 @@ def _md5(raw: str) -> str:
     return hashlib.md5(raw.encode("utf-8")).hexdigest()
 
 
+def _build_receipt(out_sum: str, order, description: str) -> str:
+    items = [{
+        "name": description or "Набор драконов",
+        "quantity": order.quantity,
+        "sum": float(out_sum),
+        "tax": "none",
+        "payment_method": "full_payment",
+        "payment_object": "commodity",
+    }]
+    return json.dumps({"items": items}, separators=(",", ":"), ensure_ascii=False)
+
+
 def _build_payment_url(order, vk_id: int, description: str) -> str:
     import config
     login = config.ROBOKASSA_MERCHANT_LOGIN
     out_sum = f"{order.amount_rub / 100:.2f}"
     inv_id = str(order.id)
+    receipt = _build_receipt(out_sum, order, description)
+    receipt_encoded = quote(receipt, safe="")
     signature = _md5(
-        f"{login}:{out_sum}:{inv_id}:{config.robokassa_password1()}:Shp_vk_id={vk_id}"
+        f"{login}:{out_sum}:{inv_id}:{receipt_encoded}:{config.robokassa_password1()}:Shp_vk_id={vk_id}"
     )
     params = {
         "MerchantLogin": login,
@@ -36,7 +50,8 @@ def _build_payment_url(order, vk_id: int, description: str) -> str:
     }
     if config.robokassa_is_test():
         params["IsTest"] = "1"
-    return f"{ROBOKASSA_URL}?{urlencode(params)}"
+    query = urlencode(params)
+    return f"{ROBOKASSA_URL}?Receipt={receipt_encoded}&{query}"
 
 
 def _store_payment(user, order_id, db):

@@ -1,5 +1,7 @@
+import hashlib
 from datetime import datetime
-from models import Dragon, DragonReservation, User, UserDragon, UserRewardPin, RewardConfig
+from urllib.parse import parse_qs, urlparse, unquote, quote
+from models import Dragon, DragonReservation, User, UserDragon, UserRewardPin, RewardConfig, PaymentOrder, DragonSet
 from api.services.payment_service import select_dragons, _available_dragons
 
 
@@ -196,3 +198,101 @@ def test_same_player_cant_get_own_reserved_via_rewards(db):
     res_dragon_ids = {r.dragon_id for r in reservations}
     assert d1.id in res_dragon_ids
     assert d2.id in res_dragon_ids
+
+
+def test_bot_payment_url_contains_receipt(db, monkeypatch):
+    import config
+    monkeypatch.setattr(config, "ROBOKASSA_TEST_MODE", "0")
+    monkeypatch.setattr(config, "ROBOKASSA_MERCHANT_LOGIN", "testlogin")
+    monkeypatch.setattr(config, "ROBOKASSA_PASSWORD1", "pass1")
+    from bot.handlers.buy_eggs import _build_payment_url
+
+    s = DragonSet(name="Test Set", quantity=3)
+    db.add(s)
+    db.commit()
+    order = PaymentOrder(
+        vk_id=123, set_id=s.id, amount_rub=28500, quantity=3,
+        price_per_pin=9500, status="pending",
+    )
+    db.add(order)
+    db.commit()
+
+    url = _build_payment_url(order, 123, "Набор «Test Set»")
+
+    assert "Receipt=" in url
+    assert "payment_object" in url
+    assert "commodity" in url
+    assert "tax" in url and "none" in url
+    assert "full_payment" in url
+
+
+def test_bot_payment_url_receipt_in_signature(db, monkeypatch):
+    import config
+    monkeypatch.setattr(config, "ROBOKASSA_TEST_MODE", "0")
+    monkeypatch.setattr(config, "ROBOKASSA_MERCHANT_LOGIN", "bestiary")
+    monkeypatch.setattr(config, "ROBOKASSA_PASSWORD1", "sec1")
+    from bot.handlers.buy_eggs import _build_payment_url
+
+    s = DragonSet(name="Test", quantity=2)
+    db.add(s)
+    db.commit()
+    order = PaymentOrder(
+        vk_id=10, set_id=s.id, amount_rub=19000, quantity=2,
+        price_per_pin=9500, status="pending",
+    )
+    db.add(order)
+    db.commit()
+
+    url = _build_payment_url(order, 10, "Набор «Test»")
+    qs = parse_qs(urlparse(url).query)
+    receipt_raw = unquote(qs["Receipt"][0])
+    out_sum = qs["OutSum"][0]
+    inv_id = qs["InvId"][0]
+    login = qs["MerchantLogin"][0]
+    receipt_encoded = quote(receipt_raw, safe="")
+    expected = hashlib.md5(
+        f"{login}:{out_sum}:{inv_id}:{receipt_encoded}:sec1:Shp_vk_id=10".encode("utf-8")
+    ).hexdigest()
+    assert qs["SignatureValue"][0] == expected
+
+
+def test_bot_payment_url_has_istest_in_test_mode(db, monkeypatch):
+    import config
+    monkeypatch.setattr(config, "ROBOKASSA_TEST_MODE", "1")
+    monkeypatch.setattr(config, "ROBOKASSA_MERCHANT_LOGIN", "testlogin")
+    monkeypatch.setattr(config, "ROBOKASSA_TEST_PASSWORD1", "testpass1")
+    from bot.handlers.buy_eggs import _build_payment_url
+
+    s = DragonSet(name="Test", quantity=1)
+    db.add(s)
+    db.commit()
+    order = PaymentOrder(
+        vk_id=7, set_id=s.id, amount_rub=9500, quantity=1,
+        price_per_pin=9500, status="pending",
+    )
+    db.add(order)
+    db.commit()
+
+    url = _build_payment_url(order, 7, "Test")
+    assert "IsTest=1" in url
+
+
+def test_bot_payment_url_no_istest_in_prod(db, monkeypatch):
+    import config
+    monkeypatch.setattr(config, "ROBOKASSA_TEST_MODE", "0")
+    monkeypatch.setattr(config, "ROBOKASSA_MERCHANT_LOGIN", "testlogin")
+    monkeypatch.setattr(config, "ROBOKASSA_PASSWORD1", "pass1")
+    from bot.handlers.buy_eggs import _build_payment_url
+
+    s = DragonSet(name="Test", quantity=1)
+    db.add(s)
+    db.commit()
+    order = PaymentOrder(
+        vk_id=8, set_id=s.id, amount_rub=9500, quantity=1,
+        price_per_pin=9500, status="pending",
+    )
+    db.add(order)
+    db.commit()
+
+    url = _build_payment_url(order, 8, "Test")
+    assert "IsTest" not in url
