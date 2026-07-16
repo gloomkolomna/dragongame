@@ -89,7 +89,7 @@ def _send_pins(vk_id: int, dragons: list, db=None) -> bool:
     if db:
         db.commit()
 
-    lines = [f"🥚 Дракон «{d.name}» — PIN: {d.pin_code}" for d in dragons]
+    lines = [f"🥚 {d.pin_code}" for d in dragons]
     message = (
         "🎉 Покупка прошла успешно!\n\n"
         "Твои PIN-коды:\n" + "\n".join(lines)
