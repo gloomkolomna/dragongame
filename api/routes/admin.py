@@ -1274,7 +1274,8 @@ async def give_epic_dragon(vk_id: int, request: Request, db: Session = Depends(g
     else:
         message = (
             "🐲 Администратор выдал тебе яйцо эпического дракона!\n\n"
-            "Напиши «эпический» или нажми кнопку «🐉 Эпический дракон», чтобы начать выращивание."
+            "Оно появилось в разделе «📖 Список Бестиария» — "
+            "выбери его там, чтобы начать выращивание."
         )
     _notify_user(vk_id, message, attachment)
     return {"ok": True, "dragon_id": dragon_id, "dragon_name": dragon.name}
