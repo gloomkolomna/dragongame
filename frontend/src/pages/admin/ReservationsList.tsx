@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo, useCallback } from 'react';
+import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import client from '../../api/client';
 
@@ -43,6 +43,18 @@ function ReservationsList() {
   const [showForm, setShowForm] = useState(false);
   const [dragonSearch, setDragonSearch] = useState('');
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!dropdownOpen) return;
+    const handleClick = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [dropdownOpen]);
 
   const navigate = useNavigate();
 
@@ -178,16 +190,15 @@ function ReservationsList() {
                 <input className="lair-input" type="text" value={form.vk_url} placeholder="https://vk.ru/id123456"
                   onChange={(e) => handleFormVkChange(e.target.value)} />
               </div>
-              <div style={{ position: 'relative' }}>
+              <div style={{ position: 'relative' }} ref={dropdownRef}>
                 <label className="lair-label">Дракон (PIN — название) — доступно {dragons.length}</label>
                 <input
                   className="lair-input"
                   type="text"
-                  value={dropdownOpen ? dragonSearch : (selectedDragon ? `${selectedDragon.pin_code} — ${selectedDragon.name}` : '')}
-                  placeholder="Поиск дракона..."
-                  onFocus={() => { setDropdownOpen(true); if (!dragonSearch && selectedDragon) setDragonSearch(`${selectedDragon.pin_code} — ${selectedDragon.name}`); }}
+                  value={dragonSearch}
+                  placeholder={selectedDragon ? `${selectedDragon.pin_code} — ${selectedDragon.name}` : 'Поиск дракона...'}
+                  onFocus={() => setDropdownOpen(true)}
                   onChange={(e) => { setDragonSearch(e.target.value); setDropdownOpen(true); }}
-                  onBlur={() => setTimeout(() => setDropdownOpen(false), 200)}
                 />
                 {dropdownOpen && (
                   <div style={{
