@@ -3,7 +3,7 @@ import hashlib
 from datetime import datetime
 from urllib.parse import urlencode, quote_plus
 from fastapi import APIRouter, Depends, Request, HTTPException
-from fastapi.responses import PlainTextResponse, RedirectResponse
+from fastapi.responses import PlainTextResponse, RedirectResponse, HTMLResponse
 from sqlalchemy.orm import Session
 import config
 from db import get_db
@@ -31,8 +31,6 @@ def build_receipt(out_sum: str, order: PaymentOrder, description: str) -> str:
         "quantity": order.quantity,
         "sum": float(out_sum),
         "tax": "none",
-        "payment_method": "full_payment",
-        "payment_object": "commodity",
     }]
     return json.dumps({"items": items}, separators=(",", ":"), ensure_ascii=False)
 
@@ -292,6 +290,64 @@ async def payment_result(request: Request, db: Session = Depends(get_db)):
                  False, signature or "", order.dragon_ids, f"dragons={order.dragon_ids}", db)
 
     return PlainTextResponse(f"OK{inv_id}")
+
+
+@router.get("/pay/{order_id}", response_class=HTMLResponse)
+def payment_post_redirect(order_id: int, vk_id: int, db: Session = Depends(get_db)):
+    order = db.query(PaymentOrder).filter(PaymentOrder.id == order_id).first()
+    if not order:
+        return HTMLResponse("<h1>Заказ не найден</h1>", status_code=404)
+    if order.status != "pending":
+        return HTMLResponse(f"<h1>Заказ уже {order.status}</h1>", status_code=400)
+
+    dset = db.query(DragonSet).filter(DragonSet.id == order.set_id).first()
+    description = f"Набор «{dset.name}»" if dset else "Набор драконов"
+
+    login = config.ROBOKASSA_MERCHANT_LOGIN
+    out_sum = f"{order.amount_rub / 100:.2f}"
+    inv_id = str(order.id)
+    receipt = build_receipt(out_sum, order, description)
+    receipt_encoded = quote_plus(receipt, safe="")
+    password1 = config.robokassa_password1()
+    sig_raw = f"{login}:{out_sum}:{inv_id}:{receipt_encoded}:{password1}:Shp_vk_id={vk_id}"
+    signature = _md5(sig_raw)
+
+    _log_payment(vk_id, order.id, "url_created", login, out_sum, inv_id,
+                 config.robokassa_is_test(), signature, receipt,
+                 f"POST redirect | login={login} out_sum={out_sum} inv_id={inv_id}")
+
+    fields = [
+        ("MerchantLogin", login),
+        ("OutSum", out_sum),
+        ("InvId", inv_id),
+        ("Description", description),
+        ("SignatureValue", signature),
+        ("Shp_vk_id", str(vk_id)),
+        ("Receipt", receipt_encoded),
+        ("Culture", "ru"),
+        ("Encoding", "utf-8"),
+    ]
+    if config.robokassa_is_test():
+        fields.append(("IsTest", "1"))
+
+    inputs = "\n".join(
+        f'<input type="hidden" name="{k}" value="{v}" />'
+        for k, v in fields
+    )
+
+    html = f"""<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>Оплата</title></head>
+<body style="background:#1a1a2e;color:#e0d6c2;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0">
+<div style="text-align:center">
+<p>Перенаправление на страницу оплаты...</p>
+<form id="f" action="{ROBOKASSA_URL}" method="POST">
+{inputs}
+</form>
+<script>document.getElementById('f').submit();</script>
+</div>
+</body></html>"""
+
+    return HTMLResponse(html)
 
 
 @router.get("/success")

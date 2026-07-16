@@ -296,10 +296,7 @@ def test_payment_url_contains_receipt(client, db):
     resp = client.post("/api/payment/create-order", json={"vk_id": 9, "set_id": s.id})
     url = resp.json()["payment_url"]
     assert "Receipt=" in url
-    assert "payment_object" in url
-    assert "commodity" in url
     assert "tax" in url and "none" in url
-    assert "full_payment" in url
 
 
 def test_payment_receipt_signature_includes_receipt(client, db, monkeypatch):

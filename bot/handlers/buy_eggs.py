@@ -22,8 +22,6 @@ def _build_receipt(out_sum: str, order, description: str) -> str:
         "quantity": order.quantity,
         "sum": float(out_sum),
         "tax": "none",
-        "payment_method": "full_payment",
-        "payment_object": "commodity",
     }]
     return json.dumps({"items": items}, separators=(",", ":"), ensure_ascii=False)
 
@@ -281,7 +279,8 @@ def handle_open_payment(user, db, send_message):
 
     dset = db.query(DragonSet).filter(DragonSet.id == order.set_id).first()
     set_name = dset.name if dset else "?"
-    url = _build_payment_url(order, user.vk_id, f"Набор «{set_name}»")
+    import config as _cfg
+    url = f"{_cfg.SITE_URL}/api/payment/pay/{order.id}?vk_id={user.vk_id}"
 
     send_message(
         f"💳 Ссылка для оплаты набора «{set_name}»:\n{url}",

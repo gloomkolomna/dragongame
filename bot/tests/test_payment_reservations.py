@@ -220,10 +220,7 @@ def test_bot_payment_url_contains_receipt(db, monkeypatch):
     url = _build_payment_url(order, 123, "Набор «Test Set»")
 
     assert "Receipt=" in url
-    assert "payment_object" in url
-    assert "commodity" in url
     assert "tax" in url and "none" in url
-    assert "full_payment" in url
 
 
 def test_bot_payment_url_receipt_in_signature(db, monkeypatch):
