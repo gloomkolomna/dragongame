@@ -17,12 +17,12 @@ def _md5(raw: str) -> str:
 
 
 def _build_receipt(out_sum: str, order, description: str) -> str:
-    items = [{
-        "name": description or "Набор драконов",
-        "quantity": order.quantity,
-        "sum": float(out_sum),
-        "tax": "none",
-    }]
+    unit_price = round(float(out_sum) / order.quantity, 2) if order.quantity else float(out_sum)
+    name = f"{description or 'Набор драконов'} - {unit_price:.2f}"
+    items = [
+        {"name": name, "quantity": 1, "sum": unit_price, "tax": "none"}
+        for _ in range(order.quantity)
+    ]
     return json.dumps({"items": items}, separators=(",", ":"), ensure_ascii=False)
 
 
