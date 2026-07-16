@@ -6,6 +6,7 @@ from datetime import datetime
 from urllib.parse import urlencode, quote_plus
 
 ROBOKASSA_URL = "https://auth.robokassa.ru/Merchant/Index.aspx"
+OFFERTA_TEXT = "\n\nПеред покупкой ознакомьтесь с условиями оферты: https://belovolovhome.ru/dragons/offerta.docx"
 
 
 def _now():
@@ -129,7 +130,7 @@ def handle_buy_eggs(user, db, send_message):
         lines.append(f"🥚 {sd['name']} — {sd['quantity']} шт. за {sd['price_rub']} ₽{disc}")
     lines.append("\nВыбери набор:")
 
-    send_message("\n".join(lines), keyboard=buy_eggs_keyboard(set_data))
+    send_message("\n".join(lines) + OFFERTA_TEXT, keyboard=buy_eggs_keyboard(set_data))
 
 
 def handle_buy_set(user, set_id, db, send_message):
@@ -156,7 +157,8 @@ def handle_buy_set(user, set_id, db, send_message):
         send_message(
             f"⚠ У тебя уже есть неоплаченный заказ:\n"
             f"🛒 Набор «{set_name}» — {pending.quantity} шт. за {price_rub} ₽\n\n"
-            f"Нажми кнопку ниже, чтобы перейти к оплате.",
+            f"Нажми кнопку ниже, чтобы перейти к оплате."
+            + OFFERTA_TEXT,
             keyboard=payment_link_keyboard(),
         )
         return
@@ -177,6 +179,7 @@ def handle_buy_set(user, set_id, db, send_message):
             f"⚠ Доступно только {available} драконов из {dset.quantity}.\n"
             f"Стоимость частичного набора: {price_rub} ₽.\n"
             f"Отправь «ок», чтобы согласиться, или выбери другой набор."
+            + OFFERTA_TEXT
         )
         sd = json.loads(user.state_data or "{}")
         sd["_partial_set_id"] = set_id
@@ -209,7 +212,8 @@ def handle_buy_set(user, set_id, db, send_message):
         f"🛒 Набор «{dset.name}»\n"
         f"🥚 {quantity} шт.\n"
         f"💰 {amount_rub} ₽{donor_text}\n\n"
-        f"Нажми кнопку ниже, чтобы перейти к оплате:",
+        f"Нажми кнопку ниже, чтобы перейти к оплате:"
+        + OFFERTA_TEXT,
         keyboard=payment_link_keyboard(),
     )
 
@@ -260,7 +264,8 @@ def handle_partial_confirm(user, db, send_message):
         f"🛒 Набор «{dset.name}» (частичный)\n"
         f"🥚 {quantity} шт.\n"
         f"💰 {amount_rub} ₽{donor_text}\n\n"
-        f"Нажми кнопку ниже, чтобы перейти к оплате:",
+        f"Нажми кнопку ниже, чтобы перейти к оплате:"
+        + OFFERTA_TEXT,
         keyboard=payment_link_keyboard(),
     )
 
@@ -285,7 +290,8 @@ def handle_open_payment(user, db, send_message):
     url = f"{_cfg.SITE_URL}/api/payment/pay/{order.id}?vk_id={user.vk_id}"
 
     send_message(
-        f"💳 Ссылка для оплаты набора «{set_name}»:\n{url}",
+        f"💳 Ссылка для оплаты набора «{set_name}»:\n{url}"
+        + OFFERTA_TEXT,
         keyboard=json.dumps({
             "one_time": False,
             "buttons": [

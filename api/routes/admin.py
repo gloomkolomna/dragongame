@@ -52,6 +52,97 @@ def get_stats(db: Session = Depends(get_db)):
     }
 
 
+# ─── Post top to wall ───
+
+def _plural(n, forms):
+    n = abs(n)
+    if n % 10 == 1 and n % 100 != 11:
+        return forms[0]
+    if 2 <= n % 10 <= 4 and not (12 <= n % 100 <= 14):
+        return forms[1]
+    return forms[2]
+
+
+def _rarity_word(rarity, n):
+    labels = {
+        1: ("обычный", "обычных", "обычных"),
+        2: ("редкий", "редких", "редких"),
+        3: ("легендарный", "легендарных", "легендарных"),
+    }
+    return _plural(n, labels.get(rarity, ("дракон", "драконов", "драконов")))
+
+
+@router.post("/post-top")
+def post_top_stats(db: Session = Depends(get_db)):
+    import config as _cfg
+    if not _cfg.VK_GROUP_TOKEN or not _cfg.VK_GROUP_ID:
+        raise HTTPException(500, "VK_GROUP_TOKEN или VK_GROUP_ID не настроены")
+
+    stats = (
+        db.query(Dragon.rarity, func.count(UserDragon.id))
+        .join(Dragon, UserDragon.dragon_id == Dragon.id)
+        .filter(UserDragon.completed_at != "")
+        .group_by(Dragon.rarity)
+        .all()
+    )
+    result = {1: 0, 2: 0, 3: 0}
+    for rarity, count in stats:
+        result[rarity] = count
+
+    top = (
+        db.query(UserDragon.user_id, func.count(UserDragon.id).label("cnt"))
+        .filter(UserDragon.completed_at != "")
+        .group_by(UserDragon.user_id)
+        .order_by(func.count(UserDragon.id).desc())
+        .limit(5)
+        .all()
+    )
+
+    user_ids = [uid for uid, _ in top]
+    names = {}
+    if user_ids:
+        try:
+            import vk_api as _vk
+            _vk_obj = _vk.VkApi(token=_cfg.VK_GROUP_TOKEN, api_version="5.199").get_api()
+            users = _vk_obj.users.get(user_ids=",".join(str(uid) for uid in user_ids), fields="first_name,last_name")
+            for u in users:
+                uid = u.get("id", 0)
+                name = f"{u.get('first_name', '')} {u.get('last_name', '')}".strip()
+                names[uid] = name
+        except Exception as e:
+            logging.getLogger("admin.post_top").error(f"Failed to resolve names: {e}")
+
+    ordinary = result.get(1, 0)
+    rare = result.get(2, 0)
+    legendary = result.get(3, 0)
+    ow = _rarity_word(1, ordinary)
+    rw = _rarity_word(2, rare)
+    lw = _rarity_word(3, legendary)
+
+    lines = [
+        f"Благодаря усилиям вышивальщиц нашей группы, всего было выращено {ordinary} {ow}, {rare} {rw} и {legendary} {lw} драконов!",
+    ]
+
+    if top:
+        lines.append("")
+        lines.append("Топ вышивальщиц (за всё время):")
+        for i, (uid, cnt) in enumerate(top, 1):
+            name = names.get(uid, f"ID{uid}")
+            dword = _plural(cnt, ("дракон", "дракона", "драконов"))
+            lines.append(f"{i}. @id{uid} ({name}) — {cnt} {dword}")
+
+    text = "\n".join(lines)
+
+    try:
+        import vk_api as _vk
+        _vk_obj = _vk.VkApi(token=_cfg.VK_GROUP_TOKEN, api_version="5.199").get_api()
+        _vk_obj.wall.post(owner_id=-_cfg.VK_GROUP_ID, from_group=1, message=text)
+    except Exception as e:
+        raise HTTPException(500, f"Ошибка публикации: {e}")
+
+    return {"ok": True, "message": text}
+
+
 # ─── Dragons CRUD ───
 
 @router.get("/dragons")

@@ -35,6 +35,8 @@ function Dashboard() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [health, setHealth] = useState<Health | null>(null);
   const [cheats, setCheats] = useState<SuspiciousFeed | null>(null);
+  const [posting, setPosting] = useState(false);
+  const [postMessage, setPostMessage] = useState<string | null>(null);
   const navigate = useNavigate();
 
   const fetchHealth = useCallback(() => {
@@ -44,6 +46,20 @@ function Dashboard() {
   const fetchCheats = useCallback(() => {
     client.get('/admin/suspicious/recent').then((r) => setCheats(r.data)).catch(() => {});
   }, []);
+
+  const postTop = async () => {
+    if (!window.confirm('Опубликовать топ вышивальщиц на стену сообщества?')) return;
+    setPosting(true);
+    setPostMessage(null);
+    try {
+      const r = await client.post('/admin/post-top');
+      setPostMessage('Опубликовано');
+      setTimeout(() => setPostMessage(null), 3000);
+    } catch (e: any) {
+      setPostMessage(e.response?.data?.detail || 'Ошибка публикации');
+    }
+    setPosting(false);
+  };
 
   useEffect(() => {
     client.get('/admin/stats').then((r) => setStats(r.data)).catch(() => {});
@@ -181,6 +197,26 @@ function Dashboard() {
               <span style={{ fontSize: 24 }}>⚪</span>
               <div style={{ fontWeight: 600, fontSize: 14 }}>Загрузка...</div>
             </div>
+          )}
+        </div>
+
+        <div style={{ marginTop: 24, display: 'flex', alignItems: 'center', gap: 12 }}>
+          <button
+            className="lair-btn"
+            onClick={postTop}
+            disabled={posting}
+            style={{ minWidth: 180 }}
+          >
+            {posting ? 'Публикация...' : '📢 Разместить топ'}
+          </button>
+          {postMessage && (
+            <span style={{
+              color: postMessage === 'Опубликовано' ? 'var(--success)' : 'var(--fire)',
+              fontWeight: 600,
+              fontSize: 14,
+            }}>
+              {postMessage}
+            </span>
           )}
         </div>
       </div>
