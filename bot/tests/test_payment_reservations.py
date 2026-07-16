@@ -11,7 +11,7 @@ def test_available_dragons_excludes_reserved(db):
     db.flush()
 
     reservation = DragonReservation(
-        vk_url="https://vk.com/id1", vk_user_id=1,
+        vk_url="https://vk.ru/id1", vk_user_id=1,
         dragon_id=d2.id, is_activated=False,
         created_at=datetime.now().strftime("%Y-%m-%dT%H:%M:%S"),
         updated_at=datetime.now().strftime("%Y-%m-%dT%H:%M:%S"),
@@ -37,7 +37,7 @@ def test_select_dragons_skips_reserved(db):
     db.flush()
 
     reservation = DragonReservation(
-        vk_url="https://vk.com/id1", vk_user_id=1,
+        vk_url="https://vk.ru/id1", vk_user_id=1,
         dragon_id=d2.id, is_activated=False,
         created_at=datetime.now().strftime("%Y-%m-%dT%H:%M:%S"),
         updated_at=datetime.now().strftime("%Y-%m-%dT%H:%M:%S"),
@@ -61,7 +61,7 @@ def test_other_user_can_get_reserved_dragon(db):
     db.flush()
 
     reservation = DragonReservation(
-        vk_url="https://vk.com/id1", vk_user_id=1,
+        vk_url="https://vk.ru/id1", vk_user_id=1,
         dragon_id=d2.id, is_activated=False,
         created_at=datetime.now().strftime("%Y-%m-%dT%H:%M:%S"),
         updated_at=datetime.now().strftime("%Y-%m-%dT%H:%M:%S"),
@@ -89,7 +89,7 @@ def test_available_dragons_includes_activated_reservation(db):
     db.flush()
 
     reservation = DragonReservation(
-        vk_url="https://vk.com/id1",
+        vk_url="https://vk.ru/id1",
         dragon_id=d1.id,
         is_activated=True,
         activated_at=datetime.now().strftime("%Y-%m-%dT%H:%M:%S"),
@@ -115,7 +115,7 @@ def test_same_player_cant_get_own_reserved_via_payment(db):
     db.flush()
 
     reservation = DragonReservation(
-        vk_url="https://vk.com/id777",
+        vk_url="https://vk.ru/id777",
         vk_user_id=777,
         dragon_id=d2.id,
         is_activated=False,
@@ -146,7 +146,7 @@ def test_same_player_cant_get_own_reserved_via_rewards(db):
     db.flush()
 
     reservation = DragonReservation(
-        vk_url="https://vk.com/id888",
+        vk_url="https://vk.ru/id888",
         vk_user_id=888,
         dragon_id=d2.id,
         is_activated=False,

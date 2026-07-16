@@ -25,7 +25,7 @@ def _care_fallback_keyboard(db, vk_id):
         "buttons": [
             [{"action": {"type": "text", "label": "📖 Список Бестиария", "payload": j.dumps({"cmd": "garden"}, ensure_ascii=False)}, "color": "secondary"}],
             [{"action": {"type": "text", "label": "❓ Помощь", "payload": j.dumps({"cmd": "help"}, ensure_ascii=False)}, "color": "secondary"}],
-            [{"action": {"type": "open_link", "label": "📖 Мой Бестиарий", "link": "https://vk.com/app54663330"}}],
+            [{"action": {"type": "open_link", "label": "📖 Мой Бестиарий", "link": "https://vk.ru/app54663330"}}],
         ],
     }, ensure_ascii=False)
     try:
@@ -347,7 +347,7 @@ def handle_care_message(user, text, attachments, db, send_message, upload_image=
             f"⚠ Подозрительный отчёт (уход) от id{user.vk_id}\n"
             f"Действие «{action.action_label}», режим {mode}\n"
             f"Заявлено: {crosses}, норма: {required}\n"
-            f"https://vk.com/gim239999455/convo/{user.vk_id}"
+            f"https://vk.ru/gim239999455/convo/{user.vk_id}"
         )
 
     _award_action_moodlet(db, user.vk_id, care, action)
@@ -715,7 +715,7 @@ def handle_sub_message(user, text, attachments, db, send_message, upload_image=N
         notify_admin(
             f"⚠ Подозрительный отчёт (составной уход) от id{user.vk_id}\n"
             f"Режим {mode}\nЗаявлено: {crosses}, норма: {required}\n"
-            f"https://vk.com/gim239999455/convo/{user.vk_id}"
+            f"https://vk.ru/gim239999455/convo/{user.vk_id}"
         )
 
     name = get_epic_name(db, user.vk_id) or (epic_dragon.name if epic_dragon else "малыш")

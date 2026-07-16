@@ -2,7 +2,7 @@
 
 import json
 
-MINIAPP_URL = "https://vk.com/app54663330"
+MINIAPP_URL = "https://vk.ru/app54663330"
 
 
 def _keyboard(buttons, one_time=False):

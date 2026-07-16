@@ -131,9 +131,9 @@ function UsersList() {
     }
   };
 
-  const profileUrl = (vkId: number) => `https://vk.com/id${vkId}`;
-  const chatUrl = (vkId: number) => `https://vk.com/gim${GROUP_ID}?sel=${vkId}`;
-  const convoUrl = (vkId: number) => `https://vk.com/gim${GROUP_ID}/convo/${vkId}`;
+  const profileUrl = (vkId: number) => `https://vk.ru/id${vkId}`;
+  const chatUrl = (vkId: number) => `https://vk.ru/gim${GROUP_ID}?sel=${vkId}`;
+  const convoUrl = (vkId: number) => `https://vk.ru/gim${GROUP_ID}/convo/${vkId}`;
 
   return (
     <>

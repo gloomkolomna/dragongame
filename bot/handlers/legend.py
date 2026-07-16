@@ -197,7 +197,7 @@ def handle_legend_message(user, text, attachments, db, send_message, upload_imag
             f"⚠ Подозрительный отчёт (легенда) от id{user.vk_id}\n"
             f"Дракон #{dragon_id}, отрывок {frag_num}, режим {mode}\n"
             f"Заявлено: {crosses}, норма: {required}\n"
-            f"https://vk.com/gim239999455/convo/{user.vk_id}"
+            f"https://vk.ru/gim239999455/convo/{user.vk_id}"
         )
 
     complete_legend_fragment(

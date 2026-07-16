@@ -137,7 +137,7 @@ setSuspicious(sr.data.filter((s) => s.user_id === id));    // фильтр на 
 
 ### #5 [P2] Дублирующийся inline-код клавиатур и JSON-payload
 
-`epic_care.py` вручную собирает JSON-клавиатуры через `json.dumps({...})` (строки 58-60, 232-239) вместо существующих билдеров `keyboard.py`. В `epic.py`, `legend.py`, `grow.py` — то же самое (hardcoded `"https://vk.com/app54663330"` минимум в 4 местах вместо `MINIAPP_URL`). Это нарушает DRY и затрудняет смену URL/токена. Рефакторинг-план (`refactoring-plan.md`) это фиксирует, но он не выполнен.
+`epic_care.py` вручную собирает JSON-клавиатуры через `json.dumps({...})` (строки 58-60, 232-239) вместо существующих билдеров `keyboard.py`. В `epic.py`, `legend.py`, `grow.py` — то же самое (hardcoded `"https://vk.ru/app54663330"` минимум в 4 местах вместо `MINIAPP_URL`). Это нарушает DRY и затрудняет смену URL/токена. Рефакторинг-план (`refactoring-plan.md`) это фиксирует, но он не выполнен.
 
 ---
 
@@ -179,7 +179,7 @@ setSuspicious(sr.data.filter((s) => s.user_id === id));    // фильтр на 
 ### Фронтенд (`frontend/src/`)
 - ✅ Хорошо: все страницы плана есть, чистый TypeScript, единый axios-клиент.
 - ❌ `UsersList.tsx:34` — клиентская фильтрация всех отчётов (см. #2).
-- 🟡 `UsersList.tsx` — отсутствует кнопка «💬 В чат» (`open_link` на `vk.com/gim.../convo/{vk_id}`) в карточке подозрительных — план (Фаза 1.5, решение #4) требовал именно «список + кнопка В чат». Проверьте наличие.
+- 🟡 `UsersList.tsx` — отсутствует кнопка «💬 В чат» (`open_link` на `vk.ru/gim.../convo/{vk_id}`) в карточке подозрительных — план (Фаза 1.5, решение #4) требовал именно «список + кнопка В чат». Проверьте наличие.
 
 ### Миграции (`api/alembic/versions/`)
 - ✅ Хорошо: линейный chain, идемпотентные (`sa.inspect`), data-migration `required_item_id → epic_action_items` сделана аккуратно.
@@ -203,7 +203,7 @@ setSuspicious(sr.data.filter((s) => s.user_id === id));    // фильтр на 
 
 ### 🟢 Этап 3 (опционально, продакшен)
 9. Рефакторинг `admin.py` (1375 → ~400 строк) по `refactoring-plan.md` (доменный слой `services/`).
-10. Вынести hardcoded `https://vk.com/app54663330` в `MINIAPP_URL` константу (4+ мест).
+10. Вынести hardcoded `https://vk.ru/app54663330` в `MINIAPP_URL` константу (4+ мест).
 11. Объединить inline JSON-клавиатуры в `keyboard.py` билдеры.
 12. Безопасность по `refactoring-plan.md` Этап 0 (`busy_timeout`, `SECRET_KEY` без дефолта в prod, IDOR-защита collection-эндпоинтов через `verify_launch_params`).
 

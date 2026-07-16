@@ -156,7 +156,7 @@ def _process_rewards(db, vk, logger):
                 ).first()
                 if not existing_reservation:
                     reservation = DragonReservation(
-                        vk_url=f"https://vk.com/id{user.vk_id}",
+                        vk_url=f"https://vk.ru/id{user.vk_id}",
                         vk_user_id=user.vk_id,
                         dragon_id=dragon.id,
                         is_activated=False,
@@ -198,7 +198,7 @@ def _process_rewards(db, vk, logger):
                         [{"action": {"type": "text", "label": "🥚 Добавить яйцо дракона", "payload": json.dumps({"cmd": "pin"}, ensure_ascii=False)}, "color": "primary"}],
                         [{"action": {"type": "text", "label": "📖 Список Бестиария", "payload": json.dumps({"cmd": "garden"}, ensure_ascii=False)}, "color": "secondary"},
                          {"action": {"type": "text", "label": "❓ Помощь", "payload": json.dumps({"cmd": "help"}, ensure_ascii=False)}, "color": "secondary"}],
-                        [{"action": {"type": "open_link", "label": "📖 Мой Бестиарий", "link": "https://vk.com/app54663330"}}],
+                        [{"action": {"type": "open_link", "label": "📖 Мой Бестиарий", "link": "https://vk.ru/app54663330"}}],
                     ],
                 }, ensure_ascii=False)
 

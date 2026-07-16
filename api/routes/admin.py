@@ -856,7 +856,7 @@ async def toggle_user_step(vk_id: int, step_number: int, request: Request, db: S
             "buttons": legend_rows + [
                 [{"action": {"type": "text", "label": "📖 Список Бестиария", "payload": json.dumps({"cmd": "garden"}, ensure_ascii=False)}, "color": "primary"},
                  {"action": {"type": "text", "label": "❓ Помощь", "payload": json.dumps({"cmd": "help"}, ensure_ascii=False)}, "color": "secondary"}],
-                [{"action": {"type": "open_link", "label": "📖 Мой Бестиарий", "link": "https://vk.com/app54663330"}}],
+                [{"action": {"type": "open_link", "label": "📖 Мой Бестиарий", "link": "https://vk.ru/app54663330"}}],
             ],
         }, ensure_ascii=False)
         try:
@@ -1103,7 +1103,7 @@ async def skip_step(vk_id: int, request: Request, db: Session = Depends(get_db))
             "buttons": legend_rows + [
                 [{"action": {"type": "text", "label": "📖 Список Бестиария", "payload": json.dumps({"cmd": "garden"}, ensure_ascii=False)}, "color": "primary"},
                  {"action": {"type": "text", "label": "❓ Помощь", "payload": json.dumps({"cmd": "help"}, ensure_ascii=False)}, "color": "secondary"}],
-                [{"action": {"type": "open_link", "label": "📖 Мой Бестиарий", "link": "https://vk.com/app54663330"}}],
+                [{"action": {"type": "open_link", "label": "📖 Мой Бестиарий", "link": "https://vk.ru/app54663330"}}],
             ],
         }, ensure_ascii=False)
         try:
@@ -2408,7 +2408,7 @@ def detailed_suspicious(db: Session = Depends(get_db)):
     for r in reports:
         nm = names.get(r.user_id, {})
         full = " ".join(x for x in [nm.get("first_name", ""), nm.get("last_name", "")] if x).strip()
-        chat_url = f"https://vk.com/gim{group_id}/convo/{r.user_id}" if group_id else f"https://vk.com/id{r.user_id}"
+        chat_url = f"https://vk.ru/gim{group_id}/convo/{r.user_id}" if group_id else f"https://vk.ru/id{r.user_id}"
         items.append({
             "id": r.id,
             "user_id": r.user_id,
@@ -2819,10 +2819,10 @@ def list_reward_pins(
 
 def _parse_vk_id(vk_url: str) -> int | None:
     import re
-    m = re.search(r'vk\.com/id(\d+)', vk_url)
+    m = re.search(r'vk\.(?:com|ru)/id(\d+)', vk_url)
     if m:
         return int(m.group(1))
-    m = re.search(r'vk\.com/([^/\s?]+)', vk_url)
+    m = re.search(r'vk\.(?:com|ru)/([^/\s?]+)', vk_url)
     if m:
         slug = m.group(1)
         if slug and slug not in ("id", "public", "club", "event"):

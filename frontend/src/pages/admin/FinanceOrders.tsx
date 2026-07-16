@@ -68,7 +68,7 @@ function FinanceOrders({ hideHeader }: { hideHeader?: boolean }) {
                     return (
                       <tr key={o.id} style={{ opacity: o.status === 'fail' ? 0.6 : 1 }}>
                         <td>{o.id}</td>
-                        <td><a href={`https://vk.com/id${o.vk_id}`} target="_blank" rel="noreferrer" style={{ color: 'var(--gold)' }}>{o.vk_id}</a></td>
+                        <td><a href={`https://vk.ru/id${o.vk_id}`} target="_blank" rel="noreferrer" style={{ color: 'var(--gold)' }}>{o.vk_id}</a></td>
                         <td style={{ fontWeight: 600 }}>{o.set_name || `Набор #${o.set_id}`}</td>
                         <td>{o.quantity}</td>
                         <td style={{ color: 'var(--gold)', fontWeight: 600 }}>{(o.amount_rub / 100).toFixed(2)}₽</td>

@@ -21,9 +21,9 @@ from config import (
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
 
-VK_ID_AUTH_URL = "https://id.vk.com/authorize"
-VK_ID_TOKEN_URL = "https://id.vk.com/oauth2/auth"
-VK_ID_USER_INFO_URL = "https://id.vk.com/oauth2/user_info"
+VK_ID_AUTH_URL = "https://id.vk.ru/authorize"
+VK_ID_TOKEN_URL = "https://id.vk.ru/oauth2/auth"
+VK_ID_USER_INFO_URL = "https://id.vk.ru/oauth2/user_info"
 
 STATE_COOKIE = "vk_oauth_state"
 CODE_VERIFIER_COOKIE = "vk_code_verifier"

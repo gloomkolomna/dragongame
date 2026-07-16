@@ -250,7 +250,7 @@ def _handle_crosses_check(user, text, attachments, db, send_message, upload_imag
             f"⚠ Подозрительный отчёт от id{user.vk_id}\n"
             f"Дракон #{dragon_id}, шаг {step}, режим {mode}\n"
             f"Заявлено: {crosses}, норма: {required}\n"
-            f"https://vk.com/gim239999455/convo/{user.vk_id}"
+            f"https://vk.ru/gim239999455/convo/{user.vk_id}"
         )
 
     complete_step(
@@ -315,7 +315,7 @@ def _handle_crosses_check(user, text, attachments, db, send_message, upload_imag
             "buttons": legend_rows + [
                 [{"action": {"type": "text", "label": "📖 Список Бестиария", "payload": j.dumps({"cmd": "garden"}, ensure_ascii=False)}, "color": "primary"},
                  {"action": {"type": "text", "label": "❓ Помощь", "payload": j.dumps({"cmd": "help"}, ensure_ascii=False)}, "color": "secondary"}],
-                [{"action": {"type": "open_link", "label": "📖 Мой Бестиарий", "link": "https://vk.com/app54663330"}}],
+                [{"action": {"type": "open_link", "label": "📖 Мой Бестиарий", "link": "https://vk.ru/app54663330"}}],
             ],
         }, ensure_ascii=False)
 

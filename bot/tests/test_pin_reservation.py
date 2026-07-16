@@ -9,7 +9,7 @@ def test_activate_pin_updates_reservation(db):
     db.flush()
 
     reservation = DragonReservation(
-        vk_url="https://vk.com/id123",
+        vk_url="https://vk.ru/id123",
         vk_user_id=None,
         dragon_id=dragon.id,
         is_activated=False,
@@ -38,7 +38,7 @@ def test_activate_pin_updates_reservation_by_dragon_only(db):
     db.flush()
 
     reservation = DragonReservation(
-        vk_url="https://vk.com/eugenibelovolov",
+        vk_url="https://vk.ru/eugenibelovolov",
         vk_user_id=None,
         dragon_id=dragon.id,
         is_activated=False,

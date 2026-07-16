@@ -14,7 +14,7 @@ app = FastAPI(title="Dragons Admin API")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://belovolovhome.ru", "https://vk.com", "https://m.vk.com", "https://id.vk.com"],
+    allow_origins=["https://belovolovhome.ru", "https://vk.com", "https://m.vk.com", "https://id.vk.com", "https://vk.ru", "https://m.vk.ru", "https://id.vk.ru"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

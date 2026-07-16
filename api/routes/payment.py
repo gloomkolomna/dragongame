@@ -66,7 +66,7 @@ def _send_pins(vk_id: int, dragons: list, db=None) -> bool:
         ).first() if db else None
         if not existing and db:
             reservation = DragonReservation(
-                vk_url=f"https://vk.com/id{vk_id}",
+                vk_url=f"https://vk.ru/id{vk_id}",
                 vk_user_id=vk_id,
                 dragon_id=d.id,
                 is_activated=False,
@@ -92,19 +92,21 @@ def _send_pins(vk_id: int, dragons: list, db=None) -> bool:
     lines = [f"🥚 Дракон «{d.name}» — PIN: {d.pin_code}" for d in dragons]
     message = (
         "🎉 Покупка прошла успешно!\n\n"
-        "Твои PIN-коды:\n" + "\n".join(lines) +
-        "\n\nВведи любой код в боте командой «дракона [PIN]», чтобы начать выращивание."
+        "Твои PIN-коды:\n" + "\n".join(lines)
     )
     try:
         import random
         if not config.VK_GROUP_TOKEN:
             return False
         import vk_api
+        from bot.keyboard import garden_row, bestiary_link_row, _keyboard
+        kb = _keyboard([garden_row(), bestiary_link_row()])
         vk = vk_api.VkApi(token=config.VK_GROUP_TOKEN, api_version="5.199").get_api()
         vk.messages.send(
             user_id=vk_id,
             message=message,
             random_id=random.randint(1, 2 ** 31 - 1),
+            keyboard=kb,
         )
         return True
     except Exception:

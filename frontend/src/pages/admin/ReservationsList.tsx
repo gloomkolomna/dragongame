@@ -160,7 +160,7 @@ function ReservationsList() {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: 12, marginBottom: 16, alignItems: 'end' }}>
               <div>
                 <label className="lair-label">Ссылка VK</label>
-                <input className="lair-input" type="text" value={form.vk_url} placeholder="https://vk.com/id123456"
+                <input className="lair-input" type="text" value={form.vk_url} placeholder="https://vk.ru/id123456"
                   onChange={(e) => handleFormVkChange(e.target.value)} />
               </div>
               <div>

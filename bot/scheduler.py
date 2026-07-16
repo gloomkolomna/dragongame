@@ -189,7 +189,7 @@ def _check_expired(db, vk, logger, session_factory=None):
                         {"action": {"type": "text", "label": "📖 Список Бестиария", "payload": json.dumps({"cmd": "garden"}, ensure_ascii=False)}, "color": "primary"},
                         {"action": {"type": "text", "label": "❓ Помощь", "payload": json.dumps({"cmd": "help"}, ensure_ascii=False)}, "color": "secondary"},
                     ],
-                    [{"action": {"type": "open_link", "label": "📖 Мой Бестиарий", "link": "https://vk.com/app54663330"}}],
+                    [{"action": {"type": "open_link", "label": "📖 Мой Бестиарий", "link": "https://vk.ru/app54663330"}}],
                 ],
             }, ensure_ascii=False)
             try:
@@ -265,7 +265,7 @@ def _switch_garden_keyboard(dragon_id: int):
             [{"action": {"type": "text", "label": "🥚 Перейти к выращиванию яйца", "payload": json.dumps({"cmd": "switch_to", "dragon_id": dragon_id}, ensure_ascii=False)}, "color": "primary"}],
             [{"action": {"type": "text", "label": "📖 Список Бестиария", "payload": json.dumps({"cmd": "garden"}, ensure_ascii=False)}, "color": "secondary"},
              {"action": {"type": "text", "label": "❓ Помощь", "payload": json.dumps({"cmd": "help"}, ensure_ascii=False)}, "color": "secondary"}],
-            [{"action": {"type": "open_link", "label": "📖 Мой Бестиарий", "link": "https://vk.com/app54663330"}}],
+            [{"action": {"type": "open_link", "label": "📖 Мой Бестиарий", "link": "https://vk.ru/app54663330"}}],
         ],
     }, ensure_ascii=False)
 
@@ -297,7 +297,7 @@ def _check_care_due(db, vk, logger, session_factory=None):
             "buttons": [
                 [{"action": {"type": "text", "label": "🐲 Продолжить заботу", "payload": json.dumps({"cmd": "epic"}, ensure_ascii=False)}, "color": "primary"}],
                 [{"action": {"type": "text", "label": "📖 Список Бестиария", "payload": json.dumps({"cmd": "garden"}, ensure_ascii=False)}, "color": "secondary"}],
-                [{"action": {"type": "open_link", "label": "📖 Мой Бестиарий", "link": "https://vk.com/app54663330"}}],
+                [{"action": {"type": "open_link", "label": "📖 Мой Бестиарий", "link": "https://vk.ru/app54663330"}}],
             ],
         }, ensure_ascii=False)
         try:
