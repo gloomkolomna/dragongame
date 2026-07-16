@@ -25,18 +25,32 @@ def _md5(raw: str) -> str:
     return hashlib.md5(raw.encode("utf-8")).hexdigest()
 
 
+def build_receipt(out_sum: str, order: PaymentOrder, description: str) -> str:
+    items = [{
+        "name": description or "Набор драконов",
+        "quantity": order.quantity,
+        "sum": float(out_sum),
+        "tax": "none",
+        "payment_method": "full_payment",
+        "payment_object": "commodity",
+    }]
+    return json.dumps({"items": items}, separators=(",", ":"))
+
+
 def build_payment_url(order: PaymentOrder, vk_id: int, description: str) -> str:
     login = config.ROBOKASSA_MERCHANT_LOGIN
     out_sum = f"{order.amount_rub / 100:.2f}"
     inv_id = str(order.id)
+    receipt = build_receipt(out_sum, order, description)
     signature = _md5(
-        f"{login}:{out_sum}:{inv_id}:{config.robokassa_password1()}:Shp_vk_id={vk_id}"
+        f"{login}:{out_sum}:{inv_id}:{receipt}:{config.robokassa_password1()}:Shp_vk_id={vk_id}"
     )
     params = {
         "MerchantLogin": login,
         "OutSum": out_sum,
         "InvId": inv_id,
         "Description": description,
+        "Receipt": receipt,
         "SignatureValue": signature,
         "Shp_vk_id": str(vk_id),
         "Culture": "ru",

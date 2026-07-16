@@ -289,6 +289,40 @@ def test_robokassa_prod_mode_rejects_test_password(client, db, monkeypatch):
     assert resp_wrong.status_code == 400
 
 
+def test_payment_url_contains_receipt(client, db):
+    for i in range(3):
+        _dragon(db, f"T{i}", family_id=i, pin=f"RR{i:04d}")
+    s = _set(db, name="3 драконов", quantity=3)
+    resp = client.post("/api/payment/create-order", json={"vk_id": 9, "set_id": s.id})
+    url = resp.json()["payment_url"]
+    assert "Receipt=" in url
+    assert "payment_object" in url
+    assert "commodity" in url
+    assert "tax" in url and "none" in url
+    assert "full_payment" in url
+
+
+def test_payment_receipt_signature_includes_receipt(client, db, monkeypatch):
+    monkeypatch.setattr(config, "ROBOKASSA_TEST_MODE", "0")
+    monkeypatch.setattr(config, "ROBOKASSA_MERCHANT_LOGIN", "bestiary")
+    monkeypatch.setattr(config, "ROBOKASSA_PASSWORD1", "sec1")
+    for i in range(2):
+        _dragon(db, f"S{i}", family_id=i, pin=f"ST{i:04d}")
+    s = _set(db, name="2 драконов", quantity=2)
+    resp = client.post("/api/payment/create-order", json={"vk_id": 10, "set_id": s.id})
+    url = resp.json()["payment_url"]
+    from urllib.parse import parse_qs, urlparse
+    qs = parse_qs(urlparse(url).query)
+    receipt = qs["Receipt"][0]
+    out_sum = qs["OutSum"][0]
+    inv_id = qs["InvId"][0]
+    login = qs["MerchantLogin"][0]
+    expected = hashlib.md5(
+        f"{login}:{out_sum}:{inv_id}:{receipt}:sec1:Shp_vk_id=10".encode("utf-8")
+    ).hexdigest()
+    assert qs["SignatureValue"][0] == expected
+
+
 def test_robokassa_payment_url_contains_istest_in_test_mode(client, db, monkeypatch):
     monkeypatch.setattr(config, "ROBOKASSA_TEST_MODE", "1")
     for i in range(3):
