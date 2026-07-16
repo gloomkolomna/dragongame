@@ -90,8 +90,8 @@ function FinanceOrders({ hideHeader }: { hideHeader?: boolean }) {
                           <td>
                             {o.status === 'pending' && (
                               <button
+                                className="lair-btn-danger lair-btn-xs"
                                 onClick={() => handleCancel(o.id)}
-                                style={{ padding: '4px 10px', fontSize: 12, cursor: 'pointer' }}
                               >
                                 Отменить
                               </button>

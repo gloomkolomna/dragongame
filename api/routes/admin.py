@@ -2630,6 +2630,7 @@ def cancel_payment_order(order_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=400, detail="Only pending orders can be cancelled")
     order.status = "fail"
     order.completed_at = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
+    import config
     log = PaymentLog(
         vk_id=order.vk_id,
         order_id=order.id,
