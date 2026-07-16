@@ -311,14 +311,16 @@ def test_payment_receipt_signature_includes_receipt(client, db, monkeypatch):
     s = _set(db, name="2 драконов", quantity=2)
     resp = client.post("/api/payment/create-order", json={"vk_id": 10, "set_id": s.id})
     url = resp.json()["payment_url"]
-    from urllib.parse import parse_qs, urlparse
+    from urllib.parse import parse_qs, urlparse, unquote
     qs = parse_qs(urlparse(url).query)
-    receipt = qs["Receipt"][0]
+    receipt_raw = unquote(qs["Receipt"][0])
     out_sum = qs["OutSum"][0]
     inv_id = qs["InvId"][0]
     login = qs["MerchantLogin"][0]
+    from urllib.parse import quote
+    receipt_encoded = quote(receipt_raw, safe="")
     expected = hashlib.md5(
-        f"{login}:{out_sum}:{inv_id}:{receipt}:sec1:Shp_vk_id=10".encode("utf-8")
+        f"{login}:{out_sum}:{inv_id}:{receipt_encoded}:sec1:Shp_vk_id=10".encode("utf-8")
     ).hexdigest()
     assert qs["SignatureValue"][0] == expected
 

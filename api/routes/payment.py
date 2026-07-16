@@ -1,7 +1,7 @@
 import json
 import hashlib
 from datetime import datetime
-from urllib.parse import urlencode
+from urllib.parse import urlencode, quote
 from fastapi import APIRouter, Depends, Request, HTTPException
 from fastapi.responses import PlainTextResponse, RedirectResponse
 from sqlalchemy.orm import Session
@@ -34,7 +34,7 @@ def build_receipt(out_sum: str, order: PaymentOrder, description: str) -> str:
         "payment_method": "full_payment",
         "payment_object": "commodity",
     }]
-    return json.dumps({"items": items}, separators=(",", ":"))
+    return json.dumps({"items": items}, separators=(",", ":"), ensure_ascii=False)
 
 
 def build_payment_url(order: PaymentOrder, vk_id: int, description: str) -> str:
@@ -42,15 +42,15 @@ def build_payment_url(order: PaymentOrder, vk_id: int, description: str) -> str:
     out_sum = f"{order.amount_rub / 100:.2f}"
     inv_id = str(order.id)
     receipt = build_receipt(out_sum, order, description)
+    receipt_encoded = quote(receipt, safe="")
     signature = _md5(
-        f"{login}:{out_sum}:{inv_id}:{receipt}:{config.robokassa_password1()}:Shp_vk_id={vk_id}"
+        f"{login}:{out_sum}:{inv_id}:{receipt_encoded}:{config.robokassa_password1()}:Shp_vk_id={vk_id}"
     )
     params = {
         "MerchantLogin": login,
         "OutSum": out_sum,
         "InvId": inv_id,
         "Description": description,
-        "Receipt": receipt,
         "SignatureValue": signature,
         "Shp_vk_id": str(vk_id),
         "Culture": "ru",
@@ -58,7 +58,8 @@ def build_payment_url(order: PaymentOrder, vk_id: int, description: str) -> str:
     }
     if config.robokassa_is_test():
         params["IsTest"] = "1"
-    return f"{ROBOKASSA_URL}?{urlencode(params)}"
+    query = urlencode(params)
+    return f"{ROBOKASSA_URL}?Receipt={receipt_encoded}&{query}"
 
 
 def verify_result_signature(out_sum: str, inv_id: str, signature: str, vk_id: str) -> bool:
