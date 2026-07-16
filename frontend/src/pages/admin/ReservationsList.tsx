@@ -41,6 +41,8 @@ function ReservationsList() {
 
   const [form, setForm] = useState({ vk_url: '', dragon_id: 0, notes: '' });
   const [showForm, setShowForm] = useState(false);
+  const [dragonSearch, setDragonSearch] = useState('');
+  const [dropdownOpen, setDropdownOpen] = useState(false);
 
   const navigate = useNavigate();
 
@@ -75,6 +77,7 @@ function ReservationsList() {
       await client.post('/admin/reservations', form);
       setShowForm(false);
       setForm({ vk_url: '', dragon_id: 0, notes: '' });
+      setDragonSearch('');
       fetchReservations();
       fetchDragons();
     } catch (e: any) {
@@ -142,12 +145,24 @@ function ReservationsList() {
 
   if (load) return <div className="lair-content"><div className="lair-skeleton" /></div>;
 
+  const searchLower = dragonSearch.toLowerCase().trim();
+  const filteredDragons = searchLower
+    ? dragons.filter((d) =>
+        d.name.toLowerCase().includes(searchLower) ||
+        d.pin_code.toLowerCase().includes(searchLower) ||
+        d.egg_type.toLowerCase().includes(searchLower) ||
+        (d.family_name || '').toLowerCase().includes(searchLower)
+      )
+    : dragons;
+
+  const selectedDragon = dragons.find((d) => d.id === form.dragon_id);
+
   return (
     <>
       <div className="lair-header">
         <h2>🔖 Бронирования драконов</h2>
         <span style={{ marginLeft: 'auto', color: 'var(--parchment-faded)', fontSize: 14 }}>{filtered.length} из {reservations.length}</span>
-        <button className="lair-btn" style={{ marginLeft: 12 }} onClick={() => { setShowForm(!showForm); setError(''); fetchDragons(form.vk_url); }}>
+        <button className="lair-btn" style={{ marginLeft: 12 }} onClick={() => { setShowForm(!showForm); setError(''); setDragonSearch(''); fetchDragons(form.vk_url); }}>
           {showForm ? 'Скрыть' : '+ Новая бронь'}
         </button>
       </div>
@@ -163,45 +178,90 @@ function ReservationsList() {
                 <input className="lair-input" type="text" value={form.vk_url} placeholder="https://vk.ru/id123456"
                   onChange={(e) => handleFormVkChange(e.target.value)} />
               </div>
-              <div>
+              <div style={{ position: 'relative' }}>
                 <label className="lair-label">Дракон (PIN — название) — доступно {dragons.length}</label>
-                <select className="lair-input" value={form.dragon_id} onChange={(e) => setForm({ ...form, dragon_id: parseInt(e.target.value) || 0 })}>
-                  <option value={0}>— Выберите —</option>
-                  {(() => {
-                    const groups: Record<string, DragonOption[]> = {};
-                    const noFamily: DragonOption[] = [];
-                    dragons.forEach((d) => {
-                      if (d.family_name) {
-                        if (!groups[d.family_name]) groups[d.family_name] = [];
-                        groups[d.family_name].push(d);
-                      } else {
-                        noFamily.push(d);
-                      }
-                    });
-                    const sortedFamilies = Object.keys(groups).sort();
-                    const elements: JSX.Element[] = [];
-                    if (noFamily.length > 0) {
-                      elements.push(
-                        <optgroup key="nofam" label="Без семейства ({noFamily.length})">
-                          {noFamily.map((d) => (
-                            <option key={d.id} value={d.id}>{d.pin_code} — {d.name} ({d.egg_type})</option>
-                          ))}
-                        </optgroup>
-                      );
-                    }
-                    sortedFamilies.forEach((fam) => {
-                      const items = groups[fam];
-                      elements.push(
-                        <optgroup key={fam} label={`${fam} (${items.length})`}>
-                          {items.map((d) => (
-                            <option key={d.id} value={d.id}>{d.pin_code} — {d.name} ({d.egg_type})</option>
-                          ))}
-                        </optgroup>
-                      );
-                    });
-                    return elements;
-                  })()}
-                </select>
+                <input
+                  className="lair-input"
+                  type="text"
+                  value={dropdownOpen ? dragonSearch : (selectedDragon ? `${selectedDragon.pin_code} — ${selectedDragon.name}` : '')}
+                  placeholder="Поиск дракона..."
+                  onFocus={() => { setDropdownOpen(true); if (!dragonSearch && selectedDragon) setDragonSearch(`${selectedDragon.pin_code} — ${selectedDragon.name}`); }}
+                  onChange={(e) => { setDragonSearch(e.target.value); setDropdownOpen(true); }}
+                  onBlur={() => setTimeout(() => setDropdownOpen(false), 200)}
+                />
+                {dropdownOpen && (
+                  <div style={{
+                    position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 50,
+                    maxHeight: 280, overflowY: 'auto', overflowX: 'hidden',
+                    background: 'var(--parchment-dark)', border: '1px solid var(--border)',
+                    borderRadius: '0 0 8px 8px', boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
+                  }}>
+                    {filteredDragons.length === 0 ? (
+                      <div style={{ padding: '12px 14px', color: 'var(--text-muted)', fontSize: 13 }}>Ничего не найдено</div>
+                    ) : (
+                      (() => {
+                        const groups: Record<string, typeof filteredDragons> = {};
+                        const noFamily: typeof filteredDragons = [];
+                        filteredDragons.forEach((d) => {
+                          if (d.family_name) {
+                            if (!groups[d.family_name]) groups[d.family_name] = [];
+                            groups[d.family_name].push(d);
+                          } else {
+                            noFamily.push(d);
+                          }
+                        });
+                        const sortedFamilies = Object.keys(groups).sort();
+                        const elements: JSX.Element[] = [];
+                        if (noFamily.length > 0) {
+                          elements.push(
+                            <div key="nofam">
+                              <div style={{ padding: '4px 14px', fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1, background: 'rgba(0,0,0,0.2)' }}>Без семейства ({noFamily.length})</div>
+                              {noFamily.map((d) => (
+                                <div
+                                  key={d.id}
+                                  onMouseDown={() => { setForm({ ...form, dragon_id: d.id }); setDragonSearch(''); setDropdownOpen(false); }}
+                                  style={{
+                                    padding: '8px 14px', cursor: 'pointer', fontSize: 13,
+                                    color: 'var(--text)',
+                                    background: form.dragon_id === d.id ? 'rgba(212,174,116,0.15)' : 'transparent',
+                                  }}
+                                  onMouseEnter={(e) => { (e.target as HTMLElement).style.background = 'rgba(212,174,116,0.2)'; }}
+                                  onMouseLeave={(e) => { (e.target as HTMLElement).style.background = form.dragon_id === d.id ? 'rgba(212,174,116,0.15)' : 'transparent'; }}
+                                >
+                                  <span style={{ color: 'var(--gold)', fontWeight: 600 }}>{d.pin_code}</span> — {d.name} <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>({d.egg_type})</span>
+                                </div>
+                              ))}
+                            </div>
+                          );
+                        }
+                        sortedFamilies.forEach((fam) => {
+                          const items = groups[fam];
+                          elements.push(
+                            <div key={fam}>
+                              <div style={{ padding: '4px 14px', fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1, background: 'rgba(0,0,0,0.2)' }}>{fam} ({items.length})</div>
+                              {items.map((d) => (
+                                <div
+                                  key={d.id}
+                                  onMouseDown={() => { setForm({ ...form, dragon_id: d.id }); setDragonSearch(''); setDropdownOpen(false); }}
+                                  style={{
+                                    padding: '8px 14px', cursor: 'pointer', fontSize: 13,
+                                    color: 'var(--text)',
+                                    background: form.dragon_id === d.id ? 'rgba(212,174,116,0.15)' : 'transparent',
+                                  }}
+                                  onMouseEnter={(e) => { (e.target as HTMLElement).style.background = 'rgba(212,174,116,0.2)'; }}
+                                  onMouseLeave={(e) => { (e.target as HTMLElement).style.background = form.dragon_id === d.id ? 'rgba(212,174,116,0.15)' : 'transparent'; }}
+                                >
+                                  <span style={{ color: 'var(--gold)', fontWeight: 600 }}>{d.pin_code}</span> — {d.name} <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>({d.egg_type})</span>
+                                </div>
+                              ))}
+                            </div>
+                          );
+                        });
+                        return elements;
+                      })()
+                    )}
+                  </div>
+                )}
               </div>
               <div>
                 <button className="lair-btn" disabled={saving} onClick={handleCreate}>
