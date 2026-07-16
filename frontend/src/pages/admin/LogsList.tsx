@@ -56,6 +56,17 @@ function LogsList() {
   const [apiState, setApiState] = useState<PaginatedState<string>>({ items: [], total: 0, page: 1 });
   const [reqState, setReqState] = useState<PaginatedState<ApiRequestItem>>({ items: [], total: 0, page: 1 });
   const [payState, setPayState] = useState<PaginatedState<PaymentLogItem>>({ items: [], total: 0, page: 1 });
+  const [payExpanded, setPayExpanded] = useState<number | null>(null);
+
+  const payGroups = useMemo(() => {
+    const map = new Map<number, PaymentLogItem[]>();
+    for (const l of payState.items) {
+      const key = l.order_id ?? 0;
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(l);
+    }
+    return [...map.entries()].sort((a, b) => b[0] - a[0]);
+  }, [payState.items]);
 
   const fetchDbLogs = useCallback((p: number) => {
     setLoad(true);
@@ -90,6 +101,7 @@ function LogsList() {
   const switchTab = (t: Tab) => {
     setTab(t);
     setExpanded(null);
+    setPayExpanded(null);
     setFilter('');
     if (t === 'api' && apiState.items.length === 0) fetchApiLogs(1);
     if (t === 'requests' && reqState.items.length === 0) fetchReqLogs(1);
@@ -286,41 +298,72 @@ function LogsList() {
             ) : (
               <>
                 <div style={{ marginBottom: 12, color: 'var(--parchment-faded)', fontSize: 14 }}>
-                  Всего: {payState.total}
+                  Заказов: {payGroups.length} / записей: {payState.total}
                 </div>
                 <div className="lair-card" style={{ padding: 0, overflow: 'hidden' }}>
                   <table className="lair-table">
                     <thead>
                       <tr>
-                        <th>ID</th>
-                        <th>Действие</th>
-                        <th>VK ID</th>
                         <th>Заказ</th>
+                        <th>VK ID</th>
                         <th>Сумма</th>
                         <th>Логин</th>
                         <th>Тест</th>
-                        <th>Sig</th>
-                        <th>Детали</th>
-                        <th>Дата</th>
+                        <th>Действий</th>
+                        <th>Последнее</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {payState.items.map((l) => (
-                        <tr key={l.id}>
-                          <td>{l.id}</td>
-                          <td>{l.action}</td>
-                          <td>{l.vk_id ?? '—'}</td>
-                          <td>{l.order_id ?? '—'}</td>
-                          <td>{l.out_sum}</td>
-                          <td>{l.login}</td>
-                          <td>{l.test_mode ? 'Да' : 'Нет'}</td>
-                          <td style={{ fontFamily: 'var(--font-mono)', fontSize: 11, maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis' }}>{l.sig}</td>
-                          <td style={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis' }}>{l.detail || '—'}</td>
-                          <td style={{ fontSize: 13, color: 'var(--parchment-faded)' }}>{formatDate(l.created_at)}</td>
-                        </tr>
-                      ))}
-                      {payState.items.length === 0 && (
-                        <tr><td colSpan={10} style={{ textAlign: 'center', padding: 32, color: 'var(--parchment-faded)' }}>Логов платежей пока нет</td></tr>
+                      {payGroups.map(([orderId, logs]) => {
+                        const head = logs[0];
+                        const actions = logs.map((l) => l.action).join(', ');
+                        const lastDate = logs[logs.length - 1].created_at;
+                        return (
+                          <>
+                            <tr key={orderId}
+                                onClick={() => setPayExpanded(payExpanded === orderId ? null : orderId)}
+                                style={{ cursor: 'pointer' }}>
+                              <td style={{ fontWeight: 600 }}>#{orderId}</td>
+                              <td>{head.vk_id ?? '—'}</td>
+                              <td>{head.out_sum}</td>
+                              <td>{head.login}</td>
+                              <td>{head.test_mode ? 'Да' : 'Нет'}</td>
+                              <td style={{ fontSize: 13 }}>{logs.length}</td>
+                              <td style={{ fontSize: 13, color: 'var(--parchment-faded)' }}>{formatDate(lastDate)}</td>
+                            </tr>
+                            {payExpanded === orderId && (
+                              <tr key={`${orderId}-det`}>
+                                <td colSpan={7} style={{ padding: '8px 16px', background: 'rgba(0,0,0,0.2)' }}>
+                                  <table style={{ width: '100%', fontSize: 12 }}>
+                                    <thead>
+                                      <tr style={{ color: 'var(--parchment-faded)' }}>
+                                        <th style={{ textAlign: 'left', padding: '2px 8px' }}>ID</th>
+                                        <th style={{ textAlign: 'left', padding: '2px 8px' }}>Действие</th>
+                                        <th style={{ textAlign: 'left', padding: '2px 8px' }}>Sig</th>
+                                        <th style={{ textAlign: 'left', padding: '2px 8px' }}>Дата</th>
+                                        <th style={{ textAlign: 'left', padding: '2px 8px' }}>Детали</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody>
+                                      {logs.map((l) => (
+                                        <tr key={l.id}>
+                                          <td style={{ padding: '2px 8px' }}>{l.id}</td>
+                                          <td style={{ padding: '2px 8px' }}>{l.action}</td>
+                                          <td style={{ padding: '2px 8px', fontFamily: 'var(--font-mono)', fontSize: 11, maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis' }}>{l.sig}</td>
+                                          <td style={{ padding: '2px 8px', color: 'var(--parchment-faded)' }}>{formatDate(l.created_at)}</td>
+                                          <td style={{ padding: '2px 8px', maxWidth: 300, overflow: 'hidden', textOverflow: 'ellipsis' }}>{l.detail || '—'}</td>
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                  </table>
+                                </td>
+                              </tr>
+                            )}
+                          </>
+                        );
+                      })}
+                      {payGroups.length === 0 && (
+                        <tr><td colSpan={7} style={{ textAlign: 'center', padding: 32, color: 'var(--parchment-faded)' }}>Логов платежей пока нет</td></tr>
                       )}
                     </tbody>
                   </table>
