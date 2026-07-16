@@ -59,11 +59,15 @@ def robokassa_is_test() -> bool:
 
 
 def robokassa_password1() -> str:
-    return ROBOKASSA_TEST_PASSWORD1 if robokassa_is_test() else ROBOKASSA_PASSWORD1
+    if robokassa_is_test():
+        return ROBOKASSA_TEST_PASSWORD1 or ROBOKASSA_PASSWORD1
+    return ROBOKASSA_PASSWORD1
 
 
 def robokassa_password2() -> str:
-    return ROBOKASSA_TEST_PASSWORD2 if robokassa_is_test() else ROBOKASSA_PASSWORD2
+    if robokassa_is_test():
+        return ROBOKASSA_TEST_PASSWORD2 or ROBOKASSA_PASSWORD2
+    return ROBOKASSA_PASSWORD2
 
 API_ERROR_LOG = os.getenv("API_ERROR_LOG", "/var/log/dragons/api-error.log")
 

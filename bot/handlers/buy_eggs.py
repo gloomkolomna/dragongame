@@ -35,8 +35,17 @@ def _build_payment_url(order, vk_id: int, description: str) -> str:
     inv_id = str(order.id)
     receipt = _build_receipt(out_sum, order, description)
     receipt_encoded = quote(receipt, safe="")
-    signature = _md5(
-        f"{login}:{out_sum}:{inv_id}:{receipt_encoded}:{config.robokassa_password1()}:Shp_vk_id={vk_id}"
+    password1 = config.robokassa_password1()
+    sig_raw = f"{login}:{out_sum}:{inv_id}:{receipt_encoded}:{password1}:Shp_vk_id={vk_id}"
+    signature = _md5(sig_raw)
+    import sys
+    print(
+        f"[Robokassa BOT] login={login} out_sum={out_sum} inv_id={inv_id} "
+        f"test_mode={config.robokassa_is_test()} "
+        f"pass1_empty={not bool(password1)} pass1_len={len(password1)} "
+        f"sig={signature} receipt_len={len(receipt_encoded)} "
+        f"sig_raw={login}:{out_sum}:{inv_id}:<receipt>:{'***' if password1 else 'EMPTY'}:Shp_vk_id={vk_id}",
+        file=sys.stderr, flush=True,
     )
     params = {
         "MerchantLogin": login,
