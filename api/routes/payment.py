@@ -1,7 +1,7 @@
 import json
 import hashlib
 from datetime import datetime
-from urllib.parse import urlencode, quote
+from urllib.parse import urlencode, quote_plus
 from fastapi import APIRouter, Depends, Request, HTTPException
 from fastapi.responses import PlainTextResponse, RedirectResponse
 from sqlalchemy.orm import Session
@@ -74,7 +74,7 @@ def build_payment_url(order: PaymentOrder, vk_id: int, description: str) -> str:
     out_sum = f"{order.amount_rub / 100:.2f}"
     inv_id = str(order.id)
     receipt = build_receipt(out_sum, order, description)
-    receipt_encoded = quote(receipt, safe="")
+    receipt_encoded = quote_plus(receipt, safe="")
     password1 = config.robokassa_password1()
     sig_raw = f"{login}:{out_sum}:{inv_id}:{receipt_encoded}:{password1}:Shp_vk_id={vk_id}"
     signature = _md5(sig_raw)

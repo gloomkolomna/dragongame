@@ -1,6 +1,6 @@
 import hashlib
 from datetime import datetime
-from urllib.parse import parse_qs, urlparse, unquote, quote
+from urllib.parse import parse_qs, urlparse, unquote_plus, quote_plus
 from models import Dragon, DragonReservation, User, UserDragon, UserRewardPin, RewardConfig, PaymentOrder, DragonSet
 from api.services.payment_service import select_dragons, _available_dragons
 
@@ -245,11 +245,11 @@ def test_bot_payment_url_receipt_in_signature(db, monkeypatch):
 
     url = _build_payment_url(order, 10, "Набор «Test»")
     qs = parse_qs(urlparse(url).query)
-    receipt_raw = unquote(qs["Receipt"][0])
+    receipt_raw = unquote_plus(qs["Receipt"][0])
     out_sum = qs["OutSum"][0]
     inv_id = qs["InvId"][0]
     login = qs["MerchantLogin"][0]
-    receipt_encoded = quote(receipt_raw, safe="")
+    receipt_encoded = quote_plus(receipt_raw, safe="")
     expected = hashlib.md5(
         f"{login}:{out_sum}:{inv_id}:{receipt_encoded}:sec1:Shp_vk_id=10".encode("utf-8")
     ).hexdigest()

@@ -3,7 +3,7 @@
 import hashlib
 import json
 from datetime import datetime
-from urllib.parse import urlencode, quote
+from urllib.parse import urlencode, quote_plus
 
 ROBOKASSA_URL = "https://auth.robokassa.ru/Merchant/Index.aspx"
 
@@ -34,7 +34,7 @@ def _build_payment_url(order, vk_id: int, description: str) -> str:
     out_sum = f"{order.amount_rub / 100:.2f}"
     inv_id = str(order.id)
     receipt = _build_receipt(out_sum, order, description)
-    receipt_encoded = quote(receipt, safe="")
+    receipt_encoded = quote_plus(receipt, safe="")
     password1 = config.robokassa_password1()
     sig_raw = f"{login}:{out_sum}:{inv_id}:{receipt_encoded}:{password1}:Shp_vk_id={vk_id}"
     signature = _md5(sig_raw)

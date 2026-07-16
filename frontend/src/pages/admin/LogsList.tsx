@@ -20,12 +20,27 @@ interface ApiRequestItem {
   created_at: string;
 }
 
-type Tab = 'db' | 'api' | 'requests';
+type Tab = 'db' | 'api' | 'requests' | 'payments';
 
 interface PaginatedState<T> {
   items: T[];
   total: number;
   page: number;
+}
+
+interface PaymentLogItem {
+  id: number;
+  vk_id: number | null;
+  order_id: number | null;
+  action: string;
+  login: string;
+  out_sum: string;
+  inv_id: string;
+  test_mode: boolean;
+  sig: string;
+  receipt_json: string;
+  detail: string;
+  created_at: string;
 }
 
 function LogsList() {
@@ -40,6 +55,7 @@ function LogsList() {
   const [dbState, setDbState] = useState<PaginatedState<ErrorLog>>({ items: [], total: 0, page: 1 });
   const [apiState, setApiState] = useState<PaginatedState<string>>({ items: [], total: 0, page: 1 });
   const [reqState, setReqState] = useState<PaginatedState<ApiRequestItem>>({ items: [], total: 0, page: 1 });
+  const [payState, setPayState] = useState<PaginatedState<PaymentLogItem>>({ items: [], total: 0, page: 1 });
 
   const fetchDbLogs = useCallback((p: number) => {
     setLoad(true);
@@ -62,6 +78,13 @@ function LogsList() {
       .finally(() => setLoad(false));
   }, []);
 
+  const fetchPayLogs = useCallback((p: number) => {
+    setLoad(true);
+    client.get('/admin/payment-logs', { params: { page: p, per_page: perPage } })
+      .then((r) => setPayState({ items: r.data.items, total: r.data.total, page: r.data.page }))
+      .finally(() => setLoad(false));
+  }, []);
+
   useEffect(() => { fetchDbLogs(1); }, [fetchDbLogs]);
 
   const switchTab = (t: Tab) => {
@@ -70,6 +93,7 @@ function LogsList() {
     setFilter('');
     if (t === 'api' && apiState.items.length === 0) fetchApiLogs(1);
     if (t === 'requests' && reqState.items.length === 0) fetchReqLogs(1);
+    if (t === 'payments' && payState.items.length === 0) fetchPayLogs(1);
   };
 
   const handleSort = (key: string) => {
@@ -109,14 +133,15 @@ function LogsList() {
     return sortedFiltered(items);
   }, [reqState.items, filter, sortKey, sortDir]);
 
-  const cur = tab === 'db' ? dbState : tab === 'api' ? apiState : reqState;
+  const cur = tab === 'db' ? dbState : tab === 'api' ? apiState : tab === 'requests' ? reqState : payState;
   const totalPages = Math.ceil(cur.total / perPage);
   const formatDate = (s: string) => s ? new Date(s).toLocaleString('ru-RU') : '—';
 
   const goPage = (p: number) => {
     if (tab === 'db') fetchDbLogs(p);
     else if (tab === 'api') fetchApiLogs(p);
-    else fetchReqLogs(p);
+    else if (tab === 'requests') fetchReqLogs(p);
+    else fetchPayLogs(p);
   };
 
   const clearLogs = async () => {
@@ -137,13 +162,13 @@ function LogsList() {
       <div className="lair-header" style={{ flexWrap: 'wrap', gap: 8, paddingBottom: 12 }}>
         <h2 style={{ flexShrink: 0 }}>📋 Логи</h2>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-          {(['db', 'api', 'requests'] as Tab[]).map((t) => (
+          {(['db', 'api', 'requests', 'payments'] as Tab[]).map((t) => (
             <button key={t}
               className={tab === t ? 'lair-btn' : 'lair-btn lair-btn-outline'}
               style={{ fontSize: 15 }}
               onClick={() => switchTab(t)}
             >
-              {t === 'db' ? 'Логи БД' : t === 'api' ? 'Логи API' : 'Запросы API'}
+              {t === 'db' ? 'Логи БД' : t === 'api' ? 'Логи API' : t === 'requests' ? 'Запросы API' : 'Платежи'}
             </button>
           ))}
           {tab !== 'api' && (
@@ -224,7 +249,7 @@ function LogsList() {
                   )}
                 </div>
               </>
-            ) : (
+            ) : tab === 'requests' ? (
               <>
                 <div style={{ marginBottom: 12, color: 'var(--parchment-faded)', fontSize: 14 }}>
                   Всего: {reqState.total} / показано: {filteredReq.length}
@@ -253,6 +278,49 @@ function LogsList() {
                       ))}
                       {filteredReq.length === 0 && (
                         <tr><td colSpan={6} style={{ textAlign: 'center', padding: 32, color: 'var(--parchment-faded)' }}>Ошибочных запросов нет</td></tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            ) : (
+              <>
+                <div style={{ marginBottom: 12, color: 'var(--parchment-faded)', fontSize: 14 }}>
+                  Всего: {payState.total}
+                </div>
+                <div className="lair-card" style={{ padding: 0, overflow: 'hidden' }}>
+                  <table className="lair-table">
+                    <thead>
+                      <tr>
+                        <th>ID</th>
+                        <th>Действие</th>
+                        <th>VK ID</th>
+                        <th>Заказ</th>
+                        <th>Сумма</th>
+                        <th>Логин</th>
+                        <th>Тест</th>
+                        <th>Sig</th>
+                        <th>Детали</th>
+                        <th>Дата</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {payState.items.map((l) => (
+                        <tr key={l.id}>
+                          <td>{l.id}</td>
+                          <td>{l.action}</td>
+                          <td>{l.vk_id ?? '—'}</td>
+                          <td>{l.order_id ?? '—'}</td>
+                          <td>{l.out_sum}</td>
+                          <td>{l.login}</td>
+                          <td>{l.test_mode ? 'Да' : 'Нет'}</td>
+                          <td style={{ fontFamily: 'var(--font-mono)', fontSize: 11, maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis' }}>{l.sig}</td>
+                          <td style={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis' }}>{l.detail || '—'}</td>
+                          <td style={{ fontSize: 13, color: 'var(--parchment-faded)' }}>{formatDate(l.created_at)}</td>
+                        </tr>
+                      ))}
+                      {payState.items.length === 0 && (
+                        <tr><td colSpan={10} style={{ textAlign: 'center', padding: 32, color: 'var(--parchment-faded)' }}>Логов платежей пока нет</td></tr>
                       )}
                     </tbody>
                   </table>
