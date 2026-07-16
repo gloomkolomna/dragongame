@@ -38,13 +38,11 @@ def _build_payment_url(order, vk_id: int, description: str) -> str:
     password1 = config.robokassa_password1()
     sig_raw = f"{login}:{out_sum}:{inv_id}:{receipt_encoded}:{password1}:Shp_vk_id={vk_id}"
     signature = _md5(sig_raw)
+    pass_masked = f"***({len(password1)})" if password1 else "EMPTY"
+    sig_display = f"{login}:{out_sum}:{inv_id}:<receipt>:{pass_masked}:Shp_vk_id={vk_id}"
     import sys
     print(
-        f"[Robokassa BOT] login={login} out_sum={out_sum} inv_id={inv_id} "
-        f"test_mode={config.robokassa_is_test()} "
-        f"pass1_empty={not bool(password1)} pass1_len={len(password1)} "
-        f"sig={signature} receipt_len={len(receipt_encoded)} "
-        f"sig_raw={login}:{out_sum}:{inv_id}:<receipt>:{'***' if password1 else 'EMPTY'}:Shp_vk_id={vk_id}",
+        f"[Robokassa BOT] {sig_display} sig={signature}",
         file=sys.stderr, flush=True,
     )
     try:
@@ -61,7 +59,7 @@ def _build_payment_url(order, vk_id: int, description: str) -> str:
             test_mode=config.robokassa_is_test(),
             sig=signature,
             receipt_json=receipt,
-            detail="bot",
+            detail=f"{sig_display}\nreceipt={receipt}",
             created_at=now_str,
         )
         s = SessionLocal()

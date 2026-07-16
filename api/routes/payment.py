@@ -78,13 +78,11 @@ def build_payment_url(order: PaymentOrder, vk_id: int, description: str) -> str:
     password1 = config.robokassa_password1()
     sig_raw = f"{login}:{out_sum}:{inv_id}:{receipt_encoded}:{password1}:Shp_vk_id={vk_id}"
     signature = _md5(sig_raw)
+    pass_masked = f"***({len(password1)})" if password1 else "EMPTY"
+    sig_display = f"{login}:{out_sum}:{inv_id}:<receipt>:{pass_masked}:Shp_vk_id={vk_id}"
     import sys
     print(
-        f"[Robokassa API] login={login} out_sum={out_sum} inv_id={inv_id} "
-        f"test_mode={config.robokassa_is_test()} "
-        f"pass1_empty={not bool(password1)} pass1_len={len(password1)} "
-        f"sig={signature} receipt_len={len(receipt_encoded)} "
-        f"sig_raw={login}:{out_sum}:{inv_id}:<receipt>:{'***' if password1 else 'EMPTY'}:Shp_vk_id={vk_id}",
+        f"[Robokassa API] {sig_display} sig={signature}",
         file=sys.stderr, flush=True,
     )
     params = {
@@ -101,7 +99,8 @@ def build_payment_url(order: PaymentOrder, vk_id: int, description: str) -> str:
         params["IsTest"] = "1"
     query = urlencode(params)
     _log_payment(vk_id, order.id, "url_created", login, out_sum, inv_id,
-                 config.robokassa_is_test(), signature, receipt, "")
+                 config.robokassa_is_test(), signature, receipt,
+                 f"{sig_display}\nreceipt={receipt}")
     return f"{ROBOKASSA_URL}?Receipt={receipt_encoded}&{query}"
 
 
