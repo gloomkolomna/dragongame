@@ -29,6 +29,7 @@ from bot.services.user_service import get_or_create_user
 from bot.scheduler import run_timeout_checker
 from bot.services.donor_sync import run_donor_sync
 from bot.services.reward_service import run_reward_scheduler
+from bot.services.weekly_stats_service import run_weekly_post_scheduler
 from bot.keyboard import idle_keyboard, growing_keyboard, waiting_keyboard, start_growing_keyboard, step_buttons_keyboard, await_pin_keyboard, await_garden_keyboard, keyboard_with_legends, keyboard_with_epics, intro_keyboard, empty_keyboard
 from datetime import datetime
 
@@ -181,6 +182,14 @@ def main():
     )
     reward_thread.start()
     print("Reward scheduler started")
+
+    weekly_post_thread = threading.Thread(
+        target=run_weekly_post_scheduler,
+        args=(SessionLocal, vk, 60),
+        daemon=True,
+    )
+    weekly_post_thread.start()
+    print("Weekly post scheduler started")
 
     def upload_image(filepath: str, log_error=None, peer_id=0) -> str:
         last_error = None
