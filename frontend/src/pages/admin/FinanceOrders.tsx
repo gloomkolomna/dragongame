@@ -43,6 +43,16 @@ function FinanceOrders({ hideHeader }: { hideHeader?: boolean }) {
 
   useEffect(() => { reload(); }, []);
 
+  const handleCancel = async (orderId: number) => {
+    if (!confirm(`Отменить заказ №${orderId}?`)) return;
+    try {
+      await client.post(`/admin/payment-orders/${orderId}/cancel`);
+      reload();
+    } catch (e: any) {
+      alert(e?.response?.data?.detail || 'Ошибка отмены');
+    }
+  };
+
   const statusLabel = (s: string) => {
     switch (s) {
       case 'success': return { text: '✅ Успех', color: 'var(--success)' };
@@ -61,26 +71,36 @@ function FinanceOrders({ hideHeader }: { hideHeader?: boolean }) {
             <TableToolbar controls={t} placeholder="🔍 Поиск по VK ID или названию набора..." />
             <div className="lair-card" style={{ padding: 0, overflow: 'hidden' }}>
               <table className="lair-table">
-                <DataTableHead controls={t} allRows={items} />
-                <tbody>
-                  {t.rows.map((o) => {
-                    const st = statusLabel(o.status);
-                    return (
-                      <tr key={o.id} style={{ opacity: o.status === 'fail' ? 0.6 : 1 }}>
-                        <td>{o.id}</td>
-                        <td><a href={`https://vk.ru/id${o.vk_id}`} target="_blank" rel="noreferrer" style={{ color: 'var(--gold)' }}>{o.vk_id}</a></td>
-                        <td style={{ fontWeight: 600 }}>{o.set_name || `Набор #${o.set_id}`}</td>
-                        <td>{o.quantity}</td>
-                        <td style={{ color: 'var(--gold)', fontWeight: 600 }}>{(o.amount_rub / 100).toFixed(2)}₽</td>
-                        <td style={{ color: 'var(--parchment-dim)' }}>{(o.price_per_pin / 100).toFixed(2)}₽</td>
-                        <td style={{ color: st.color, fontWeight: 600 }}>{st.text}</td>
-                        <td>{o.notified ? '✅' : '❌'}</td>
-                        <td style={{ fontSize: 13, color: 'var(--parchment-faded)' }}>{o.created_at?.slice(0, 16).replace('T', ' ') || '—'}</td>
-                        <td style={{ fontSize: 13, color: 'var(--parchment-faded)' }}>{o.completed_at?.slice(0, 16).replace('T', ' ') || '—'}</td>
-                      </tr>
-                    );
-                  })}
-                  {t.rows.length === 0 && <tr><td colSpan={10} style={{ textAlign: 'center', padding: 32, color: 'var(--parchment-faded)' }}>Платежей пока нет</td></tr>}
+                  <DataTableHead controls={t} allRows={items} />
+                  <tbody>
+                    {t.rows.map((o) => {
+                      const st = statusLabel(o.status);
+                      return (
+                        <tr key={o.id} style={{ opacity: o.status === 'fail' ? 0.6 : 1 }}>
+                          <td>{o.id}</td>
+                          <td><a href={`https://vk.ru/id${o.vk_id}`} target="_blank" rel="noreferrer" style={{ color: 'var(--gold)' }}>{o.vk_id}</a></td>
+                          <td style={{ fontWeight: 600 }}>{o.set_name || `Набор #${o.set_id}`}</td>
+                          <td>{o.quantity}</td>
+                          <td style={{ color: 'var(--gold)', fontWeight: 600 }}>{(o.amount_rub / 100).toFixed(2)}₽</td>
+                          <td style={{ color: 'var(--parchment-dim)' }}>{(o.price_per_pin / 100).toFixed(2)}₽</td>
+                          <td style={{ color: st.color, fontWeight: 600 }}>{st.text}</td>
+                          <td>{o.notified ? '✅' : '❌'}</td>
+                          <td style={{ fontSize: 13, color: 'var(--parchment-faded)' }}>{o.created_at?.slice(0, 16).replace('T', ' ') || '—'}</td>
+                          <td style={{ fontSize: 13, color: 'var(--parchment-faded)' }}>{o.completed_at?.slice(0, 16).replace('T', ' ') || '—'}</td>
+                          <td>
+                            {o.status === 'pending' && (
+                              <button
+                                onClick={() => handleCancel(o.id)}
+                                style={{ padding: '4px 10px', fontSize: 12, cursor: 'pointer' }}
+                              >
+                                Отменить
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                    {t.rows.length === 0 && <tr><td colSpan={11} style={{ textAlign: 'center', padding: 32, color: 'var(--parchment-faded)' }}>Платежей пока нет</td></tr>}
                 </tbody>
               </table>
             </div>

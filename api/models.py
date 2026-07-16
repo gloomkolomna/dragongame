@@ -461,6 +461,22 @@ class PaymentOrder(Base):
     completed_at = Column(String, nullable=True)
 
 
+class PaymentLog(Base):
+    __tablename__ = "payment_logs"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    vk_id = Column(Integer, nullable=True)
+    order_id = Column(Integer, nullable=True)
+    action = Column(String(30), default="")
+    login = Column(String, default="")
+    out_sum = Column(String, default="")
+    inv_id = Column(String, default="")
+    test_mode = Column(Boolean, default=True)
+    sig = Column(String, default="")
+    receipt_json = Column(Text, default="")
+    detail = Column(Text, default="")
+    created_at = Column(String, default="")
+
+
 # ─── Донат (VK Donut) ───
 
 class DonorCache(Base):

@@ -47,6 +47,29 @@ def _build_payment_url(order, vk_id: int, description: str) -> str:
         f"sig_raw={login}:{out_sum}:{inv_id}:<receipt>:{'***' if password1 else 'EMPTY'}:Shp_vk_id={vk_id}",
         file=sys.stderr, flush=True,
     )
+    try:
+        from api.models import PaymentLog
+        from api.db import SessionLocal
+        now_str = _now()
+        log = PaymentLog(
+            vk_id=vk_id,
+            order_id=order.id,
+            action="url_created",
+            login=login,
+            out_sum=out_sum,
+            inv_id=inv_id,
+            test_mode=config.robokassa_is_test(),
+            sig=signature,
+            receipt_json=receipt,
+            detail="bot",
+            created_at=now_str,
+        )
+        s = SessionLocal()
+        s.add(log)
+        s.commit()
+        s.close()
+    except Exception:
+        pass
     params = {
         "MerchantLogin": login,
         "OutSum": out_sum,

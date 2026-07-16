@@ -16,7 +16,7 @@ from models import (
     SuspiciousReport, ShopItem, StageShopItem, UserInventory,
     EpicStage, EpicStageAction, EpicActionItem, EpicMoodlet,
     Treasure, UserTreasure, DonorCache,
-    PricingConfig, DragonSet, PaymentOrder,
+    PricingConfig, DragonSet, PaymentOrder, PaymentLog,
     CharacterAxis, CharacterBalance,
     EpicSubAction, EpicSubActionItem, EpicSubActionStep, EpicSubActionOutcome,
     EpicActionOutcome, EpicCareState,
@@ -2619,6 +2619,45 @@ def list_payment_orders(
         }
         result.append(d)
     return {"items": result, "total": total, "page": page, "per_page": per_page}
+
+
+@router.post("/payment-orders/{order_id}/cancel")
+def cancel_payment_order(order_id: int, db: Session = Depends(get_db)):
+    order = db.query(PaymentOrder).filter(PaymentOrder.id == order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    if order.status != "pending":
+        raise HTTPException(status_code=400, detail="Only pending orders can be cancelled")
+    order.status = "fail"
+    order.completed_at = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
+    log = PaymentLog(
+        vk_id=order.vk_id,
+        order_id=order.id,
+        action="cancelled",
+        login="",
+        out_sum=str(order.amount_rub / 100),
+        inv_id=str(order.id),
+        test_mode=config.robokassa_is_test(),
+        sig="",
+        receipt_json="",
+        detail="admin cancelled",
+        created_at=datetime.now().strftime("%Y-%m-%dT%H:%M:%S"),
+    )
+    db.add(log)
+    db.commit()
+    return {"ok": True, "id": order.id, "status": order.status}
+
+
+@router.get("/payment-logs")
+def list_payment_logs(
+    page: int = Query(1, ge=1),
+    per_page: int = Query(50, ge=1, le=200),
+    db: Session = Depends(get_db),
+):
+    q = db.query(PaymentLog)
+    total = q.count()
+    items = q.order_by(PaymentLog.id.desc()).offset((page - 1) * per_page).limit(per_page).all()
+    return {"items": items, "total": total, "page": page, "per_page": per_page}
 
 
 @router.post("/users/{vk_id}/custom-price")

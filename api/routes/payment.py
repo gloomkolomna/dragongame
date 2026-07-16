@@ -7,7 +7,7 @@ from fastapi.responses import PlainTextResponse, RedirectResponse
 from sqlalchemy.orm import Session
 import config
 from db import get_db
-from models import DragonSet, PaymentOrder, User
+from models import DragonSet, PaymentOrder, User, PaymentLog
 from services.payment_service import (
     is_donor, calc_set_price, count_available, select_dragons,
 )
@@ -35,6 +35,38 @@ def build_receipt(out_sum: str, order: PaymentOrder, description: str) -> str:
         "payment_object": "commodity",
     }]
     return json.dumps({"items": items}, separators=(",", ":"), ensure_ascii=False)
+
+
+def _log_payment(vk_id: int, order_id: int, action: str, login: str,
+                 out_sum: str, inv_id: str, test_mode: bool, sig: str,
+                 receipt_json: str, detail: str = "", db: Session = None):
+    try:
+        if db is None:
+            from db import SessionLocal
+            db = SessionLocal()
+            own_db = True
+        else:
+            own_db = False
+        log = PaymentLog(
+            vk_id=vk_id,
+            order_id=order_id,
+            action=action,
+            login=login,
+            out_sum=out_sum,
+            inv_id=inv_id,
+            test_mode=test_mode,
+            sig=sig,
+            receipt_json=receipt_json,
+            detail=detail,
+            created_at=_now(),
+        )
+        db.add(log)
+        db.commit()
+    except Exception:
+        pass
+    finally:
+        if own_db:
+            db.close()
 
 
 def build_payment_url(order: PaymentOrder, vk_id: int, description: str) -> str:
@@ -68,6 +100,8 @@ def build_payment_url(order: PaymentOrder, vk_id: int, description: str) -> str:
     if config.robokassa_is_test():
         params["IsTest"] = "1"
     query = urlencode(params)
+    _log_payment(vk_id, order.id, "url_created", login, out_sum, inv_id,
+                 config.robokassa_is_test(), signature, receipt, "")
     return f"{ROBOKASSA_URL}?Receipt={receipt_encoded}&{query}"
 
 
@@ -224,6 +258,11 @@ async def payment_result(request: Request, db: Session = Depends(get_db)):
         raise HTTPException(status_code=400, detail="bad params")
 
     if not verify_result_signature(out_sum, inv_id, signature, shp_vk_id):
+        try:
+            _log_payment(int(shp_vk_id), int(inv_id), "callback_bad_sig", "", out_sum, inv_id,
+                         False, signature or "", "", "bad signature", db)
+        except Exception:
+            pass
         raise HTTPException(status_code=400, detail="bad signature")
 
     order = db.query(PaymentOrder).filter(PaymentOrder.id == int(inv_id)).first()
@@ -249,6 +288,9 @@ async def payment_result(request: Request, db: Session = Depends(get_db)):
 
     order.notified = _send_pins(order.vk_id, dragons, db)
     db.commit()
+
+    _log_payment(order.vk_id, order.id, "callback_success", "", out_sum, inv_id,
+                 False, signature or "", order.dragon_ids, f"dragons={order.dragon_ids}", db)
 
     return PlainTextResponse(f"OK{inv_id}")
 
