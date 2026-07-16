@@ -1221,6 +1221,65 @@ def restart_dragon(vk_id: int, dragon_id: int, db: Session = Depends(get_db)):
     return {"ok": True}
 
 
+@router.post("/users/{vk_id}/give-epic")
+async def give_epic_dragon(vk_id: int, request: Request, db: Session = Depends(get_db)):
+    b = await _json_body(request)
+    dragon_id = b.get("dragon_id")
+    if not dragon_id:
+        raise HTTPException(status_code=400, detail="dragon_id required")
+    dragon_id = int(dragon_id)
+
+    user = db.query(User).filter(User.vk_id == vk_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    dragon = db.query(Dragon).filter(Dragon.id == dragon_id, Dragon.is_epic == True).first()
+    if not dragon:
+        raise HTTPException(status_code=404, detail="Epic dragon not found")
+
+    active = db.query(UserDragon).filter(
+        UserDragon.user_id == vk_id,
+        UserDragon.dragon_id == dragon_id,
+        UserDragon.completed_at == "",
+    ).first()
+    if active:
+        raise HTTPException(status_code=400, detail="У игрока уже растёт этот эпический дракон")
+
+    db.add(UserDragon(user_id=vk_id, dragon_id=dragon_id, completed_at=""))
+    user.epic_unlocked = True
+
+    has_active_epic = False
+    if user.epic_dragon_id and user.epic_dragon_id != dragon_id:
+        has_active_epic = db.query(UserDragon).join(
+            Dragon, Dragon.id == UserDragon.dragon_id,
+        ).filter(
+            UserDragon.user_id == vk_id,
+            UserDragon.dragon_id == user.epic_dragon_id,
+            UserDragon.completed_at == "",
+            Dragon.is_epic == True,
+        ).first() is not None
+    if not has_active_epic:
+        user.epic_dragon_id = dragon_id
+    db.commit()
+
+    attachment = ""
+    if dragon.egg_path:
+        img_path = os.path.join(os.path.dirname(__file__), "..", "..", "images", "dragons", os.path.basename(dragon.egg_path))
+        attachment = _upload_vk_image(os.path.abspath(img_path), peer_id=vk_id)
+    if has_active_epic:
+        message = (
+            "🐲 Администратор выдал тебе яйцо эпического дракона!\n\n"
+            "Оно появилось в разделе «📖 Список Бестиария» — "
+            "переключись на него, когда захочешь начать выращивание."
+        )
+    else:
+        message = (
+            "🐲 Администратор выдал тебе яйцо эпического дракона!\n\n"
+            "Напиши «эпический» или нажми кнопку «🐉 Эпический дракон», чтобы начать выращивание."
+        )
+    _notify_user(vk_id, message, attachment)
+    return {"ok": True, "dragon_id": dragon_id, "dragon_name": dragon.name}
+
+
 # ─── Epic care admin stepping ───
 
 def _push_epic_care_screen(vk_id: int):

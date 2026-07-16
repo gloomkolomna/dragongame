@@ -11,6 +11,7 @@ interface User { vk_id: number; first_name: string; last_name: string; state: st
 interface Detail { vk_id: number; first_name: string; last_name: string; registered_at: string; stitches_balance: number; stitches_earned: number; epic_unlocked: boolean; epic_name: string; is_don: boolean; don_since: string | null; don_synced_at: string | null; pins_activated: number; pins: { code: string; dragon_name: string; egg_type: string; status: string; activated_at: string }[]; dragons: { dragon_id: number; name: string | null; egg_type: string; is_epic: boolean; epic_name: string; status: string; progress_pct: number; completed_at: string | null }[]; dragons_collected: number; dragons_active: number; dragons_total: number; suspicious_reports: Suspicious[]; treasures_collected: TreasureCollected[]; custom_price_per_dragon: number | null; }
 interface TreasureCollected { id: number; name: string; description: string; image_path: string; dragon_id: number; is_active: boolean; }
 interface Suspicious { id: number; user_id: number; dragon_id: number | null; step_number: number; declared_crosses: number; normal_crosses: number; mode: string; status: string; created_at: string; }
+interface EpicSpecies { id: number; name: string; }
 
 const USER_COLUMNS: Column<User>[] = [
   { key: 'player', label: 'Игрок', value: (u) => `${[u.first_name, u.last_name].filter(Boolean).join(' ')} id${u.vk_id}`, sortValue: (u) => [u.first_name, u.last_name].filter(Boolean).join(' ').toLowerCase(), filter: 'text' },
@@ -28,6 +29,8 @@ function UsersList() {
   const [balanceInput, setBalanceInput] = useState('');
   const [earnedInput, setEarnedInput] = useState('');
   const [priceInput, setPriceInput] = useState('');
+  const [epicSpecies, setEpicSpecies] = useState<EpicSpecies[]>([]);
+  const [epicPick, setEpicPick] = useState('');
   const [load, setLoad] = useState(true);
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -39,6 +42,7 @@ function UsersList() {
       const uid = searchParams.get('vk_id');
       if (uid) show(Number(uid));
     }).finally(() => setLoad(false));
+    client.get('/admin/epic/species').then((r) => setEpicSpecies(r.data)).catch(() => {});
   }, []);
 
   const show = async (id: number) => {
@@ -94,6 +98,19 @@ function UsersList() {
       show(vkId);
     } catch (e: any) {
       alert(e.response?.data?.detail || 'Ошибка');
+    }
+  };
+
+  const giveEpic = async () => {
+    if (!detail || !epicPick) return;
+    const species = epicSpecies.find((s) => s.id === Number(epicPick));
+    if (!window.confirm(`Выдать игроку эпического дракона «${species?.name || epicPick}»?`)) return;
+    try {
+      await client.post(`/admin/users/${detail.vk_id}/give-epic`, { dragon_id: Number(epicPick) });
+      setEpicPick('');
+      show(detail.vk_id);
+    } catch (e: any) {
+      alert(e.response?.data?.detail || 'Ошибка выдачи');
     }
   };
 
@@ -201,6 +218,24 @@ function UsersList() {
                 {detail.custom_price_per_dragon != null
                   ? `Текущая: ${detail.custom_price_per_dragon / 100}₽ за дракона. Скидки наборов применяются сверху.`
                   : 'Используется стандартная цена из раздела Финансы.'}
+              </div>
+            </div>
+
+            <div className="lair-card" style={{ marginBottom: 16 }}>
+              <h4 style={{ color: 'var(--gold)', margin: '0 0 12px' }}>🐲 Выдать эпического дракона</h4>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                <select className="lair-input" value={epicPick}
+                        onChange={(e) => setEpicPick(e.target.value)}
+                        style={{ minWidth: 220 }}>
+                  <option value="">— выбери эпического —</option>
+                  {epicSpecies.map((s) => (
+                    <option key={s.id} value={s.id}>{s.name}</option>
+                  ))}
+                </select>
+                <button className="lair-btn lair-btn-sm" disabled={!epicPick} onClick={giveEpic}>🥚 Выдать яйцо</button>
+              </div>
+              <div style={{ color: 'var(--parchment-faded)', fontSize: 12, marginTop: 6 }}>
+                Игрок получит уведомление и сможет начать выращивание командой «эпический».
               </div>
             </div>
 

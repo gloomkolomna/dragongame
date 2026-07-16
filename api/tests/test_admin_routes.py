@@ -1215,3 +1215,119 @@ def test_available_dragons_exclude_same_user(client, db):
     available_ids = {d["id"] for d in available}
     assert d1 not in available_ids
     assert d2 in available_ids
+
+
+# ─── Give epic dragon ───
+
+def test_give_epic_creates_user_dragon(client, db):
+    ed = Dragon(name="EpicGift", rarity=1, steps_count=1, is_active=True, is_epic=True, egg_type="лунное")
+    db.add(ed)
+    user = User(vk_id=700, state="idle", epic_dragon_id=None)
+    db.add(user)
+    db.commit()
+
+    resp = client.post("/api/admin/users/700/give-epic", json={"dragon_id": ed.id})
+    assert resp.status_code == 200
+    assert resp.json()["dragon_name"] == "EpicGift"
+
+    db.refresh(user)
+    assert user.epic_unlocked is True
+    assert user.epic_dragon_id == ed.id
+    ud = db.query(UserDragon).filter(UserDragon.user_id == 700, UserDragon.dragon_id == ed.id).first()
+    assert ud is not None
+    assert ud.completed_at == ""
+
+
+def test_give_epic_does_not_switch_if_active_epic_exists(client, db):
+    e1 = Dragon(name="EpicActive", rarity=1, steps_count=1, is_active=True, is_epic=True, egg_type="огонь")
+    e2 = Dragon(name="EpicNew", rarity=1, steps_count=1, is_active=True, is_epic=True, egg_type="вода")
+    db.add_all([e1, e2])
+    db.flush()
+    user = User(vk_id=705, state="epic_egg_1", epic_unlocked=True, epic_dragon_id=e1.id)
+    db.add(user)
+    db.add(UserDragon(user_id=705, dragon_id=e1.id, completed_at=""))
+    db.commit()
+
+    resp = client.post("/api/admin/users/705/give-epic", json={"dragon_id": e2.id})
+    assert resp.status_code == 200
+
+    db.refresh(user)
+    assert user.epic_dragon_id == e1.id
+    ud = db.query(UserDragon).filter(UserDragon.user_id == 705, UserDragon.dragon_id == e2.id, UserDragon.completed_at == "").first()
+    assert ud is not None
+
+
+def test_give_epic_switches_if_no_active_epic(client, db):
+    e1 = Dragon(name="EpicDone", rarity=1, steps_count=1, is_active=True, is_epic=True, egg_type="золото")
+    e2 = Dragon(name="EpicFresh", rarity=1, steps_count=1, is_active=True, is_epic=True, egg_type="серебро")
+    db.add_all([e1, e2])
+    db.flush()
+    user = User(vk_id=706, state="idle", epic_unlocked=True, epic_dragon_id=e1.id)
+    db.add(user)
+    db.add(UserDragon(user_id=706, dragon_id=e1.id, completed_at="2026-01-01T00:00:00"))
+    db.commit()
+
+    resp = client.post("/api/admin/users/706/give-epic", json={"dragon_id": e2.id})
+    assert resp.status_code == 200
+
+    db.refresh(user)
+    assert user.epic_dragon_id == e2.id
+
+
+def test_give_epic_rejects_non_epic(client, db):
+    d = Dragon(name="Regular", rarity=1, steps_count=1, is_active=True, is_epic=False, pin_code="GG001")
+    db.add(d)
+    user = User(vk_id=701, state="idle")
+    db.add(user)
+    db.commit()
+
+    resp = client.post("/api/admin/users/701/give-epic", json={"dragon_id": d.id})
+    assert resp.status_code == 404
+
+
+def test_give_epic_rejects_duplicate_active(client, db):
+    ed = Dragon(name="EpicDup", rarity=1, steps_count=1, is_active=True, is_epic=True, egg_type="тьма")
+    db.add(ed)
+    user = User(vk_id=702, state="idle")
+    db.add(user)
+    db.flush()
+    db.add(UserDragon(user_id=702, dragon_id=ed.id, completed_at=""))
+    db.commit()
+
+    resp = client.post("/api/admin/users/702/give-epic", json={"dragon_id": ed.id})
+    assert resp.status_code == 400
+
+
+def test_give_epic_allows_after_completed(client, db):
+    ed = Dragon(name="EpicAgain", rarity=1, steps_count=1, is_active=True, is_epic=True, egg_type="свет")
+    db.add(ed)
+    user = User(vk_id=703, state="idle")
+    db.add(user)
+    db.flush()
+    db.add(UserDragon(user_id=703, dragon_id=ed.id, completed_at="2026-01-01T00:00:00"))
+    db.commit()
+
+    resp = client.post("/api/admin/users/703/give-epic", json={"dragon_id": ed.id})
+    assert resp.status_code == 200
+    active = db.query(UserDragon).filter(
+        UserDragon.user_id == 703, UserDragon.dragon_id == ed.id, UserDragon.completed_at == "",
+    ).first()
+    assert active is not None
+
+
+def test_give_epic_user_not_found(client, db):
+    ed = Dragon(name="EpicNoUser", rarity=1, steps_count=1, is_active=True, is_epic=True, egg_type="лёд")
+    db.add(ed)
+    db.commit()
+
+    resp = client.post("/api/admin/users/99999/give-epic", json={"dragon_id": ed.id})
+    assert resp.status_code == 404
+
+
+def test_give_epic_requires_dragon_id(client, db):
+    user = User(vk_id=704, state="idle")
+    db.add(user)
+    db.commit()
+
+    resp = client.post("/api/admin/users/704/give-epic", json={})
+    assert resp.status_code == 400
