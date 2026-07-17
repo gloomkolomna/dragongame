@@ -803,6 +803,23 @@ def test_stats_includes_suspicious_total(client, db):
     assert stats["suspicious_total"] == 1
 
 
+def test_stats_eggs_growing_and_dragons_grown(client, db):
+    from models import UserDragon
+    db.add(User(vk_id=785, state="idle"))
+    db.add(Dragon(name="Стат1", rarity=1, pin_code="ST01", steps_count=1))
+    db.add(Dragon(name="Стат2", rarity=1, pin_code="ST02", steps_count=1))
+    db.commit()
+    d1 = db.query(Dragon).filter(Dragon.name == "Стат1").first()
+    d2 = db.query(Dragon).filter(Dragon.name == "Стат2").first()
+    db.add(UserDragon(user_id=785, dragon_id=d1.id, completed_at=""))
+    db.add(UserDragon(user_id=785, dragon_id=d2.id, completed_at="2026-07-17 10:00"))
+    db.commit()
+
+    stats = client.get("/api/admin/stats").json()
+    assert stats["eggs_growing"] == 1
+    assert stats["dragons_grown"] == 1
+
+
 def test_character_axes_crud(client):
     r = client.post("/api/admin/character-axes", json={"positive_label": "Добрый", "negative_label": "Злой", "sort_order": 1})
     assert r.status_code == 200

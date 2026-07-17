@@ -5,7 +5,8 @@ import client from '../../api/client';
 
 interface Stats {
   dragons_total: number; dragons_active: number; pins_total: number;
-  pins_active: number; pins_used: number; users_total: number; dragons_collected_total: number;
+  pins_active: number; pins_used: number; users_total: number;
+  eggs_growing: number; dragons_grown: number;
   suspicious_total: number;
   total_norm_crosses: number;
   total_shop_crosses: number;
@@ -75,7 +76,8 @@ function Dashboard() {
     { value: stats?.pins_total ?? '—', label: 'Всего PIN', icon: '🔑' },
     { value: stats?.pins_active ?? '—', label: 'PIN активны', icon: '🟢' },
     { value: stats?.users_total ?? '—', label: 'Игроков', icon: '👥' },
-    { value: stats?.dragons_collected_total ?? '—', label: 'Выращено', icon: '⭐' },
+    { value: stats?.eggs_growing ?? '—', label: 'Выращивается яиц', icon: '🥚' },
+    { value: stats?.dragons_grown ?? '—', label: 'Выращено драконов', icon: '⭐' },
     { value: stats?.total_norm_crosses?.toLocaleString('ru-RU') ?? '—', label: 'Норм стежков', icon: '🧵' },
     { value: stats?.total_shop_crosses?.toLocaleString('ru-RU') ?? '—', label: 'Стежков в магазине', icon: '🛒' },
   ];
