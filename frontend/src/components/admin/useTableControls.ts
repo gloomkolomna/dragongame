@@ -4,6 +4,7 @@ export interface Column<T> {
   key: string;
   label: string;
   value?: (row: T) => string;
+  filterValues?: (row: T) => string[];
   sortValue?: (row: T) => string | number;
   sortable?: boolean;
   filter?: 'text' | 'select';
@@ -53,11 +54,16 @@ export function useTableControls<T>(rows: T[], columns: Column<T>[]): TableContr
       const val = filters[key];
       if (!val) continue;
       const c = colMap[key];
-      if (!c || !c.value) continue;
+      if (!c || (!c.value && !c.filterValues)) continue;
       if (c.filter === 'select') {
-        list = list.filter((r) => String(c.value!(r) ?? '') === val);
+        if (c.filterValues) {
+          list = list.filter((r) => c.filterValues!(r).includes(val));
+        } else {
+          list = list.filter((r) => String(c.value!(r) ?? '') === val);
+        }
       } else {
-        list = list.filter((r) => String(c.value!(r) ?? '').toLowerCase().includes(val.toLowerCase()));
+        const acc = c.value ?? ((r: T) => c.filterValues!(r).join(', '));
+        list = list.filter((r) => String(acc(r) ?? '').toLowerCase().includes(val.toLowerCase()));
       }
     }
 

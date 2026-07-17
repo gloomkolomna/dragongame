@@ -1840,7 +1840,23 @@ def upsert_family_treasure(
 
 @router.get("/shop-items")
 def list_shop_items(db: Session = Depends(get_db)):
-    return db.query(ShopItem).order_by(ShopItem.sort_order, ShopItem.id).all()
+    items = db.query(ShopItem).order_by(ShopItem.sort_order, ShopItem.id).all()
+    dragon_names = {d.id: d.name for d in db.query(Dragon).all()}
+    item_dragons = {}
+    for link in db.query(StageShopItem).all():
+        parts = (link.stage_key or "").split(":")
+        if len(parts) < 3 or parts[0] != "epic" or not parts[1].isdigit():
+            continue
+        name = dragon_names.get(int(parts[1]))
+        if name:
+            item_dragons.setdefault(link.item_id, set()).add(name)
+    return [
+        {
+            **{c.name: getattr(it, c.name) for c in ShopItem.__table__.columns},
+            "dragon_names": sorted(item_dragons.get(it.id, set())),
+        }
+        for it in items
+    ]
 
 
 @router.post("/shop-items")

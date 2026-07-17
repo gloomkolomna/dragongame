@@ -7,12 +7,14 @@ import { DataTableHead, TableToolbar } from '../../components/admin/DataTable';
 interface ShopItem {
   id: number; name: string; description: string; cost_stitches: number;
   image_path: string; sort_order: number; is_active: boolean; is_optional: boolean;
+  dragon_names: string[];
 }
 
 const COLUMNS: Column<ShopItem>[] = [
   { key: 'image', label: '', width: 44 },
   { key: 'name', label: 'Название', value: (i) => i.name, filter: 'text' },
   { key: 'description', label: 'Описание', value: (i) => i.description, filter: 'text' },
+  { key: 'dragon', label: 'Дракон', value: (i) => (i.dragon_names || []).join(', '), filterValues: (i) => i.dragon_names || [], filter: 'select' },
   { key: 'cost', label: 'Цена', value: (i) => String(i.cost_stitches), sortValue: (i) => i.cost_stitches },
   { key: 'optional', label: 'Обязат.', value: (i) => (i.is_optional ? 'Необязательный' : 'Обязательный'), filter: 'select' },
   { key: 'active', label: 'Акт.', value: (i) => (i.is_active ? 'Активен' : 'Скрыт'), filter: 'select', width: 90 },
@@ -51,6 +53,7 @@ function ShopList() {
                   <td>{it.image_path ? <img src={`/dragons/api/static/images/${it.image_path}`} alt="" style={{ width: 30, height: 30, objectFit: 'contain' }} onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} /> : '—'}</td>
                   <td style={{ fontWeight: 600 }}>{it.name}</td>
                   <td style={{ color: 'var(--parchment-dim)', fontSize: 13 }}>{it.description}</td>
+                  <td style={{ fontSize: 13 }}>{(it.dragon_names || []).length ? it.dragon_names.join(', ') : '—'}</td>
                   <td style={{ color: 'var(--gold)', fontWeight: 600 }}>{it.cost_stitches} ✚</td>
                   <td style={{ fontSize: 13 }}>{it.is_optional ? '⏭ необяз.' : '✅ обяз.'}</td>
                   <td>{it.is_active ? '✅' : '❌'}</td>
@@ -62,7 +65,7 @@ function ShopList() {
                   </td>
                 </tr>
               ))}
-              {t.rows.length === 0 && <tr><td colSpan={7} style={{ textAlign: 'center', color: 'var(--text-muted)', padding: 16 }}>Ничего не найдено</td></tr>}
+              {t.rows.length === 0 && <tr><td colSpan={8} style={{ textAlign: 'center', color: 'var(--text-muted)', padding: 16 }}>Ничего не найдено</td></tr>}
               </tbody>
             </table>
           )}

@@ -481,6 +481,20 @@ def test_shop_item_requires_name(client):
     assert resp.status_code == 400
 
 
+def test_shop_items_list_includes_dragon_names(client):
+    fam = _create_family(client)
+    dragon = client.post("/api/admin/dragons", data={"name": "Эпик", "rarity": 1, "family_id": fam.json()["id"], "is_epic": True}).json()
+    item = client.post("/api/admin/shop-items", json={"name": "Смесь", "cost_stitches": 100}).json()
+    other = client.post("/api/admin/shop-items", json={"name": "Ванночка", "cost_stitches": 200}).json()
+    client.post("/api/admin/stage-shop-items", json={"stage_key": f"epic:{dragon['id']}:1", "item_id": item["id"]})
+    client.post("/api/admin/stage-shop-items", json={"stage_key": f"epic:{dragon['id']}:egg", "item_id": item["id"]})
+    client.post("/api/admin/stage-shop-items", json={"stage_key": f"epic:{dragon['id']}", "item_id": other["id"]})
+
+    lst = {i["id"]: i for i in client.get("/api/admin/shop-items").json()}
+    assert lst[item["id"]]["dragon_names"] == ["Эпик"]
+    assert lst[other["id"]]["dragon_names"] == []
+
+
 # ─── Phase 0: stage ↔ shop item ───
 
 def test_stage_shop_item_binding(client):

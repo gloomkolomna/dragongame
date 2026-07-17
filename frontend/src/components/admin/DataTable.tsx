@@ -18,8 +18,17 @@ export function DataTableHead<T>({ controls, allRows }: HeadProps<T>) {
 
   const optionsFor = (c: Column<T>): string[] => {
     if (c.options) return c.options;
-    if (!c.value) return [];
     const set = new Set<string>();
+    if (c.filterValues) {
+      allRows.forEach((r) => {
+        c.filterValues!(r).forEach((v) => {
+          const s = String(v ?? '').trim();
+          if (s) set.add(s);
+        });
+      });
+      return Array.from(set).sort((a, b) => a.localeCompare(b));
+    }
+    if (!c.value) return [];
     allRows.forEach((r) => {
       const v = String(c.value!(r) ?? '').trim();
       if (v) set.add(v);
