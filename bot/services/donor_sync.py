@@ -10,7 +10,7 @@ sys.path.insert(0, _root)
 sys.path.insert(0, os.path.join(_root, "api"))
 
 
-def run_donor_sync(session_factory, interval_hours=24):
+def run_donor_sync(session_factory, interval_hours=8):
     logger = logging.getLogger("donor_sync")
     while True:
         db = session_factory()
@@ -33,7 +33,20 @@ def run_donor_sync(session_factory, interval_hours=24):
 
 def _sync_all(db, logger=None):
     import config
-    from models import User, DonorCache
+    from models import User
+
+    if not config.DONUT_API_URL or not config.DONUT_API_KEY:
+        return
+
+    users = db.query(User).all()
+
+    for user in users:
+        sync_user(db, user.vk_id, logger)
+
+
+def sync_user(db, vk_id, logger=None):
+    import config
+    from models import DonorCache
 
     if not config.DONUT_API_URL or not config.DONUT_API_KEY:
         return
@@ -41,41 +54,38 @@ def _sync_all(db, logger=None):
     import httpx
     from datetime import datetime
 
-    users = db.query(User).all()
     headers = {"X-API-Key": config.DONUT_API_KEY}
+    now = datetime.now().isoformat()
+    try:
+        resp = httpx.get(
+            f"{config.DONUT_API_URL}/{vk_id}",
+            headers=headers,
+            timeout=10,
+        )
+        if resp.status_code != 200:
+            return
+        data = resp.json()
+    except Exception as e:
+        if logger:
+            logger.error(f"donor sync failed for {vk_id}: {e}")
+        return
 
-    for user in users:
-        now = datetime.now().isoformat()
-        try:
-            resp = httpx.get(
-                f"{config.DONUT_API_URL}/{user.vk_id}",
-                headers=headers,
-                timeout=10,
-            )
-            if resp.status_code != 200:
-                continue
-            data = resp.json()
-        except Exception as e:
-            if logger:
-                logger.error(f"donor sync failed for {user.vk_id}: {e}")
-            continue
+    is_don = bool(data.get("is_don", False))
+    don_since = data.get("don_since")
 
-        is_don = bool(data.get("is_don", False))
-        don_since = data.get("don_since")
-
-        donor = db.query(DonorCache).filter(DonorCache.vk_id == user.vk_id).first()
-        if not donor:
-            donor = DonorCache(
-                vk_id=user.vk_id,
-                is_don=is_don,
-                don_since=don_since,
-                updated_at=now,
-                last_synced_at=now,
-            )
-            db.add(donor)
-        else:
-            donor.is_don = is_don
-            donor.don_since = don_since
-            donor.updated_at = now
-            donor.last_synced_at = now
-        db.commit()
+    donor = db.query(DonorCache).filter(DonorCache.vk_id == vk_id).first()
+    if not donor:
+        donor = DonorCache(
+            vk_id=vk_id,
+            is_don=is_don,
+            don_since=don_since,
+            updated_at=now,
+            last_synced_at=now,
+        )
+        db.add(donor)
+    else:
+        donor.is_don = is_don
+        donor.don_since = don_since
+        donor.updated_at = now
+        donor.last_synced_at = now
+    db.commit()

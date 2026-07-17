@@ -15,4 +15,9 @@ def get_or_create_user(db, vk_id: int):
         db.add(user)
         db.commit()
         db.refresh(user)
+        try:
+            from bot.services.donor_sync import sync_user
+            sync_user(db, vk_id)
+        except Exception:
+            pass
     return user
