@@ -32,6 +32,7 @@ import EpicDragons from './pages/admin/EpicDragons';
 import EpicSpeciesForm from './pages/admin/EpicSpeciesForm';
 import EpicStageForm from './pages/admin/EpicStageForm';
 import EpicStageEditor from './pages/admin/EpicStageEditor';
+import EpicStagesList from './pages/admin/EpicStagesList';
 import EpicActionEditor from './pages/admin/EpicActionEditor';
 import EpicSubActionEditor from './pages/admin/EpicSubActionEditor';
 import CharacterAxes from './pages/admin/CharacterAxes';
@@ -147,6 +148,7 @@ function App() {
           <Route path="epic" element={<EpicDragons />} />
           <Route path="epic/species/new" element={<EpicSpeciesForm />} />
           <Route path="epic/species/:id/edit" element={<EpicSpeciesForm />} />
+          <Route path="epic/species/:dragonId/stages" element={<EpicStagesList />} />
           <Route path="epic/species/:dragonId/stages/new" element={<EpicStageForm />} />
           <Route path="epic/stages/:stageId/edit" element={<EpicStageForm />} />
           <Route path="epic/stages/:stageId" element={<EpicStageEditor />} />
