@@ -27,10 +27,10 @@ function EpicDragons() {
               <div key={s.id} className="lair-grid-cell" style={{ padding: 12 }}>
                 <div style={{ fontWeight: 600 }}>{s.name}</div>
                 <div style={{ fontSize: 12, color: 'var(--parchment-dim)' }}>{s.egg_type || 'без типа яйца'}</div>
-                <div style={{ display: 'flex', gap: 4, marginTop: 8 }}>
-                  <button className="lair-btn lair-btn-sm lair-btn-outline" style={{ flex: 1 }}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 8 }}>
+                  <button className="lair-btn lair-btn-sm lair-btn-outline"
                           onClick={() => nav(`/admin/epic/species/${s.id}/edit`)}>Редактировать</button>
-                  <button className="lair-btn lair-btn-sm" style={{ flex: 1 }}
+                  <button className="lair-btn lair-btn-sm"
                           onClick={() => nav(`/admin/epic/species/${s.id}/stages`)}>Этапы выращивания</button>
                 </div>
               </div>
