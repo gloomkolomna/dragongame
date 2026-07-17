@@ -57,7 +57,7 @@ export function useTableControls<T>(rows: T[], columns: Column<T>[]): TableContr
       if (!c || (!c.value && !c.filterValues)) continue;
       if (c.filter === 'select') {
         if (c.filterValues) {
-          list = list.filter((r) => c.filterValues!(r).includes(val));
+          list = list.filter((r) => c.filterValues!(r).map((v) => String(v ?? '').trim()).includes(val));
         } else {
           list = list.filter((r) => String(c.value!(r) ?? '') === val);
         }
