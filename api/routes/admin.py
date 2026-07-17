@@ -1843,13 +1843,30 @@ def list_shop_items(db: Session = Depends(get_db)):
     items = db.query(ShopItem).order_by(ShopItem.sort_order, ShopItem.id).all()
     dragon_names = {d.id: d.name for d in db.query(Dragon).all()}
     item_dragons = {}
+
+    def add(item_id, dragon_id):
+        name = dragon_names.get(dragon_id)
+        if name:
+            item_dragons.setdefault(item_id, set()).add(name)
+
     for link in db.query(StageShopItem).all():
         parts = (link.stage_key or "").split(":")
         if len(parts) < 3 or parts[0] != "epic" or not parts[1].isdigit():
             continue
-        name = dragon_names.get(int(parts[1]))
-        if name:
-            item_dragons.setdefault(link.item_id, set()).add(name)
+        add(link.item_id, int(parts[1]))
+    for ai, action in (
+        db.query(EpicActionItem, EpicStageAction)
+        .join(EpicStageAction, EpicActionItem.action_id == EpicStageAction.id)
+        .all()
+    ):
+        add(ai.item_id, action.dragon_id)
+    for sai, action in (
+        db.query(EpicSubActionItem, EpicStageAction)
+        .join(EpicSubAction, EpicSubActionItem.sub_action_id == EpicSubAction.id)
+        .join(EpicStageAction, EpicSubAction.action_id == EpicStageAction.id)
+        .all()
+    ):
+        add(sai.item_id, action.dragon_id)
     return [
         {
             **{c.name: getattr(it, c.name) for c in ShopItem.__table__.columns},

@@ -495,6 +495,25 @@ def test_shop_items_list_includes_dragon_names(client):
     assert lst[other["id"]]["dragon_names"] == []
 
 
+def test_shop_items_dragon_names_from_care_actions(client):
+    dragon = client.post("/api/admin/dragons", data={"name": "Эпик2", "rarity": 1, "egg_type": "e", "description": "", "is_epic": True}).json()
+    stage = client.post("/api/admin/epic/stages", json={"dragon_id": dragon["id"], "stage_number": 1, "name": "S1"}).json()
+    item = client.post("/api/admin/shop-items", json={"name": "Каша", "cost_stitches": 100}).json()
+    sub_item = client.post("/api/admin/shop-items", json={"name": "Удочка", "cost_stitches": 200}).json()
+    act = client.post(f"/api/admin/epic/species/{dragon['id']}/stages/{stage['id']}/actions",
+                      json={"action_label": "Кормить", "item_ids": [item["id"]], "order_in_cycle": 1}).json()
+    comp = client.post(f"/api/admin/epic/species/{dragon['id']}/stages/{stage['id']}/actions",
+                       json={"action_label": "Гулять", "action_type": "composite", "order_in_cycle": 2}).json()
+    client.post(f"/api/admin/epic/actions/{comp['id']}/sub-actions", json={"label": "Рыбалка", "item_ids": [sub_item["id"]]})
+
+    for link in client.get("/api/admin/stage-shop-items").json():
+        client.delete(f"/api/admin/stage-shop-items/{link['id']}")
+
+    lst = {i["id"]: i for i in client.get("/api/admin/shop-items").json()}
+    assert lst[item["id"]]["dragon_names"] == ["Эпик2"]
+    assert lst[sub_item["id"]]["dragon_names"] == ["Эпик2"]
+
+
 # ─── Phase 0: stage ↔ shop item ───
 
 def test_stage_shop_item_binding(client):
