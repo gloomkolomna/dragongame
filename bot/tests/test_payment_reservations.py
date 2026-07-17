@@ -1,7 +1,7 @@
 import hashlib
 from datetime import datetime
 from urllib.parse import parse_qs, urlparse, unquote_plus, quote_plus
-from models import Dragon, DragonReservation, User, UserDragon, UserRewardPin, RewardConfig, PaymentOrder, DragonSet
+from models import Dragon, DragonReservation, DonorCache, User, UserDragon, UserRewardPin, RewardConfig, PaymentOrder, DragonSet
 from api.services.payment_service import select_dragons, _available_dragons
 
 
@@ -198,6 +198,88 @@ def test_same_player_cant_get_own_reserved_via_rewards(db):
     res_dragon_ids = {r.dragon_id for r in reservations}
     assert d1.id in res_dragon_ids
     assert d2.id in res_dragon_ids
+
+
+def test_fresh_donor_does_not_get_reward_immediately(db):
+    from datetime import timedelta
+    d1 = Dragon(name="D1", rarity=1, steps_count=2, is_active=True, pin_code="11111")
+    db.add(d1)
+    db.commit()
+
+    now = datetime.now()
+    cfg = RewardConfig(
+        user_type="donor", eggs_per_period=1, period_days=14,
+        is_active=True, created_at=now.strftime("%Y-%m-%dT%H:%M:%S"), updated_at=now.strftime("%Y-%m-%dT%H:%M:%S"),
+    )
+    db.add(cfg)
+    db.commit()
+
+    user = User(vk_id=999, state="idle", registered_at=now.strftime("%Y-%m-%dT%H:%M:%S"))
+    db.add(user)
+    donor = DonorCache(vk_id=999, is_don=True, don_since=now.strftime("%Y-%m-%dT%H:%M:%S"),
+                       updated_at=now.strftime("%Y-%m-%dT%H:%M:%S"), last_synced_at=now.strftime("%Y-%m-%dT%H:%M:%S"))
+    db.add(donor)
+    db.commit()
+
+    from bot.services.reward_service import _process_rewards
+    import logging
+    null_logger = logging.getLogger("null")
+    null_logger.addHandler(logging.NullHandler())
+
+    class FakeVk:
+        def __init__(self):
+            self.messages_sent = []
+        def messages_send(self, user_id, message, random_id, keyboard=None, attachment=""):
+            self.messages_sent.append({"user_id": user_id, "message": message})
+            return {}
+
+    fake_vk = FakeVk()
+    _process_rewards(db, fake_vk, null_logger)
+
+    pins = db.query(UserRewardPin).filter(UserRewardPin.user_id == 999).all()
+    assert len(pins) == 0
+
+
+def test_long_term_donor_gets_reward(db):
+    from datetime import timedelta
+    d1 = Dragon(name="D1", rarity=1, steps_count=2, is_active=True, pin_code="11111")
+    db.add(d1)
+    db.commit()
+
+    now = datetime.now()
+    don_since = (now - timedelta(days=15)).strftime("%Y-%m-%dT%H:%M:%S")
+    cfg = RewardConfig(
+        user_type="donor", eggs_per_period=1, period_days=14,
+        is_active=True, created_at=now.strftime("%Y-%m-%dT%H:%M:%S"), updated_at=now.strftime("%Y-%m-%dT%H:%M:%S"),
+    )
+    db.add(cfg)
+    db.commit()
+
+    user = User(vk_id=1000, state="idle", registered_at=now.strftime("%Y-%m-%dT%H:%M:%S"))
+    db.add(user)
+    donor = DonorCache(vk_id=1000, is_don=True, don_since=don_since,
+                       updated_at=now.strftime("%Y-%m-%dT%H:%M:%S"), last_synced_at=now.strftime("%Y-%m-%dT%H:%M:%S"))
+    db.add(donor)
+    db.commit()
+
+    from bot.services.reward_service import _process_rewards
+    import logging
+    null_logger = logging.getLogger("null")
+    null_logger.addHandler(logging.NullHandler())
+
+    class FakeVk:
+        def __init__(self):
+            self.messages_sent = []
+        def messages_send(self, user_id, message, random_id, keyboard=None, attachment=""):
+            self.messages_sent.append({"user_id": user_id, "message": message})
+            return {}
+
+    fake_vk = FakeVk()
+    _process_rewards(db, fake_vk, null_logger)
+
+    pins = db.query(UserRewardPin).filter(UserRewardPin.user_id == 1000).all()
+    assert len(pins) == 1
+    assert pins[0].dragon_id == d1.id
 
 
 def test_bot_payment_url_contains_receipt(db, monkeypatch):

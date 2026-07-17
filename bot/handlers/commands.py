@@ -105,7 +105,7 @@ def handle_start(user, db, send_message, upload_image=None):
             send_message(
                 f"🪴 Ты выращиваешь: {dragon.egg_type or 'яйцо'}\n"
                 f"📋 Текущий шаг: {step}\n"
-                f"🎯 Норма крестиков: {norm}\n"
+                f"🎯 Норма стежков: {norm}\n"
                 f"🧵 Всего вышито: {user.stitches_earned or 0}\n"
                 f"✚ Копилка: {user.stitches_balance or 0}\n"
                 f"{timeout_line}",
@@ -146,7 +146,7 @@ def handle_help(user, send_message):
         "📸 Как проходить шаги:\n"
         "1. Нажми «🌱 Перейти к выращиванию»\n"
         "2. Выбери «🎯 Норма» или «⚡ Штраф (x2)»\n"
-        "3. Вышей нужное количество крестиков\n"
+        "3. Вышей нужное количество стежков\n"
         "4. Отправь сообщение «вышито 1000» (своё число)",
         keyboard=kb,
     )
@@ -158,7 +158,7 @@ def handle_balance(user, db, send_message):
     send_message(
         f"🧵 Всего вышито: {earned}\n"
         f"✚ Копилка: {balance}\n"
-        f"Крестики копятся со всех выполненных шагов выращивания."
+        f"Стежки копятся со всех выполненных шагов выращивания."
     )
 
 
@@ -318,7 +318,7 @@ def cancel_garden(user, db, send_message, upload_image=None):
     else:
         msg = f"Остаёмся на «{label}».\n{format_step(step_def, user.current_step, total)}"
         if step_def:
-            msg += f"\n\n🎯 Норма: {step_def.crosses_norm} крестиков\nВыбери режим:"
+            msg += f"\n\n🎯 Норма: {step_def.crosses_norm} стежков\nВыбери режим:"
         attachment = step_attachment(db, user, dragon, step_def, upload_image)
         send_message(msg, attachment=attachment, keyboard=step_buttons_keyboard())
 
@@ -374,7 +374,7 @@ def switch_dragon(user, num: int, db, send_message, upload_image=None):
         else:
             msg = f"Ты уже выращиваешь это яйцо дракона.\n{format_step(step_def, user.current_step, get_total_steps(db, ud.dragon_id))}"
             if step_def:
-                msg += f"\n\n🎯 Норма: {step_def.crosses_norm} крестиков\nВыбери режим:"
+                msg += f"\n\n🎯 Норма: {step_def.crosses_norm} стежков\nВыбери режим:"
             attachment = step_attachment(db, user, dragon, step_def, upload_image)
             send_message(msg, attachment=attachment, keyboard=step_buttons_keyboard())
         return
@@ -441,7 +441,7 @@ def switch_dragon(user, num: int, db, send_message, upload_image=None):
     else:
         msg = f"▸ Переключился на «{dragon.egg_type or dragon.name or '?'}».\n{format_step(next_def, curr_step, total)}"
         if next_def:
-            msg += f"\n\n🎯 Норма: {next_def.crosses_norm} крестиков\nВыбери режим:"
+            msg += f"\n\n🎯 Норма: {next_def.crosses_norm} стежков\nВыбери режим:"
         attachment = step_attachment(db, user, dragon, next_def, upload_image)
         send_message(msg, attachment=attachment, keyboard=step_buttons_keyboard())
 
@@ -515,7 +515,7 @@ def handle_switch_to(user, dragon_id: int, db, send_message, upload_image=None):
     else:
         msg = f"▸ Переключился на «{dragon.egg_type or dragon.name or '?'}».\n{format_step(step_def, next_step, total)}"
         if step_def:
-            msg += f"\n\n🎯 Норма: {step_def.crosses_norm} крестиков\nВыбери режим:"
+            msg += f"\n\n🎯 Норма: {step_def.crosses_norm} стежков\nВыбери режим:"
         attachment = step_attachment(db, user, dragon, step_def, upload_image)
         send_message(msg, attachment=attachment, keyboard=step_buttons_keyboard())
 

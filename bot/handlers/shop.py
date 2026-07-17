@@ -48,7 +48,7 @@ def handle_shop_command(user, db, send_message, page=0):
     lines = [f"🛒 Магазин\n🧵 Всего вышито: {user.stitches_earned or 0}\n✚ Копилка: {user.stitches_balance or 0}", ""]
     for it in page_items:
         owned = " ✅ куплено" if it.id in owned_ids else ""
-        lines.append(f"• {it.name} — {it.cost_stitches} крестиков{owned}")
+        lines.append(f"• {it.name} — {it.cost_stitches} стежков{owned}")
         if it.description:
             lines.append(f"  {it.description}")
     if total_pages > 1:
@@ -73,7 +73,7 @@ def handle_buy(user, item_id, db, send_message, upload_image=None):
     res = purchase(db, user.vk_id, item_id)
     status = res.get("status")
     if status == "ok":
-        send_message(f"✅ Куплено: {res['item'].name}. Осталось крестиков: {res['balance']}.")
+        send_message(f"✅ Куплено: {res['item'].name}. Осталось стежков: {res['balance']}.")
         from bot.handlers.epic import handle_epic_command
         handle_epic_command(user, db, send_message, upload_image)
         return
@@ -81,7 +81,7 @@ def handle_buy(user, item_id, db, send_message, upload_image=None):
         send_message(f"Ты уже купил «{res['item'].name}» на этой стадии.")
     elif status == "insufficient":
         send_message(
-            f"❌ Недостаточно крестиков: нужно {res['item'].cost_stitches}, "
+            f"❌ Недостаточно стежков: нужно {res['item'].cost_stitches}, "
             f"у тебя {res['balance']}."
         )
     elif status == "not_on_stage":

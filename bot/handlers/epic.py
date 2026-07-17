@@ -226,7 +226,7 @@ def _show_egg_step(user, dragon, db, send_message, upload_image):
     if step_def and step_def.task_description:
         msg += f"\n{step_def.task_description}\n"
     norm = step_def.crosses_norm if step_def else 1000
-    msg += f"\n🎯 Норма крестиков: {norm}\nВыбери режим:"
+    msg += f"\n🎯 Норма стежков: {norm}\nВыбери режим:"
     attachment = _attach(upload_image, dragon.egg_path, user.vk_id)
     send_message(msg, attachment=attachment, keyboard=epic_egg_buttons_keyboard())
 
@@ -245,7 +245,7 @@ def handle_epic_egg_mode(user, mode, db, send_message):
     db.commit()
     label = "⚠ Режим «Штраф (x2)»" if mode == "x2" else "✅ Режим «Норма»"
     send_message(
-        f"{label} — нужно вышить не менее {required} крестиков.\n"
+        f"{label} — нужно вышить не менее {required} стежков.\n"
         f"Отправь одним сообщением фото работы и текст: «вышито {required}»."
     )
 
@@ -271,7 +271,7 @@ def handle_epic_egg_message(user, text, attachments, db, send_message, upload_im
         return True
     if crosses < required:
         send_message(
-            f"❌ Вы вышили {crosses} крестиков, а нужно не менее {required}.\n"
+            f"❌ Вы вышили {crosses} стежков, а нужно не менее {required}.\n"
             f"Вышивайте дальше и отправьте повторно фото и «вышито [число]»."
         )
         return True
@@ -291,7 +291,7 @@ def handle_epic_egg_message(user, text, attachments, db, send_message, upload_im
             raw_message=text,
         )
         send_message(
-            f"⚠ Ты заявил {crosses} крестиков при норме {required} — это слишком много.\n"
+            f"⚠ Ты заявил {crosses} стежков при норме {required} — это слишком много.\n"
             "Шаг не засчитан. Отправь, пожалуйста, корректное число."
         )
         db.commit()
@@ -306,7 +306,7 @@ def handle_epic_egg_message(user, text, attachments, db, send_message, upload_im
         )
         send_message(
             "⚠ Твой отчёт кажется подозрительным и отправлен на проверку. "
-            "Крестики зачислены, но администратор может скорректировать баланс."
+            "Стежки зачислены, но администратор может скорректировать баланс."
         )
         notify_admin(
             f"⚠ Подозрительный отчёт (эпическое яйцо) от id{user.vk_id}\n"

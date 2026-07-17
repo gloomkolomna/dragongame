@@ -58,7 +58,7 @@ def _handle_growing_chat(user, db, send_message, upload_image=None):
         step_def = get_dragon_step(db, user.current_dragon_id, user.current_step)
         msg = f"{'🐣' if has_progress else '🥚'} {label}\n📋 Шаг {user.current_step} из {total}"
         if step_def:
-            msg += f"\n\n🎯 Норма: {step_def.crosses_norm} крестиков\nВыбери режим:"
+            msg += f"\n\n🎯 Норма: {step_def.crosses_norm} стежков\nВыбери режим:"
         from bot.handlers.grow import step_attachment
         attachment = step_attachment(db, user, dragon, step_def, upload_image)
         send_message(msg, attachment=attachment, keyboard=step_buttons_keyboard())

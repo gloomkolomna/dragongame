@@ -74,7 +74,7 @@ def _show_fragment(user, dragon, frag, total, db, send_message, upload_image):
     task = frag.magic_action or frag.task_description or ""
     if task:
         msg += f"\n📋 Задание: {task}\n"
-    msg += f"\n🎯 Норма крестиков: {frag.crosses_norm}\nВыбери режим:"
+    msg += f"\n🎯 Норма стежков: {frag.crosses_norm}\nВыбери режим:"
     attachment = _legend_cover_attach(upload_image, dragon, user.vk_id)
     send_message(msg, attachment=attachment, keyboard=legend_buttons_keyboard())
 
@@ -119,7 +119,7 @@ def handle_legend_mode(user, mode, db, send_message):
     label = "⚠ Режим «Штраф (x2)»" if mode == "x2" else "✅ Режим «Норма»"
     attachment = _legend_cover_attach(None, dragon, user.vk_id) if dragon else ""
     send_message(
-        f"{label} — нужно вышить не менее {required} крестиков.\n"
+        f"{label} — нужно вышить не менее {required} стежков.\n"
         f"Отправь одним сообщением фото работы и текст: «вышито {required}».",
         attachment=attachment,
     )
@@ -152,7 +152,7 @@ def handle_legend_message(user, text, attachments, db, send_message, upload_imag
     crosses = int(numbers[0])
     if crosses < required:
         send_message(
-            f"❌ Вы вышили {crosses} крестиков, а нужно не менее {required}.\n"
+            f"❌ Вы вышили {crosses} стежков, а нужно не менее {required}.\n"
             f"Вышивайте дальше и отправьте повторно фото и «вышито [число]»."
         )
         return True
@@ -175,7 +175,7 @@ def handle_legend_message(user, text, attachments, db, send_message, upload_imag
             raw_message=text,
         )
         send_message(
-            f"⚠ Ты заявил {crosses} крестиков при норме {required} — это слишком много.\n"
+            f"⚠ Ты заявил {crosses} стежков при норме {required} — это слишком много.\n"
             "Отрывок не засчитан. Отправь, пожалуйста, корректное число."
         )
         db.commit()
@@ -191,7 +191,7 @@ def handle_legend_message(user, text, attachments, db, send_message, upload_imag
         )
         send_message(
             "⚠ Твой отчёт кажется подозрительным и отправлен на проверку. "
-            "Крестики зачислены, но администратор может скорректировать баланс."
+            "Стежки зачислены, но администратор может скорректировать баланс."
         )
         notify_admin(
             f"⚠ Подозрительный отчёт (легенда) от id{user.vk_id}\n"

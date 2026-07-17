@@ -76,7 +76,7 @@ def handle_grow_command(user, db, send_message, upload_image=None):
         return
 
     msg = format_step(step_def, step, total)
-    msg += f"\n\nНорма крестиков: {step_def.crosses_norm}\n"
+    msg += f"\n\nНорма стежков: {step_def.crosses_norm}\n"
     msg += "Выбери режим:"
 
     attachment = step_attachment(db, user, dragon, step_def, upload_image)
@@ -105,7 +105,7 @@ def handle_norm_command(user, db, send_message):
     step_def = get_dragon_step(db, user.current_dragon_id, user.current_step)
     norm = step_def.crosses_norm if step_def else 1000
     send_message(
-        f"✅ Режим «Норма» — нужно вышить не менее {norm} крестиков.\n"
+        f"✅ Режим «Норма» — нужно вышить не менее {norm} стежков.\n"
         f"Когда закончишь, отправь одним сообщением:\n"
         f"• фото работы (коллаж ДО + ПОСЛЕ + превью)\n"
         f"• текст: «вышито {norm}» (или другое число)",
@@ -134,7 +134,7 @@ def handle_x2_command(user, db, send_message):
     step_def = get_dragon_step(db, user.current_dragon_id, user.current_step)
     norm = (step_def.crosses_norm if step_def else 1000) * 2
     send_message(
-        f"⚠ Режим «Штраф (x2)» — нужно вышить не менее {norm} крестиков.\n"
+        f"⚠ Режим «Штраф (x2)» — нужно вышить не менее {norm} стежков.\n"
         f"Когда закончишь, отправь одним сообщением:\n"
         f"• фото работы (коллаж ДО + ПОСЛЕ + превью)\n"
         f"• текст: «вышито {norm}» (или другое число)",
@@ -200,7 +200,7 @@ def _handle_crosses_check(user, text, attachments, db, send_message, upload_imag
 
     if crosses < required:
         send_message(
-            f"❌ Вы вышили {crosses} крестиков, а нужно не менее {required}.\n"
+            f"❌ Вы вышили {crosses} стежков, а нужно не менее {required}.\n"
             f"Вышивайте дальше и отправьте повторно фото работы (можно одним коллажем ДО + ПОСЛЕ + превью) и «вышито [число]»."
         )
         db.commit()
@@ -228,7 +228,7 @@ def _handle_crosses_check(user, text, attachments, db, send_message, upload_imag
             raw_message=text,
         )
         send_message(
-            f"⚠ Ты заявил {crosses} крестиков при норме {required} — это слишком много.\n"
+            f"⚠ Ты заявил {crosses} стежков при норме {required} — это слишком много.\n"
             "Шаг не засчитан. Отправь, пожалуйста, корректное число."
         )
         db.commit()
@@ -244,7 +244,7 @@ def _handle_crosses_check(user, text, attachments, db, send_message, upload_imag
         )
         send_message(
             "⚠ Твой отчёт кажется подозрительным и отправлен на проверку. "
-            "Крестики зачислены в копилку, но администратор может скорректировать баланс."
+            "Стежки зачислены в копилку, но администратор может скорректировать баланс."
         )
         notify_admin(
             f"⚠ Подозрительный отчёт от id{user.vk_id}\n"
@@ -383,7 +383,7 @@ def _handle_crosses_check(user, text, attachments, db, send_message, upload_imag
             msg = f"✅ Шаг {step} выполнен!\n\n"
             if next_def:
                 msg += format_step(next_def, next_step, total)
-                msg += f"\n\n🎯 Норма крестиков: {next_def.crosses_norm}\nВыбери режим:"
+                msg += f"\n\n🎯 Норма стежков: {next_def.crosses_norm}\nВыбери режим:"
             attachment = step_attachment(db, user, dragon, next_def, upload_image)
             send_message(msg, attachment=attachment, keyboard=step_buttons_keyboard())
 

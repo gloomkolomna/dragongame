@@ -629,7 +629,7 @@ def test_finale_get_new_command_spawns_egg(db):
     assert is_epic_egg(u.state), (
         f"после finale_get_new должен быть egg_step, а не {u.state}"
     )
-    assert any("вышито" in m.lower() or "крестиков" in m.lower() for m in msgs), (
+    assert any("вышито" in m.lower() or "стежков" in m.lower() for m in msgs), (
         f"должны показываться шаги яйца: {msgs}"
     )
 

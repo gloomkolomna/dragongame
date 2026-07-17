@@ -226,7 +226,7 @@ def _check_expired(db, vk, logger, session_factory=None):
             msg = (
                 f"⏰ Время пришло! Ты можешь продолжить выращивание «{dragon.egg_type or dragon.name or '?'}».\n\n"
                 f"{format_step(step_def, next_step_num, total)}"
-                f"\n\n🎯 Норма: {norm} крестиков\nВыбери режим:"
+                f"\n\n🎯 Норма: {norm} стежков\nВыбери режим:"
             )
             from bot.keyboard import step_buttons_keyboard
             keyboard_json = step_buttons_keyboard()

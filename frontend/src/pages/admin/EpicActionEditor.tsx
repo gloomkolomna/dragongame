@@ -123,7 +123,7 @@ function EpicActionEditor() {
           {!isComposite && (
             <>
               <div style={{ marginBottom: 12 }}>
-                <label className="lair-label">Нужные товары (если пусто — задание с крестиками)</label>
+                <label className="lair-label">Нужные товары (если пусто — задание со стежками)</label>
                 <ItemPicker items={items} selected={edit.item_ids} onToggle={toggleItem} />
               </div>
               {edit.item_ids.length === 0 && (
@@ -133,7 +133,7 @@ function EpicActionEditor() {
                     <input className="lair-input" value={edit.task} onChange={(e) => setEdit({ ...edit, task: e.target.value })} placeholder="Вышей узор" />
                   </div>
                   <div>
-                    <label className="lair-label">Норма крестиков</label>
+                    <label className="lair-label">Норма стежков</label>
                     <input className="lair-input" type="text" inputMode="numeric" value={edit.crosses_norm}
                            onChange={(e) => setEdit({ ...edit, crosses_norm: Math.max(1, parseInt(e.target.value, 10) || 1) })} />
                   </div>

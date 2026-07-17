@@ -76,8 +76,8 @@ function Dashboard() {
     { value: stats?.pins_active ?? '—', label: 'PIN активны', icon: '🟢' },
     { value: stats?.users_total ?? '—', label: 'Игроков', icon: '👥' },
     { value: stats?.dragons_collected_total ?? '—', label: 'Выращено', icon: '⭐' },
-    { value: stats?.total_norm_crosses?.toLocaleString('ru-RU') ?? '—', label: 'Норм крестиков', icon: '🧵' },
-    { value: stats?.total_shop_crosses?.toLocaleString('ru-RU') ?? '—', label: 'Крестиков в магазине', icon: '🛒' },
+    { value: stats?.total_norm_crosses?.toLocaleString('ru-RU') ?? '—', label: 'Норм стежков', icon: '🧵' },
+    { value: stats?.total_shop_crosses?.toLocaleString('ru-RU') ?? '—', label: 'Стежков в магазине', icon: '🛒' },
   ];
 
   const statusEmoji = (s: string) => {

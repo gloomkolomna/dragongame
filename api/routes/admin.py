@@ -180,7 +180,7 @@ def export_dragons(db: Session = Depends(get_db)):
     ws_s = wb.create_sheet("Шаги")
     ws_s.append([
         "Дракон ID", "Дракон", "Фаза", "Номер шага", "Магическое действие",
-        "Задание", "Подсказка", "Ключевое слово", "Таймаут (ч)", "Таймаут (мин)", "Норма крестиков",
+        "Задание", "Подсказка", "Ключевое слово", "Таймаут (ч)", "Таймаут (мин)", "Норма стежков",
     ])
     dragon_names = {d.id: d.name for d in dragons}
     dragon_ids = list(dragon_names.keys())
@@ -1012,7 +1012,7 @@ async def toggle_user_step(vk_id: int, step_number: int, request: Request, db: S
         steps_msg = _format_step_text(step_def, next_step, total)
         header = f"🥚 {dragon.name}\n"
         norm = step_def.crosses_norm if step_def else 1000
-        instruction = f"\n\n🎯 Норма крестиков: {norm}\nВыбери режим:"
+        instruction = f"\n\n🎯 Норма стежков: {norm}\nВыбери режим:"
         attachment = ""
         rel = (step_def.image_path if step_def and step_def.image_path else dragon.egg_path)
         if rel:
@@ -1301,7 +1301,7 @@ def restart_dragon(vk_id: int, dragon_id: int, db: Session = Depends(get_db)):
     first_step = db.query(DragonStep).filter(DragonStep.dragon_id == dragon_id, DragonStep.step_number == 1).first()
     steps_msg = _format_step_text(first_step, 1, total)
     norm = first_step.crosses_norm if first_step else 1000
-    instruction = f"\n\n🎯 Норма крестиков: {norm}\nВыбери режим:"
+    instruction = f"\n\n🎯 Норма стежков: {norm}\nВыбери режим:"
     attachment = ""
     rel = (first_step.image_path if first_step and first_step.image_path else dragon.egg_path)
     if rel:

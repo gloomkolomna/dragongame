@@ -92,6 +92,14 @@ def _process_rewards(db, vk, logger):
             if cfg.user_type == "donor":
                 if not is_donor(user.vk_id, db):
                     continue
+                donor_row = db.query(DonorCache).filter(DonorCache.vk_id == user.vk_id).first()
+                if donor_row and donor_row.don_since:
+                    try:
+                        don_since_dt = datetime.fromisoformat(donor_row.don_since)
+                        if now - don_since_dt < timedelta(days=cfg.period_days):
+                            continue
+                    except (ValueError, TypeError):
+                        pass
 
             period_start = now - timedelta(days=cfg.period_days)
             period_start_str = period_start.strftime("%Y-%m-%dT%H:%M:%S")
@@ -187,7 +195,7 @@ def _process_rewards(db, vk, logger):
 
                 msg = (
                     f"🎁 В твоей коллекции пополнение!\n\n"
-                    f"Тебе выдано бесплатное яйцо дракона «{dragon.egg_type or dragon.name}».\n"
+                    f"Тебе выдано бесплатное яйцо дракона «{dragon.egg_type or dragon.name}» за донат.\n"
                     f"PIN-код: {dragon.pin_code}\n\n"
                     f"Введи его, нажав «🥚 Добавить яйцо дракона» в разделе «📖 Список Бестиария»."
                 )

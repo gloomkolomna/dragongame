@@ -104,7 +104,7 @@ function StepsEditor() {
             </div>
             <div className="lair-form-group">
               <label className="lair-label">Задание по вышивке</label>
-              <textarea className="lair-textarea" value={s.task_description} onChange={(e) => upd(i, 'task_description', e.target.value)} placeholder="Вышей 300 крестиков белыми/голубыми нитками" />
+              <textarea className="lair-textarea" value={s.task_description} onChange={(e) => upd(i, 'task_description', e.target.value)} placeholder="Вышей 300 стежков белыми/голубыми нитками" />
             </div>
             <div className="lair-form-group">
               <label className="lair-label">Подсказка (опционально)</label>
@@ -127,7 +127,7 @@ function StepsEditor() {
               </div>
             </div>
             <div className="lair-form-group">
-              <label className="lair-label">Норма крестиков</label>
+              <label className="lair-label">Норма стежков</label>
               <input className="lair-input" type="text" inputMode="numeric" value={s.crosses_norm}
                      onChange={(e) => upd(i, 'crosses_norm', e.target.value)}
                      style={{ width: 120 }} placeholder="1000" />

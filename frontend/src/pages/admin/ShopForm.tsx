@@ -77,7 +77,7 @@ function ShopForm() {
             <input className="lair-input" value={name} onChange={(e) => setName(e.target.value)} placeholder="Питательная смесь" /></div>
           <div className="lair-form-group"><label className="lair-label">Описание</label>
             <textarea className="lair-textarea" value={description} onChange={(e) => setDescription(e.target.value)} /></div>
-          <div className="lair-form-group"><label className="lair-label">Цена (крестики)</label>
+          <div className="lair-form-group"><label className="lair-label">Цена (стежки)</label>
             <input className="lair-input" type="text" inputMode="numeric" value={cost} onChange={(e) => setCost(parseInt(e.target.value, 10) || 0)} style={{ width: 160 }} /></div>
           <div className="lair-form-group"><label className="lair-checkbox"><input type="checkbox" checked={isConsumable} onChange={(e) => setIsConsumable(e.target.checked)} /> 🎒 Расходный товар (списывается при выборе поддействия; если выключено — инструмент, остаётся в инвентаре)</label></div>
           <div className="lair-form-group"><label className="lair-checkbox"><input type="checkbox" checked={isOptional} onChange={(e) => setIsOptional(e.target.checked)} /> ⏭ Необязательный товар (игрок может пропустить в действиях ухода)</label></div>

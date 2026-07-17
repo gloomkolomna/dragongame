@@ -183,7 +183,7 @@ function UsersList() {
             </div>
 
             <div className="lair-card" style={{ marginBottom: 16 }}>
-              <h4 style={{ color: 'var(--gold)', margin: '0 0 12px' }}>✚ Копилка крестиков</h4>
+              <h4 style={{ color: 'var(--gold)', margin: '0 0 12px' }}>✚ Копилка стежков</h4>
               <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                   <span style={{ fontSize: 13, color: 'var(--parchment-dim)', whiteSpace: 'nowrap' }}>Всего вышито:</span>

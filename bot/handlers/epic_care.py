@@ -159,7 +159,7 @@ def show_care_action(user, db, send_message, upload_image=None):
         msg = base_msg
         if action.task:
             msg += f"📝 {action.task}\n"
-        msg += f"\n🎯 Норма крестиков: {action.crosses_norm}\nВыбери режим:"
+        msg += f"\n🎯 Норма стежков: {action.crosses_norm}\nВыбери режим:"
         action_img = getattr(action, "image_path", "") or ""
         attachment = _attach(upload_image, action_img or (stage.image_start if stage else ""), user.vk_id)
         send_message(msg, attachment=attachment, keyboard=epic_care_keyboard())
@@ -270,7 +270,7 @@ def handle_care_mode(user, mode, db, send_message):
     db.commit()
     label = "⚠ Режим «Штраф (x2)»" if mode == "x2" else "✅ Режим «Норма»"
     send_message(
-        f"{label} — нужно вышить не менее {required} крестиков.\n"
+        f"{label} — нужно вышить не менее {required} стежков.\n"
         f"Отправь одним сообщением фото работы и текст: «вышито {required}»."
     )
 
@@ -299,7 +299,7 @@ def handle_care_message(user, text, attachments, db, send_message, upload_image=
     crosses = int(numbers[0])
     if crosses < required:
         send_message(
-            f"❌ Вы вышили {crosses} крестиков, а нужно не менее {required}.\n"
+            f"❌ Вы вышили {crosses} стежков, а нужно не менее {required}.\n"
             f"Вышивайте дальше и отправьте повторно фото и «вышито [число]»."
         )
         return True
@@ -325,7 +325,7 @@ def handle_care_message(user, text, attachments, db, send_message, upload_image=
             raw_message=text,
         )
         send_message(
-            f"⚠ Ты заявил {crosses} крестиков при норме {required} — это слишком много.\n"
+            f"⚠ Ты заявил {crosses} стежков при норме {required} — это слишком много.\n"
             "Шаг не засчитан. Отправь, пожалуйста, корректное число."
         )
         db.commit()
@@ -341,7 +341,7 @@ def handle_care_message(user, text, attachments, db, send_message, upload_image=
         )
         send_message(
             "⚠ Твой отчёт кажется подозрительным и отправлен на проверку. "
-            "Крестики зачислены, но администратор может скорректировать баланс."
+            "Стежки зачислены, но администратор может скорректировать баланс."
         )
         notify_admin(
             f"⚠ Подозрительный отчёт (уход) от id{user.vk_id}\n"
@@ -397,7 +397,7 @@ def _show_composite_action(user, db, send_message, upload_image, care, action, d
             msg = f"🐲 «{name}» — «{action.action_label}»\n📝 {sub_step.task or sub_step.step_label}"
             if sub_step.hint:
                 msg += f"\n💡 {sub_step.hint}"
-            msg += f"\n\n🎯 Норма крестиков: {sub_step.crosses_norm or 1000}\nВыбери режим:"
+            msg += f"\n\n🎯 Норма стежков: {sub_step.crosses_norm or 1000}\nВыбери режим:"
             action_img = getattr(sub_step, "image_path", "") or ""
             attachment = _attach(upload_image, action_img, user.vk_id)
             send_message(msg, attachment=attachment, keyboard=sub_step_keyboard(with_back=(care.current_step_order or 0) == 0))
@@ -487,7 +487,7 @@ def handle_choose_sub(user, sub_id, db, send_message, upload_image=None):
     msg = f"🐲 «{name}» — «{sub_action.label}»\n📝 {first_step.task or first_step.step_label}"
     if first_step.hint:
         msg += f"\n💡 {first_step.hint}"
-    msg += f"\n\n🎯 Норма крестиков: {first_step.crosses_norm or 1000}\nВыбери режим:"
+    msg += f"\n\n🎯 Норма стежков: {first_step.crosses_norm or 1000}\nВыбери режим:"
     action_img = getattr(first_step, "image_path", "") or ""
     attachment = _attach(upload_image, action_img, user.vk_id)
     send_message(msg, attachment=attachment, keyboard=sub_step_keyboard(with_back=True))
@@ -534,7 +534,7 @@ def handle_confirm_sub(user, db, send_message, upload_image=None):
         msg = f"🐲 «{name}»\n📝 {first_step.task or first_step.step_label}"
         if first_step.hint:
             msg += f"\n💡 {first_step.hint}"
-        msg += f"\n\n🎯 Норма крестиков: {first_step.crosses_norm or 1000}\nВыбери режим:"
+        msg += f"\n\n🎯 Норма стежков: {first_step.crosses_norm or 1000}\nВыбери режим:"
         action_img = getattr(first_step, "image_path", "") or ""
         attachment = _attach(upload_image, action_img, user.vk_id)
         send_message(msg, attachment=attachment, keyboard=sub_step_keyboard())
@@ -628,7 +628,7 @@ def handle_sub_mode(user, mode, db, send_message):
 
     label = "⚠ Режим «Штраф (x2)»" if mode == "x2" else "✅ Режим «Норма»"
     send_message(
-        f"{label} — нужно вышить не менее {required} крестиков.\n"
+        f"{label} — нужно вышить не менее {required} стежков.\n"
         f"Отправь одним сообщением фото работы и текст: «вышито {required}»."
     )
 
@@ -667,7 +667,7 @@ def handle_sub_message(user, text, attachments, db, send_message, upload_image=N
     crosses = int(numbers[0])
     if crosses < required:
         send_message(
-            f"❌ Вы вышили {crosses} крестиков, а нужно не менее {required}.\n"
+            f"❌ Вы вышили {crosses} стежков, а нужно не менее {required}.\n"
             f"Вышивайте дальше и отправьте повторно фото и «вышито [число]»."
         )
         return True
@@ -694,7 +694,7 @@ def handle_sub_message(user, text, attachments, db, send_message, upload_image=N
             raw_message=text,
         )
         send_message(
-            f"⚠ Ты заявил {crosses} крестиков при норме {required} — это слишком много.\n"
+            f"⚠ Ты заявил {crosses} стежков при норме {required} — это слишком много.\n"
             "Шаг не засчитан. Отправь, пожалуйста, корректное число."
         )
         db.commit()
@@ -710,7 +710,7 @@ def handle_sub_message(user, text, attachments, db, send_message, upload_image=N
         )
         send_message(
             "⚠ Твой отчёт кажется подозрительным и отправлен на проверку. "
-            "Крестики зачислены, но администратор может скорректировать баланс."
+            "Стежки зачислены, но администратор может скорректировать баланс."
         )
         notify_admin(
             f"⚠ Подозрительный отчёт (составной уход) от id{user.vk_id}\n"
@@ -768,7 +768,7 @@ def handle_sub_message(user, text, attachments, db, send_message, upload_image=N
         msg = f"🐲 «{name2}»\n📝 {next_step.task or next_step.step_label}"
         if next_step.hint:
             msg += f"\n💡 {next_step.hint}"
-        msg += f"\n\n🎯 Норма крестиков: {next_step.crosses_norm or 1000}\nВыбери режим:"
+        msg += f"\n\n🎯 Норма стежков: {next_step.crosses_norm or 1000}\nВыбери режим:"
         from bot.keyboard import sub_step_keyboard
         action_img = getattr(next_step, "image_path", "") or ""
         attachment = _attach(upload_image, action_img, user.vk_id)

@@ -24,7 +24,7 @@
 | **Фаза 0.4** Админ-CRUD (shop/stages/actions/legend) | ✅ | Все эндпоинты есть |
 | **Фаза 0.4** `POST /admin/upload-image` | ✅ | `admin.py:989` |
 | **Фаза 0.4** Авто-синхронизация `stage_shop_items` | ✅ | `_resync_stage_items` в admin.py |
-| **Фаза 1** Зачисление крестиков в копилку | ✅ | `credit_stitches` в grow.py:210 и epic_care.py:144 |
+| **Фаза 1** Зачисление стежков в копилку | ✅ | `credit_stitches` в grow.py:210 и epic_care.py:144 |
 | **Фаза 1** Анти-чит 5× + отчёт + VK-дублирование | ✅ | Полностью реализован, порог в `config.ANTI_CHEAT_MULTIPLIER` |
 | **Фаза 1** Команда `копилка`/`баланс` | ✅ | `handle_balance`, `extract_cmd` распознаёт |
 | **Фаза 1** `GET /collection/{vk}/balance` + бейдж | ✅ | `collection.py:9` + Collection.tsx |
@@ -51,7 +51,7 @@
 | **Фаза 4** Эпик исключён из сада | ✅ | `_regular_user_dragons` |
 | **Фаза 4** Один эпик за раз (слот) | ✅ | `epic_dragon_id` |
 | **Фаза 5** Стадия = цикл действий, `cycles_count` | ✅ | `advance_care` логика корректна |
-| **Фаза 5** Действие = крестики по норме/штрафу | ✅ | `handle_care_message` |
+| **Фаза 5** Действие = стежки по норме/штрафу | ✅ | `handle_care_message` |
 | **Фаза 5** Проверка инвентаря (все товары действия) | ✅ | `missing_action_items` |
 | **Фаза 5** Таймаут 24ч + напоминание 1 раз | ✅ | `set_care_timeout` + `_check_care_due` |
 | **Фаза 5** FSM `epic_care_<stage_id>` (+`_norm/_x2`) | 🔴 | **Асимметрия сигнатур — `handle_care_mode` падает с TypeError** |
