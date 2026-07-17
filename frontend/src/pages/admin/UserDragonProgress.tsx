@@ -65,6 +65,7 @@ function UserDragonProgress() {
   useEffect(() => { fetchData(); }, [vkId, dragonId]);
 
   const toggle = async (num: number) => {
+    if (!window.confirm('Переключить статус шага (завершён / не завершён)?')) return;
     setUpdating(true);
     try {
       await client.post(`/admin/users/${vkId}/steps/${num}/toggle`, { dragon_id: Number(dragonId) });
@@ -230,7 +231,7 @@ function UserDragonProgress() {
                 </button>
                 {care.current_sub_action_id && (
                   <button className="lair-btn lair-btn-outline" disabled={updating}
-                          onClick={() => careAction('clear-sub')}>
+                          onClick={() => careAction('clear-sub', {}, 'Сбросить выбор варианта?')}>
                     ↩ Сбросить выбор варианта
                   </button>
                 )}

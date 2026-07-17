@@ -46,7 +46,7 @@ function LegendEditor() {
   };
 
   const addFrag = () => setFragments((p) => [...p, { id: 0, step_number: p.length + 1, task_description: '', magic_action: '', crosses_norm: 1000, timeout_hours: 0, timeout_minutes: 0 }]);
-  const removeFrag = (i: number) => setFragments((p) => p.filter((_, idx) => idx !== i));
+  const removeFrag = (i: number) => { if (!window.confirm('Удалить отрывок легенды?')) return; setFragments((p) => p.filter((_, idx) => idx !== i)); };
   const upd = (i: number, f: keyof Fragment, v: any) => setFragments((p) => p.map((frag, idx) => idx === i ? { ...frag, [f]: v } : frag));
 
   const save = async () => {

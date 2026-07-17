@@ -259,7 +259,7 @@ function GridEditor() {
                           )}
                           <button className="lair-btn lair-btn-sm lair-btn-danger"
                                   style={{ fontSize: 12, padding: '2px 0', lineHeight: 1 }}
-                                  onClick={(e) => { e.stopPropagation(); assignDragon(cell.id, null); }}>✕</button>
+                                  onClick={(e) => { e.stopPropagation(); if (!window.confirm('Убрать дракона из ячейки?')) return; assignDragon(cell.id, null); }}>✕</button>
                         </div>
                       ) : (
                         <select style={{ width: '100%', padding: '5px', fontSize: 24, background: 'rgba(21,15,26,0.8)', color: 'var(--parchment)', border: '1px solid var(--bronze)', borderRadius: 4, cursor: 'pointer' }}

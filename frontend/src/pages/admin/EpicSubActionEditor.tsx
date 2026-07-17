@@ -213,7 +213,7 @@ function StepsEditor({ subActionId, steps, reload, uploadImage }: any) {
     await client.post(`/admin/epic/sub-actions/${subActionId}/steps`, { step_label: 'Новый шаг', order: steps.length + 1, crosses_norm: 1000, timeout_hours: 0, timeout_minutes: 0 });
     reload();
   };
-  const delStep = async (id: number) => { await client.delete(`/admin/epic/sub-actions/steps/${id}`); reload(); };
+  const delStep = async (id: number) => { if (!window.confirm('Удалить шаг?')) return; await client.delete(`/admin/epic/sub-actions/steps/${id}`); reload(); };
 
   return (
     <div>

@@ -63,7 +63,7 @@ function StepsEditor() {
     setSteps((prev) => prev.map((s, idx) => idx === i ? { ...s, image_path: path } : s));
   };
 
-  const remove = (i: number) => setSteps((prev) => prev.filter((_, idx) => idx !== i));
+  const remove = (i: number) => { if (!window.confirm('Удалить шаг?')) return; setSteps((prev) => prev.filter((_, idx) => idx !== i)); };
 
   const save = async () => {
     setSaving(true);
