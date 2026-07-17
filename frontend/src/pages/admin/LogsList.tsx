@@ -20,7 +20,7 @@ interface ApiRequestItem {
   created_at: string;
 }
 
-type Tab = 'db' | 'api' | 'requests' | 'payments';
+type Tab = 'db' | 'api' | 'requests' | 'payments' | 'donors';
 
 interface PaginatedState<T> {
   items: T[];
@@ -43,6 +43,15 @@ interface PaymentLogItem {
   created_at: string;
 }
 
+interface DonorEventItem {
+  id: number;
+  source_id: number | null;
+  vk_id: number | null;
+  event_type: string;
+  created_at: string;
+  synced_at: string;
+}
+
 function LogsList() {
   const [tab, setTab] = useState<Tab>('db');
   const [load, setLoad] = useState(true);
@@ -57,6 +66,7 @@ function LogsList() {
   const [reqState, setReqState] = useState<PaginatedState<ApiRequestItem>>({ items: [], total: 0, page: 1 });
   const [payState, setPayState] = useState<PaginatedState<PaymentLogItem>>({ items: [], total: 0, page: 1 });
   const [payExpanded, setPayExpanded] = useState<number | null>(null);
+  const [donorState, setDonorState] = useState<PaginatedState<DonorEventItem>>({ items: [], total: 0, page: 1 });
 
   const payGroups = useMemo(() => {
     const map = new Map<number, PaymentLogItem[]>();
@@ -96,6 +106,13 @@ function LogsList() {
       .finally(() => setLoad(false));
   }, []);
 
+  const fetchDonorLogs = useCallback((p: number) => {
+    setLoad(true);
+    client.get('/admin/logs/donor', { params: { page: p, per_page: perPage } })
+      .then((r) => setDonorState({ items: r.data.items, total: r.data.total, page: r.data.page }))
+      .finally(() => setLoad(false));
+  }, []);
+
   useEffect(() => { fetchDbLogs(1); }, [fetchDbLogs]);
 
   const switchTab = (t: Tab) => {
@@ -106,6 +123,7 @@ function LogsList() {
     if (t === 'api' && apiState.items.length === 0) fetchApiLogs(1);
     if (t === 'requests' && reqState.items.length === 0) fetchReqLogs(1);
     if (t === 'payments' && payState.items.length === 0) fetchPayLogs(1);
+    if (t === 'donors' && donorState.items.length === 0) fetchDonorLogs(1);
   };
 
   const handleSort = (key: string) => {
@@ -145,7 +163,13 @@ function LogsList() {
     return sortedFiltered(items);
   }, [reqState.items, filter, sortKey, sortDir]);
 
-  const cur = tab === 'db' ? dbState : tab === 'api' ? apiState : tab === 'requests' ? reqState : payState;
+  const filteredDonor = useMemo(() => {
+    let items = [...donorState.items];
+    if (filter) { const f = filter.toLowerCase(); items = items.filter((d) => d.event_type.toLowerCase().includes(f) || String(d.vk_id ?? '').includes(f)); }
+    return sortedFiltered(items);
+  }, [donorState.items, filter, sortKey, sortDir]);
+
+  const cur = tab === 'db' ? dbState : tab === 'api' ? apiState : tab === 'requests' ? reqState : tab === 'donors' ? donorState : payState;
   const totalPages = Math.ceil(cur.total / perPage);
   const formatDate = (s: string) => s ? new Date(s).toLocaleString('ru-RU') : '—';
 
@@ -153,6 +177,7 @@ function LogsList() {
     if (tab === 'db') fetchDbLogs(p);
     else if (tab === 'api') fetchApiLogs(p);
     else if (tab === 'requests') fetchReqLogs(p);
+    else if (tab === 'donors') fetchDonorLogs(p);
     else fetchPayLogs(p);
   };
 
@@ -174,16 +199,16 @@ function LogsList() {
       <div className="lair-header" style={{ flexWrap: 'wrap', gap: 8, paddingBottom: 12 }}>
         <h2 style={{ flexShrink: 0 }}>📋 Логи</h2>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-          {(['db', 'api', 'requests', 'payments'] as Tab[]).map((t) => (
+          {(['db', 'api', 'requests', 'payments', 'donors'] as Tab[]).map((t) => (
             <button key={t}
               className={tab === t ? 'lair-btn' : 'lair-btn lair-btn-outline'}
               style={{ fontSize: 15 }}
               onClick={() => switchTab(t)}
             >
-              {t === 'db' ? 'Логи БД' : t === 'api' ? 'Логи API' : t === 'requests' ? 'Запросы API' : 'Платежи'}
+              {t === 'db' ? 'Логи БД' : t === 'api' ? 'Логи API' : t === 'requests' ? 'Запросы API' : t === 'payments' ? 'Платежи' : 'Донат'}
             </button>
           ))}
-          {tab !== 'api' && (
+          {tab !== 'api' && tab !== 'donors' && (
             <button className="lair-btn lair-btn-danger" style={{ fontSize: 14, marginLeft: 8 }}
                     onClick={clearLogs}>🗑 Очистить</button>
           )}
@@ -290,6 +315,39 @@ function LogsList() {
                       ))}
                       {filteredReq.length === 0 && (
                         <tr><td colSpan={6} style={{ textAlign: 'center', padding: 32, color: 'var(--parchment-faded)' }}>Ошибочных запросов нет</td></tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            ) : tab === 'donors' ? (
+              <>
+                <div style={{ marginBottom: 12, color: 'var(--parchment-faded)', fontSize: 14 }}>
+                  Всего: {donorState.total} / показано: {filteredDonor.length}
+                </div>
+                <div className="lair-card" style={{ padding: 0, overflow: 'hidden' }}>
+                  <table className="lair-table">
+                    <thead>
+                      <tr>
+                        {['id', 'vk_id', 'event_type', 'created_at', 'synced_at'].map((k) => (
+                          <th key={k} onClick={() => handleSort(k)} style={{ cursor: 'pointer' }}>
+                            {k === 'id' ? 'ID' : k === 'vk_id' ? 'VK ID' : k === 'event_type' ? 'Событие' : k === 'created_at' ? 'Дата события' : 'Получено'}{sortArrow(k)}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredDonor.map((d) => (
+                        <tr key={d.id}>
+                          <td>{d.id}</td>
+                          <td>{d.vk_id ?? '—'}</td>
+                          <td><span className="lair-badge">{d.event_type}</span></td>
+                          <td style={{ fontSize: 13, color: 'var(--parchment-faded)' }}>{formatDate(d.created_at)}</td>
+                          <td style={{ fontSize: 13, color: 'var(--parchment-faded)' }}>{formatDate(d.synced_at)}</td>
+                        </tr>
+                      ))}
+                      {filteredDonor.length === 0 && (
+                        <tr><td colSpan={5} style={{ textAlign: 'center', padding: 32, color: 'var(--parchment-faded)' }}>Событий доната пока нет</td></tr>
                       )}
                     </tbody>
                   </table>

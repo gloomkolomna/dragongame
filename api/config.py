@@ -40,6 +40,7 @@ ANTI_CHEAT_MULTIPLIER = _env_int("ANTI_CHEAT_MULTIPLIER", 5)
 # ── Донат (VK Donut) ──
 DONUT_API_URL = os.getenv("DONUT_API_URL", "").rstrip("/")
 DONUT_API_KEY = os.getenv("DONUT_API_KEY", "")
+DONUT_LOGS_URL = os.getenv("DONUT_LOGS_URL", "").rstrip("/")
 DONOR_SYNC_INTERVAL_HOURS = _env_int("DONOR_SYNC_INTERVAL_HOURS", 8)
 REWARD_CHECK_INTERVAL_HOURS = _env_int("REWARD_CHECK_INTERVAL_HOURS", 24)
 

@@ -4,8 +4,8 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../.."))
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../api"))
 
 import config
-from models import User, DonorCache
-from bot.services.donor_sync import _sync_all
+from models import User, DonorCache, DonorEventLog
+from bot.services.donor_sync import _sync_all, _sync_logs, _logs_url
 
 
 class FakeResponse:
@@ -127,6 +127,7 @@ def test_run_syncs_immediately_before_sleep(db, monkeypatch):
     calls = []
 
     monkeypatch.setattr(donor_sync, "_sync_all", lambda *a, **k: calls.append("sync"))
+    monkeypatch.setattr(donor_sync, "_sync_logs", lambda *a, **k: calls.append("logs"))
 
     def fake_sleep(seconds):
         calls.append(("sleep", seconds))
@@ -139,7 +140,7 @@ def test_run_syncs_immediately_before_sleep(db, monkeypatch):
     except SystemExit:
         pass
 
-    assert calls == ["sync", ("sleep", 8 * 3600)]
+    assert calls == ["sync", "logs", ("sleep", 8 * 3600)]
 
 
 def test_new_user_gets_donor_status(db, monkeypatch):
@@ -189,3 +190,107 @@ def test_new_user_created_when_sync_fails(db, monkeypatch):
 
     assert user.vk_id == 557
     assert db.query(DonorCache).count() == 0
+
+
+def test_logs_url_from_explicit_config():
+    config.DONUT_LOGS_URL = "http://donut/api/donor-logs"
+    assert _logs_url() == "http://donut/api/donor-logs"
+    config.DONUT_LOGS_URL = ""
+
+
+def test_logs_url_derived_from_api_url():
+    config.DONUT_LOGS_URL = ""
+    config.DONUT_API_URL = "http://donut/api/donor"
+    assert _logs_url() == "http://donut/api/donor-logs"
+
+
+def test_sync_logs_saves_events(db, monkeypatch):
+    config.DONUT_API_URL = "http://donut/api/donor"
+    config.DONUT_LOGS_URL = ""
+    config.DONUT_API_KEY = "key"
+
+    import httpx
+    monkeypatch.setattr(httpx, "get", lambda *a, **k: FakeResponse(200, [
+        {"id": 1, "vk_id": 111, "event_type": "new", "created_at": "2026-01-01T10:00:00"},
+        {"id": 2, "vk_id": 222, "event_type": "expired", "created_at": "2026-01-02T10:00:00"},
+    ]))
+
+    _sync_logs(db)
+
+    logs = db.query(DonorEventLog).order_by(DonorEventLog.source_id).all()
+    assert len(logs) == 2
+    assert logs[0].vk_id == 111
+    assert logs[0].event_type == "new"
+    assert logs[1].vk_id == 222
+
+
+def test_sync_logs_uses_last_created_at_as_since(db, monkeypatch):
+    config.DONUT_API_URL = "http://donut/api/donor"
+    config.DONUT_LOGS_URL = ""
+    config.DONUT_API_KEY = "key"
+    db.add(DonorEventLog(source_id=1, vk_id=111, event_type="new", created_at="2026-01-05T10:00:00", synced_at="s"))
+    db.commit()
+
+    captured = {}
+
+    import httpx
+
+    def fake_get(url, **kwargs):
+        captured["url"] = url
+        captured["params"] = kwargs.get("params")
+        return FakeResponse(200, [])
+
+    monkeypatch.setattr(httpx, "get", fake_get)
+
+    _sync_logs(db)
+
+    assert captured["url"] == "http://donut/api/donor-logs"
+    assert captured["params"]["since"] == "2026-01-05T10:00:00"
+
+
+def test_sync_logs_skips_duplicates(db, monkeypatch):
+    config.DONUT_API_URL = "http://donut/api/donor"
+    config.DONUT_LOGS_URL = ""
+    config.DONUT_API_KEY = "key"
+    db.add(DonorEventLog(source_id=1, vk_id=111, event_type="new", created_at="2026-01-01T10:00:00", synced_at="s"))
+    db.commit()
+
+    import httpx
+    monkeypatch.setattr(httpx, "get", lambda *a, **k: FakeResponse(200, [
+        {"id": 1, "vk_id": 111, "event_type": "new", "created_at": "2026-01-01T10:00:00"},
+        {"id": 2, "vk_id": 222, "event_type": "expired", "created_at": "2026-01-01T10:00:00"},
+    ]))
+
+    _sync_logs(db)
+
+    assert db.query(DonorEventLog).count() == 2
+
+
+def test_sync_logs_handles_http_error(db, monkeypatch):
+    config.DONUT_API_URL = "http://donut/api/donor"
+    config.DONUT_LOGS_URL = ""
+    config.DONUT_API_KEY = "key"
+
+    import httpx
+    monkeypatch.setattr(httpx, "get", lambda *a, **k: FakeResponse(500, {}))
+
+    _sync_logs(db)
+
+    assert db.query(DonorEventLog).count() == 0
+
+
+def test_sync_logs_no_config(db, monkeypatch):
+    config.DONUT_API_URL = ""
+    config.DONUT_LOGS_URL = ""
+    config.DONUT_API_KEY = ""
+
+    import httpx
+
+    def boom(*a, **k):
+        raise AssertionError("should not be called")
+
+    monkeypatch.setattr(httpx, "get", boom)
+
+    _sync_logs(db)
+
+    assert db.query(DonorEventLog).count() == 0

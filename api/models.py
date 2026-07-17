@@ -488,6 +488,16 @@ class DonorCache(Base):
     last_synced_at = Column(String, default="")
 
 
+class DonorEventLog(Base):
+    __tablename__ = "donor_event_logs"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    source_id = Column(Integer, unique=True, nullable=True)
+    vk_id = Column(Integer, nullable=True)
+    event_type = Column(String, default="")
+    created_at = Column(String, default="")
+    synced_at = Column(String, default="")
+
+
 class RewardConfig(Base):
     __tablename__ = "reward_configs"
     id = Column(Integer, primary_key=True, autoincrement=True)

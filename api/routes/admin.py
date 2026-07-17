@@ -15,7 +15,7 @@ from models import (
     ErrorLog, ServiceHeartbeat, ApiRequestLog,
     SuspiciousReport, ShopItem, StageShopItem, UserInventory,
     EpicStage, EpicStageAction, EpicActionItem, EpicMoodlet,
-    Treasure, UserTreasure, DonorCache,
+    Treasure, UserTreasure, DonorCache, DonorEventLog,
     PricingConfig, DragonSet, PaymentOrder, PaymentLog,
     CharacterAxis, CharacterBalance,
     EpicSubAction, EpicSubActionItem, EpicSubActionStep, EpicSubActionOutcome,
@@ -1588,6 +1588,14 @@ def list_debug_log(lines: int = Query(200, ge=1, le=5000)):
     total = len(all_lines)
     chunk = all_lines[-lines:]
     return {"enabled": True, "lines": chunk, "total": total}
+
+
+@router.get("/logs/donor")
+def list_donor_logs(page: int = Query(1, ge=1), per_page: int = Query(50, ge=1, le=200), db: Session = Depends(get_db)):
+    offset = (page - 1) * per_page
+    total = db.query(DonorEventLog).count()
+    items = db.query(DonorEventLog).order_by(DonorEventLog.id.desc()).offset(offset).limit(per_page).all()
+    return {"items": items, "total": total, "page": page, "per_page": per_page}
 
 
 @router.post("/logs/clear")
