@@ -193,8 +193,12 @@ def _send_pins(vk_id: int, dragons: list, db=None) -> bool:
         if not config.VK_GROUP_TOKEN:
             return False
         import vk_api
-        from bot.keyboard import garden_row, bestiary_link_row, _keyboard
-        kb = _keyboard([garden_row(), bestiary_link_row()])
+        from bot.keyboard import garden_row, bestiary_link_row, _keyboard, row
+        kb = _keyboard([
+            row(("\u26a1 Активировать все", "activate_all")),
+            garden_row(),
+            bestiary_link_row(),
+        ])
         vk = vk_api.VkApi(token=config.VK_GROUP_TOKEN, api_version="5.199").get_api()
         vk.messages.send(
             user_id=vk_id,

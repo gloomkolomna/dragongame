@@ -55,3 +55,47 @@ def activate_pin(db, vk_id: int, dragon):
     db.commit()
     _update_reservation_on_activation(db, vk_id, dragon.id)
     return True
+
+
+def activate_pin_silently(db, vk_id: int, dragon):
+    from models import UserDragon
+
+    existing = db.query(UserDragon).filter(
+        UserDragon.user_id == vk_id, UserDragon.dragon_id == dragon.id
+    ).first()
+    if existing:
+        return False
+
+    ud = UserDragon(
+        user_id=vk_id,
+        dragon_id=dragon.id,
+        completed_at="",
+    )
+    db.add(ud)
+    db.commit()
+    _update_reservation_on_activation(db, vk_id, dragon.id)
+    return True
+
+
+def activate_all_reservations(db, vk_id: int):
+    from models import DragonReservation, Dragon
+
+    reservations = (
+        db.query(DragonReservation)
+        .join(Dragon, Dragon.id == DragonReservation.dragon_id)
+        .filter(
+            DragonReservation.vk_user_id == vk_id,
+            DragonReservation.is_activated == False,
+        )
+        .order_by(DragonReservation.created_at.desc())
+        .all()
+    )
+
+    activated = 0
+    for r in reservations:
+        dragon = db.query(Dragon).filter(Dragon.id == r.dragon_id).first()
+        if dragon:
+            if activate_pin_silently(db, vk_id, dragon):
+                activated += 1
+
+    return activated, len(reservations)

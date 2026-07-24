@@ -737,6 +737,7 @@ def get_user_detail(vk_id: int, db: Session = Depends(get_db)):
                 "normal_crosses": s.normal_crosses,
                 "mode": s.mode,
                 "status": s.status,
+                "raw_message": s.raw_message or "",
                 "created_at": s.created_at,
             }
             for s in suspicious

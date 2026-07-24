@@ -67,7 +67,9 @@ function SuspiciousList() {
               <table className="lair-table">
                 <DataTableHead controls={t} allRows={items} />
                 <tbody>
-                  {t.rows.map((r) => (
+                  {t.rows.map((r) => {
+                    const isPin = r.mode === 'pin_no_reservation';
+                    return (
                     <tr key={r.id}>
                       <td>{r.user_id}</td>
                       <td style={{ fontWeight: 600 }}>{r.name}</td>
@@ -76,12 +78,16 @@ function SuspiciousList() {
                           Открыть чат →
                         </a>
                       </td>
-                      <td style={{ maxWidth: 360, whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontSize: 13 }}>
+                      <td style={{ maxWidth: 360, whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontSize: 13, color: isPin ? 'var(--gold)' : undefined }}>
                         {r.message || '—'}
                       </td>
-                      <td style={{ color: '#d474a0', fontWeight: 700 }}>{r.declared_crosses}</td>
-                      <td>{r.normal_crosses}</td>
-                      <td>{r.mode}</td>
+                      <td style={{ color: isPin ? 'var(--parchment-faded)' : '#d474a0', fontWeight: isPin ? 400 : 700 }}>
+                        {isPin ? '—' : r.declared_crosses}
+                      </td>
+                      <td>{isPin ? '—' : r.normal_crosses}</td>
+                      <td style={{ color: isPin ? '#d474a0' : undefined, fontWeight: isPin ? 700 : 400 }}>
+                        {isPin ? 'PIN без брони' : r.mode}
+                      </td>
                       <td style={{ fontSize: 13, color: 'var(--parchment-faded)' }}>{formatDate(r.created_at)}</td>
                       <td>
                         <button className="lair-btn lair-btn-sm lair-btn-danger" onClick={() => remove(r.id)}>
@@ -89,7 +95,8 @@ function SuspiciousList() {
                         </button>
                       </td>
                     </tr>
-                  ))}
+                    );
+                  })}
                   {t.rows.length === 0 && (
                     <tr><td colSpan={9} style={{ textAlign: 'center', padding: 32, color: 'var(--parchment-faded)' }}>Ничего не найдено</td></tr>
                   )}
