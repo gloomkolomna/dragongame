@@ -171,7 +171,7 @@ function LogsList() {
 
   const cur = tab === 'db' ? dbState : tab === 'api' ? apiState : tab === 'requests' ? reqState : tab === 'donors' ? donorState : payState;
   const totalPages = Math.ceil(cur.total / perPage);
-  const formatDate = (s: string) => s ? new Date(s).toLocaleString('ru-RU') : '—';
+  const formatDate = (s: string) => s ? s.slice(0, 16).replace('T', ' ') + ' МСК' : '—';
 
   const goPage = (p: number) => {
     if (tab === 'db') fetchDbLogs(p);

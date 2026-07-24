@@ -30,8 +30,8 @@ const COLUMNS: Column<PaymentOrder>[] = [
   { key: 'inv_id', label: 'InvId', value: (o) => String(o.robokassa_inv_id_expected), sortValue: (o) => o.robokassa_inv_id_expected, width: 60 },
   { key: 'status', label: 'Статус', value: (o) => (o.status === 'success' ? 'Успех' : o.status === 'pending' ? 'Ожидание' : 'Отказ'), filter: 'select' },
   { key: 'notified', label: 'Уведом.', value: (o) => (o.notified ? 'Да' : 'Нет'), filter: 'select' },
-  { key: 'created_at', label: 'Создан', value: (o) => o.created_at?.slice(0, 16).replace('T', ' ') || '—', sortValue: (o) => o.created_at || '' },
-  { key: 'completed_at', label: 'Завершён', value: (o) => o.completed_at?.slice(0, 16).replace('T', ' ') || '—', sortValue: (o) => o.completed_at || '' },
+  { key: 'created_at', label: 'Создан (МСК)', value: (o) => o.created_at?.slice(0, 16).replace('T', ' ') || '—', sortValue: (o) => o.created_at || '' },
+  { key: 'completed_at', label: 'Завершён (МСК)', value: (o) => o.completed_at?.slice(0, 16).replace('T', ' ') || '—', sortValue: (o) => o.completed_at || '' },
 ];
 
 function FinanceOrders({ hideHeader }: { hideHeader?: boolean }) {

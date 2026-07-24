@@ -52,7 +52,7 @@ function SuspiciousList() {
     }
   };
 
-  const formatDate = (s: string) => s ? new Date(s).toLocaleString('ru-RU') : '—';
+  const formatDate = (s: string) => s ? s.slice(0, 16).replace('T', ' ') + ' МСК' : '—';
 
   return (
     <>

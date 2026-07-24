@@ -97,10 +97,7 @@ function ReservationsList() {
 
   const formatDate = (s: string | null) => {
     if (!s) return '—';
-    try {
-      const d = new Date(s.includes('T') ? s : s.replace(' ', 'T'));
-      return d.toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-    } catch { return s; }
+    return (s.includes('T') ? s : s.replace(' ', 'T')).slice(0, 16).replace('T', ' ') + ' МСК';
   };
 
   const uniqueBuyers = useMemo(() => {

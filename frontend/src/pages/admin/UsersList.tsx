@@ -288,12 +288,12 @@ function UsersList() {
                 <div style={{ color: 'var(--text-muted)', fontSize: 14 }}>Нет подозрительных отчётов</div>
               ) : (
                 <table className="lair-table">
-                  <thead><tr><th>Дата</th><th>Тип</th><th>Детали</th><th></th></tr></thead>
+                  <thead><tr><th>Дата (МСК)</th><th>Тип</th><th>Детали</th><th></th></tr></thead>
                   <tbody>{suspicious.map((s) => {
                     const isPin = s.mode === 'pin_no_reservation';
                     return (
                     <tr key={s.id}>
-                      <td style={{ fontSize: 13 }}>{s.created_at?.slice(0, 16).replace('T', ' ')}</td>
+                      <td style={{ fontSize: 13 }}>{s.created_at?.slice(0, 16).replace('T', ' ') + ' МСК'}</td>
                       <td>{isPin ? '🔑 PIN без брони' : `${s.mode} / шаг ${s.step_number}`}</td>
                       <td style={{ color: isPin ? 'var(--gold)' : '#d474a0', fontWeight: 600 }}>
                         {isPin ? `PIN: ${s.raw_message}` : `${s.declared_crosses} / ${s.normal_crosses}`}

@@ -97,7 +97,7 @@ function Dashboard() {
 
   const formatDate = (s: string | null) => {
     if (!s) return '—';
-    try { return new Date(s).toLocaleString('ru-RU'); } catch { return s; }
+    return s.slice(0, 16).replace('T', ' ') + ' МСК';
   };
 
   const cheatItems = cheats?.items ?? [];
@@ -122,7 +122,7 @@ function Dashboard() {
                 <thead><tr><th>Дата</th><th>Игрок</th><th>Дракон</th><th>Шаг</th><th>Заявлено</th><th>Норма</th><th></th></tr></thead>
                 <tbody>{cheatItems.map((c) => (
                   <tr key={c.id}>
-                    <td style={{ fontSize: 13 }}>{c.created_at?.slice(0, 16).replace('T', ' ')}</td>
+                    <td style={{ fontSize: 13 }}>{c.created_at?.slice(0, 16).replace('T', ' ') + ' МСК'}</td>
                     <td style={{ fontWeight: 600 }}>{c.name}</td>
                     <td style={{ fontSize: 13 }}>{c.dragon_name || '—'}</td>
                     <td>{c.step_number}</td>
