@@ -303,7 +303,7 @@ function UsersList() {
                         <button className="lair-btn lair-btn-sm" onClick={() => resolveSuspicious(s.id)}>✔ Обработано</button>
                       </td>
                     </tr>
-                  ))}</tbody>
+                  )})}</tbody>
                 </table>
               )}
             </div>
