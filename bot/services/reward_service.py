@@ -89,19 +89,32 @@ def _process_rewards(db, vk, logger):
         all_users = db.query(User).all()
 
         for user in all_users:
+            don_since_dt = None
             if cfg.user_type == "donor":
                 if not is_donor(user.vk_id, db):
                     continue
                 donor_row = db.query(DonorCache).filter(DonorCache.vk_id == user.vk_id).first()
-                if donor_row and donor_row.don_since:
-                    try:
-                        don_since_dt = datetime.fromisoformat(donor_row.don_since)
-                        if now - don_since_dt < timedelta(days=cfg.period_days):
-                            continue
-                    except (ValueError, TypeError):
-                        pass
+                if not donor_row or not donor_row.don_since:
+                    continue
+                try:
+                    don_since_dt = datetime.fromisoformat(donor_row.don_since)
+                except (ValueError, TypeError):
+                    continue
+                if now - don_since_dt < timedelta(days=cfg.period_days):
+                    continue
+                days_since_don = (now - don_since_dt).days
+                period_number = days_since_don // cfg.period_days
+                period_start = don_since_dt + timedelta(days=period_number * cfg.period_days)
+                wall_pins = db.query(UserRewardPin).filter(
+                    UserRewardPin.user_id == user.vk_id,
+                    UserRewardPin.issued_at >= (now - timedelta(days=cfg.period_days)).strftime("%Y-%m-%dT%H:%M:%S"),
+                    UserRewardPin.config_id == cfg.id,
+                ).count()
+                if wall_pins >= cfg.eggs_per_period:
+                    continue
+            else:
+                period_start = now - timedelta(days=cfg.period_days)
 
-            period_start = now - timedelta(days=cfg.period_days)
             period_start_str = period_start.strftime("%Y-%m-%dT%H:%M:%S")
 
             pins_this_period = db.query(UserRewardPin).filter(
