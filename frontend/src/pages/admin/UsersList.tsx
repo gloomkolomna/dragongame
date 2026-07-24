@@ -8,7 +8,7 @@ import { DataTableHead, TableToolbar } from '../../components/admin/DataTable';
 const GROUP_ID = 239999455;
 
 interface User { vk_id: number; first_name: string; last_name: string; state: string; registered_at: string; pins_activated: number; last_pin_code: string | null; dragons_collected: number; current_dragon_id: number | null; current_step: number; suspicious_pending: number; is_don: boolean; custom_price_per_dragon: number | null; }
-interface Detail { vk_id: number; first_name: string; last_name: string; registered_at: string; stitches_balance: number; stitches_earned: number; epic_unlocked: boolean; epic_name: string; is_don: boolean; don_since: string | null; don_synced_at: string | null; pins_activated: number; pins: { code: string; dragon_name: string; egg_type: string; status: string; activated_at: string }[]; dragons: { dragon_id: number; name: string | null; egg_type: string; is_epic: boolean; epic_name: string; status: string; progress_pct: number; completed_at: string | null }[]; dragons_collected: number; dragons_active: number; dragons_total: number; suspicious_reports: Suspicious[]; treasures_collected: TreasureCollected[]; custom_price_per_dragon: number | null; }
+interface Detail { vk_id: number; first_name: string; last_name: string; registered_at: string; stitches_balance: number; stitches_earned: number; epic_unlocked: boolean; epic_name: string; reserved_epic_dragon_id: number | null; reserved_epic_dragon_name: string | null; is_don: boolean; don_since: string | null; don_synced_at: string | null; pins_activated: number; pins: { code: string; dragon_name: string; egg_type: string; status: string; activated_at: string }[]; dragons: { dragon_id: number; name: string | null; egg_type: string; is_epic: boolean; epic_name: string; status: string; progress_pct: number; completed_at: string | null }[]; dragons_collected: number; dragons_active: number; dragons_total: number; suspicious_reports: Suspicious[]; treasures_collected: TreasureCollected[]; custom_price_per_dragon: number | null; }
 interface TreasureCollected { id: number; name: string; description: string; image_path: string; dragon_id: number; is_active: boolean; }
 interface Suspicious { id: number; user_id: number; dragon_id: number | null; step_number: number; declared_crosses: number; normal_crosses: number; mode: string; status: string; created_at: string; }
 interface EpicSpecies { id: number; name: string; }
@@ -31,6 +31,7 @@ function UsersList() {
   const [priceInput, setPriceInput] = useState('');
   const [epicSpecies, setEpicSpecies] = useState<EpicSpecies[]>([]);
   const [epicPick, setEpicPick] = useState('');
+  const [reservePick, setReservePick] = useState('');
   const [load, setLoad] = useState(true);
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -111,6 +112,19 @@ function UsersList() {
       show(detail.vk_id);
     } catch (e: any) {
       alert(e.response?.data?.detail || 'Ошибка выдачи');
+    }
+  };
+
+  const reserveEpic = async () => {
+    if (!detail) return;
+    const id = reservePick === 'clear' ? 0 : Number(reservePick);
+    if (!id && reservePick !== 'clear') return;
+    try {
+      await client.post(`/admin/users/${detail.vk_id}/reserve-epic`, { dragon_id: id });
+      setReservePick('');
+      show(detail.vk_id);
+    } catch (e: any) {
+      alert(e.response?.data?.detail || 'Ошибка резервации');
     }
   };
 
@@ -237,6 +251,35 @@ function UsersList() {
               <div style={{ color: 'var(--parchment-faded)', fontSize: 12, marginTop: 6 }}>
                 Игрок получит уведомление и сможет начать выращивание командой «эпический».
               </div>
+            </div>
+
+            <div className="lair-card" style={{ marginBottom: 16 }}>
+              <h4 style={{ color: 'var(--gold)', margin: '0 0 12px' }}>🥚 Зарезервировать эпического дракона</h4>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                <select className="lair-input" value={reservePick}
+                        onChange={(e) => setReservePick(e.target.value)}
+                        style={{ minWidth: 220 }}>
+                  <option value="">— выбери эпического —</option>
+                  {epicSpecies.map((s) => (
+                    <option key={s.id} value={s.id}>{s.name}</option>
+                  ))}
+                  {detail.reserved_epic_dragon_id && (
+                    <option value="clear">✕ Снять резервацию</option>
+                  )}
+                </select>
+                <button className="lair-btn lair-btn-sm" disabled={!reservePick} onClick={reserveEpic}>💾 Сохранить</button>
+              </div>
+              {detail.reserved_epic_dragon_id ? (
+                <div style={{ color: 'var(--gold)', fontSize: 13, marginTop: 8 }}>
+                  🎯 Зарезервирован: <strong>{detail.reserved_epic_dragon_name || `id${detail.reserved_epic_dragon_id}`}</strong>
+                </div>
+              ) : (
+                <div style={{ color: 'var(--parchment-faded)', fontSize: 12, marginTop: 6 }}>
+                  {detail.epic_unlocked
+                    ? 'Эпические уже открыты — резервация имеет смысл только до первого спавна.'
+                    : 'При первом спавне эпического дракона выпадет именно этот вид.'}
+                </div>
+              )}
             </div>
 
             <div className="lair-card" style={{ marginBottom: 16 }}>

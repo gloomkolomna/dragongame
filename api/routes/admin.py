@@ -2830,6 +2830,7 @@ def list_payment_orders(
     items = q.order_by(PaymentOrder.id.desc()).offset((page - 1) * per_page).limit(per_page).all()
     result = []
     for order, set_name in items:
+        from routes.payment import inv_id_for_order
         d = {
             "id": order.id,
             "vk_id": order.vk_id,
@@ -2839,6 +2840,7 @@ def list_payment_orders(
             "quantity": order.quantity,
             "price_per_pin": order.price_per_pin,
             "robokassa_inv_id": order.robokassa_inv_id,
+            "robokassa_inv_id_expected": inv_id_for_order(order.id),
             "status": order.status,
             "dragon_ids": json.loads(order.dragon_ids or "[]"),
             "notified": order.notified,
@@ -2859,13 +2861,14 @@ def cancel_payment_order(order_id: int, db: Session = Depends(get_db)):
     order.status = "fail"
     order.completed_at = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
     import config
+    from routes.payment import inv_id_for_order
     log = PaymentLog(
         vk_id=order.vk_id,
         order_id=order.id,
         action="cancelled",
         login="",
         out_sum=str(order.amount_rub / 100),
-        inv_id=str(order.id),
+        inv_id=str(inv_id_for_order(order.id)),
         test_mode=config.robokassa_is_test(),
         sig="",
         receipt_json="",

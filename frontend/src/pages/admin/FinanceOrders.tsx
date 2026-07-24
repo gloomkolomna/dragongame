@@ -12,6 +12,7 @@ interface PaymentOrder {
   quantity: number;
   price_per_pin: number;
   robokassa_inv_id: number | null;
+  robokassa_inv_id_expected: number;
   status: string;
   dragon_ids: number[];
   notified: boolean;
@@ -26,6 +27,7 @@ const COLUMNS: Column<PaymentOrder>[] = [
   { key: 'quantity', label: 'Кол-во', value: (o) => String(o.quantity), sortValue: (o) => o.quantity },
   { key: 'amount', label: 'Сумма', value: (o) => `${(o.amount_rub / 100).toFixed(2)}₽`, sortValue: (o) => o.amount_rub },
   { key: 'price_per_pin', label: 'Цена/PIN', value: (o) => `${(o.price_per_pin / 100).toFixed(2)}₽`, sortValue: (o) => o.price_per_pin },
+  { key: 'inv_id', label: 'InvId', value: (o) => String(o.robokassa_inv_id_expected), sortValue: (o) => o.robokassa_inv_id_expected, width: 60 },
   { key: 'status', label: 'Статус', value: (o) => (o.status === 'success' ? 'Успех' : o.status === 'pending' ? 'Ожидание' : 'Отказ'), filter: 'select' },
   { key: 'notified', label: 'Уведом.', value: (o) => (o.notified ? 'Да' : 'Нет'), filter: 'select' },
   { key: 'created_at', label: 'Создан', value: (o) => o.created_at?.slice(0, 16).replace('T', ' ') || '—', sortValue: (o) => o.created_at || '' },
@@ -83,6 +85,7 @@ function FinanceOrders({ hideHeader }: { hideHeader?: boolean }) {
                           <td>{o.quantity}</td>
                           <td style={{ color: 'var(--gold)', fontWeight: 600 }}>{(o.amount_rub / 100).toFixed(2)}₽</td>
                           <td style={{ color: 'var(--parchment-dim)' }}>{(o.price_per_pin / 100).toFixed(2)}₽</td>
+                          <td style={{ color: 'var(--parchment-dim)', fontFamily: 'monospace', fontSize: 13 }}>{o.robokassa_inv_id_expected}</td>
                           <td style={{ color: st.color, fontWeight: 600 }}>{st.text}</td>
                           <td>{o.notified ? '✅' : '❌'}</td>
                           <td style={{ fontSize: 13, color: 'var(--parchment-faded)' }}>{o.created_at?.slice(0, 16).replace('T', ' ') || '—'}</td>
