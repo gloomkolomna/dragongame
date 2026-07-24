@@ -72,8 +72,9 @@ def activate_pin_silently(db, vk_id: int, dragon):
         completed_at="",
     )
     db.add(ud)
-    db.commit()
+    db.flush()
     _update_reservation_on_activation(db, vk_id, dragon.id)
+    db.commit()
     return True
 
 
@@ -82,7 +83,6 @@ def activate_all_reservations(db, vk_id: int):
 
     reservations = (
         db.query(DragonReservation)
-        .join(Dragon, Dragon.id == DragonReservation.dragon_id)
         .filter(
             DragonReservation.vk_user_id == vk_id,
             DragonReservation.is_activated == False,
@@ -94,8 +94,9 @@ def activate_all_reservations(db, vk_id: int):
     activated = 0
     for r in reservations:
         dragon = db.query(Dragon).filter(Dragon.id == r.dragon_id).first()
-        if dragon:
-            if activate_pin_silently(db, vk_id, dragon):
-                activated += 1
+        if not dragon:
+            continue
+        if activate_pin_silently(db, vk_id, dragon):
+            activated += 1
 
     return activated, len(reservations)

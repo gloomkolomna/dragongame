@@ -180,7 +180,11 @@ def handle_activate_all(user, db, send_message):
         f"\u2705 Активировано яиц: {activated} из {total}.\n\n"
         f"Все новые яйца добавлены в твою коллекцию. "
         f"Открой \u00ab\U0001f4d6 Список Бестиария\u00bb, чтобы их увидеть.",
-        keyboard=await_garden_keyboard(with_cancel=False),
+        keyboard=kb_json([
+            row(("\U0001f4d6 Список Бестиария", "garden")),
+            buy_eggs_row(),
+            bestiary_link_row(),
+        ]),
     )
 
 
@@ -228,5 +232,9 @@ def handle_activate_by_number(user, text, db, send_message):
     parts.append("")
     parts.append("Открой \u00ab\U0001f4d6 Список Бестиария\u00bb, чтобы увидеть новые яйца.")
 
-    send_message("\n".join(parts), keyboard=await_garden_keyboard(with_cancel=False))
+    send_message("\n".join(parts), keyboard=kb_json([
+        row(("\U0001f4d6 Список Бестиария", "garden")),
+        buy_eggs_row(),
+        bestiary_link_row(),
+    ]))
     return True
