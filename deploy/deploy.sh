@@ -25,6 +25,8 @@ FRONTEND_DIR="$APP_DIR/frontend"
 DB_FILE="$API_DIR/dragons.db"
 BACKUP_DIR="$API_DIR/backups"
 BACKUPS_TO_KEEP=10
+GIT_REMOTE="https://github.com/gloomkolomna/dragongame"
+GIT_BRANCH="main"
 HEALTH_URL="https://belovolovhome.ru/dragons/api/"
 LOG_FILE="$API_DIR/deploy.log"
 
@@ -169,9 +171,9 @@ fi
 # ===== 3. Git pull =====
 log "=== 3. Git pull ==="
 cd "$APP_DIR"
-git stash push -- frontend/package-lock.json 2>/dev/null || true
 rm -f frontend/tsconfig.tsbuildinfo
-git pull
+git fetch "$GIT_REMOTE" "$GIT_BRANCH"
+git reset --hard FETCH_HEAD
 
 # ===== 4. Зависимости + миграции =====
 log "=== 4. Установка зависимостей и миграции ==="
