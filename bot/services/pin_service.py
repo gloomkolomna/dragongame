@@ -64,7 +64,9 @@ def activate_pin_silently(db, vk_id: int, dragon):
         UserDragon.user_id == vk_id, UserDragon.dragon_id == dragon.id
     ).first()
     if existing:
-        return False
+        _update_reservation_on_activation(db, vk_id, dragon.id)
+        db.commit()
+        return True
 
     ud = UserDragon(
         user_id=vk_id,
