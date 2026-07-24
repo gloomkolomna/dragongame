@@ -63,10 +63,11 @@ function Dashboard() {
   };
 
   useEffect(() => {
-    client.get('/admin/stats').then((r) => setStats(r.data)).catch(() => {});
+    const fetchStats = () => client.get('/admin/stats').then((r) => setStats(r.data)).catch(() => {});
+    fetchStats();
     fetchHealth();
     fetchCheats();
-    const timer = setInterval(() => { fetchHealth(); fetchCheats(); }, 30000);
+    const timer = setInterval(() => { fetchStats(); fetchHealth(); fetchCheats(); }, 30000);
     return () => clearInterval(timer);
   }, [fetchHealth, fetchCheats]);
 
@@ -184,14 +185,32 @@ function Dashboard() {
                   <div style={{ fontWeight: 700, fontSize: 16, textTransform: 'uppercase', color: 'var(--gold)' }}>
                     {name === 'bot' ? '🤖 Бот' : name === 'donor_sync' ? '💎 Бот донатов' : name}
                   </div>
-                  <div style={{ fontSize: 14, color: svc.status === 'online' ? 'var(--success)' : 'var(--fire)', fontWeight: 600 }}>
-                    {statusLabel(svc.status)}
-                  </div>
-                </div>
-              </div>
-              <div style={{ fontSize: 12, color: 'var(--parchment-faded)', marginTop: 8 }}>
-                Обновлён: {formatDate(svc.last_seen)}
-              </div>
+                   <div style={{ fontSize: 14, color: svc.status === 'online' ? 'var(--success)' : 'var(--fire)', fontWeight: 600 }}>
+                     {statusLabel(svc.status)}
+                   </div>
+                 </div>
+               </div>
+               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 8 }}>
+                 <div style={{ fontSize: 12, color: 'var(--parchment-faded)' }}>
+                   Обновлён: {formatDate(svc.last_seen)}
+                 </div>
+                 {name === 'donor_sync' && (
+                   <button
+                     className="lair-btn lair-btn-sm lair-btn-outline"
+                     onClick={async (e) => {
+                       e.stopPropagation();
+                       try {
+                         await client.post('/admin/trigger-donor-sync');
+                         fetchHealth();
+                       } catch {}
+                     }}
+                     style={{ fontSize: 12, padding: '2px 8px' }}
+                     title="Запустить синхронизацию доноров вручную"
+                   >
+                     🔄
+                   </button>
+                 )}
+               </div>
             </motion.div>
           ))}
           {!health && (

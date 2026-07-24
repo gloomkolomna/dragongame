@@ -1664,6 +1664,21 @@ def get_health(db: Session = Depends(get_db)):
     return {"services": services, "checked_at": now.isoformat()}
 
 
+@router.post("/trigger-donor-sync")
+def trigger_donor_sync(db: Session = Depends(get_db)):
+    import sys
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
+    from bot.services.donor_sync import _sync_all, _sync_logs
+    import logging
+    logger = logging.getLogger("donor_sync_manual")
+    try:
+        _sync_all(db, logger)
+        _sync_logs(db, logger)
+        return {"ok": True, "detail": "Синхронизация доноров и логов завершена."}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 def _service_status(last_seen, now: datetime, threshold_seconds: int) -> dict:
     if not last_seen:
         return {"status": "unknown", "last_seen": None}
