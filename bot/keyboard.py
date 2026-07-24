@@ -445,6 +445,14 @@ def payment_link_keyboard():
             },
             "color": "primary",
         }],
+        [{
+            "action": {
+                "type": "text",
+                "label": "❌ Отменить оплату",
+                "payload": json.dumps({"cmd": "cancel_payment"}, ensure_ascii=False),
+            },
+            "color": "negative",
+        }],
         garden_row(),
         bestiary_link_row(),
     ])

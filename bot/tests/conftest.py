@@ -6,6 +6,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../api"))
 import config as _config
 _config.ANTI_CHEAT_MULTIPLIER = 5
 _config.ADMIN_VK_ID = 0
+_config.ROBOKASSA_INV_ID_OFFSET = 0
 
 import pytest
 from sqlalchemy import create_engine, StaticPool

@@ -1,6 +1,6 @@
 import json
 import hashlib
-from datetime import datetime
+from datetime import datetime, timedelta
 from urllib.parse import urlencode, quote_plus
 from fastapi import APIRouter, Depends, Request, HTTPException
 from fastapi.responses import PlainTextResponse, RedirectResponse, HTMLResponse
@@ -23,6 +23,43 @@ def _now() -> str:
 
 def _md5(raw: str) -> str:
     return hashlib.md5(raw.encode("utf-8")).hexdigest()
+
+
+def inv_id_for_order(order_id: int) -> int:
+    return order_id + config.ROBOKASSA_INV_ID_OFFSET
+
+
+def order_id_from_inv(inv_id: int) -> int:
+    return inv_id - config.ROBOKASSA_INV_ID_OFFSET
+
+
+def _is_order_expired(order: PaymentOrder) -> bool:
+    if not order or order.status != "pending":
+        return False
+    if not order.created_at:
+        return False
+    try:
+        created = datetime.strptime(order.created_at, "%Y-%m-%dT%H:%M:%S")
+        return (datetime.now() - created) > timedelta(hours=1)
+    except (ValueError, TypeError):
+        return False
+
+
+def _cancel_expired_orders(db: Session, vk_id: int = None):
+    q = db.query(PaymentOrder).filter(PaymentOrder.status == "pending")
+    if vk_id is not None:
+        q = q.filter(PaymentOrder.vk_id == vk_id)
+    expired = []
+    for order in q.all():
+        if _is_order_expired(order):
+            order.status = "cancelled"
+            expired.append(order)
+    if expired:
+        db.commit()
+        import sys
+        for o in expired:
+            print(f"[Payment] Auto-cancelled expired order #{o.id} for vk_id={o.vk_id}", file=sys.stderr)
+    return expired
 
 
 def build_receipt(out_sum: str, order: PaymentOrder, description: str) -> str:
@@ -72,7 +109,7 @@ def _log_payment(vk_id: int, order_id: int, action: str, login: str,
 def build_payment_url(order: PaymentOrder, vk_id: int, description: str) -> str:
     login = config.ROBOKASSA_MERCHANT_LOGIN
     out_sum = f"{order.amount_rub / 100:.2f}"
-    inv_id = str(order.id)
+    inv_id = str(inv_id_for_order(order.id))
     receipt = build_receipt(out_sum, order, description)
     receipt_encoded = quote_plus(receipt, safe="")
     password1 = config.robokassa_password1()
@@ -184,12 +221,18 @@ async def create_order(request: Request, db: Session = Depends(get_db)):
     vk_id = int(vk_id)
     set_id = int(set_id)
 
+    _cancel_expired_orders(db, vk_id)
+
     pending = db.query(PaymentOrder).filter(
         PaymentOrder.vk_id == vk_id,
         PaymentOrder.status == "pending",
     ).first()
     if pending:
-        return {"error": "pending", "order_id": pending.id}
+        if _is_order_expired(pending):
+            pending.status = "cancelled"
+            db.commit()
+        else:
+            return {"error": "pending", "order_id": pending.id}
 
     dset = db.query(DragonSet).filter(
         DragonSet.id == set_id, DragonSet.is_active == True
@@ -250,48 +293,62 @@ async def payment_result(request: Request, db: Session = Depends(get_db)):
         pass
 
     out_sum = params.get("OutSum")
-    inv_id = params.get("InvId")
+    inv_id_raw = params.get("InvId")
     signature = params.get("SignatureValue")
     shp_vk_id = params.get("Shp_vk_id")
-    if not (out_sum and inv_id and signature and shp_vk_id):
+    if not (out_sum and inv_id_raw and signature and shp_vk_id):
+        _log_payment(0, 0, "callback_bad_params", "", out_sum or "", inv_id_raw or "",
+                     False, signature or "", "", f"missing params: OutSum={out_sum} InvId={inv_id_raw} Sig={signature} Shp={shp_vk_id}")
         raise HTTPException(status_code=400, detail="bad params")
 
-    if not verify_result_signature(out_sum, inv_id, signature, shp_vk_id):
-        try:
-            _log_payment(int(shp_vk_id), int(inv_id), "callback_bad_sig", "", out_sum, inv_id,
-                         False, signature or "", "", "bad signature", db)
-        except Exception:
-            pass
+    if not verify_result_signature(out_sum, inv_id_raw, signature, shp_vk_id):
+        _log_payment(int(shp_vk_id), 0, "callback_bad_sig", "", out_sum, inv_id_raw,
+                     False, signature or "", "", "bad signature")
         raise HTTPException(status_code=400, detail="bad signature")
 
-    order = db.query(PaymentOrder).filter(PaymentOrder.id == int(inv_id)).first()
+    real_order_id = order_id_from_inv(int(inv_id_raw))
+    order = db.query(PaymentOrder).filter(PaymentOrder.id == real_order_id).first()
     if not order:
+        _log_payment(int(shp_vk_id), int(inv_id_raw), "callback_order_not_found", "",
+                     out_sum, inv_id_raw, False, signature or "", "",
+                     f"order_id={real_order_id} not found for inv_id={inv_id_raw}")
         raise HTTPException(status_code=400, detail="order not found")
 
     if order.status == "success":
-        return PlainTextResponse(f"OK{inv_id}")
+        return PlainTextResponse(f"OK{inv_id_raw}")
+
+    if order.status == "cancelled":
+        _log_payment(order.vk_id, order.id, "callback_cancelled", "", out_sum, inv_id_raw,
+                     False, signature or "", "", "order was cancelled")
+        return PlainTextResponse(f"OK{inv_id_raw}")
 
     if int(shp_vk_id) != order.vk_id:
+        _log_payment(order.vk_id, order.id, "callback_vk_mismatch", "",
+                     out_sum, inv_id_raw, False, signature or "", "",
+                     f"expected vk_id={order.vk_id} got={shp_vk_id}")
         raise HTTPException(status_code=400, detail="vk_id mismatch")
 
     paid = round(float(out_sum) * 100)
     if abs(paid - order.amount_rub) > 1:
+        _log_payment(order.vk_id, order.id, "callback_amount_mismatch", "",
+                     out_sum, inv_id_raw, False, signature or "", "",
+                     f"expected={order.amount_rub} got={paid}")
         raise HTTPException(status_code=400, detail="amount mismatch")
 
     dragons = select_dragons(order.vk_id, order.quantity, db)
     order.status = "success"
     order.completed_at = _now()
-    order.robokassa_inv_id = int(inv_id)
+    order.robokassa_inv_id = int(inv_id_raw)
     order.dragon_ids = json.dumps([d.id for d in dragons])
     db.commit()
 
     order.notified = _send_pins(order.vk_id, dragons, db)
     db.commit()
 
-    _log_payment(order.vk_id, order.id, "callback_success", "", out_sum, inv_id,
+    _log_payment(order.vk_id, order.id, "callback_success", "", out_sum, inv_id_raw,
                  False, signature or "", order.dragon_ids, f"dragons={order.dragon_ids}", db)
 
-    return PlainTextResponse(f"OK{inv_id}")
+    return PlainTextResponse(f"OK{inv_id_raw}")
 
 
 @router.get("/pay/{order_id}", response_class=HTMLResponse)
@@ -299,6 +356,11 @@ def payment_post_redirect(order_id: int, vk_id: int, db: Session = Depends(get_d
     order = db.query(PaymentOrder).filter(PaymentOrder.id == order_id).first()
     if not order:
         return HTMLResponse("<h1>Заказ не найден</h1>", status_code=404)
+    if _is_order_expired(order):
+        return HTMLResponse(
+            "<h1>Заказ просрочен</h1><p>Время оплаты истекло (1 час). Создай новый заказ.</p>",
+            status_code=410,
+        )
     if order.status != "pending":
         return HTMLResponse(f"<h1>Заказ уже {order.status}</h1>", status_code=400)
 
@@ -307,7 +369,7 @@ def payment_post_redirect(order_id: int, vk_id: int, db: Session = Depends(get_d
 
     login = config.ROBOKASSA_MERCHANT_LOGIN
     out_sum = f"{order.amount_rub / 100:.2f}"
-    inv_id = str(order.id)
+    inv_id = str(inv_id_for_order(order.id))
     receipt = build_receipt(out_sum, order, description)
     receipt_encoded = quote_plus(receipt, safe="")
     password1 = config.robokassa_password1()

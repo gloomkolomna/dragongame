@@ -2783,7 +2783,7 @@ def delete_set(set_id: int, db: Session = Depends(get_db)):
 def list_payment_orders(
     page: int = Query(1, ge=1),
     per_page: int = Query(50, ge=1, le=200),
-    status: Optional[str] = Query(None, regex="^(pending|success|fail)?$"),
+    status: Optional[str] = Query(None, regex="^(pending|success|fail|cancelled)?$"),
     db: Session = Depends(get_db),
 ):
     q = db.query(PaymentOrder).outerjoin(

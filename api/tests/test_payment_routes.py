@@ -1,4 +1,5 @@
 import hashlib
+from datetime import datetime, timedelta
 import config
 from models import Dragon, DragonSet, PaymentOrder
 
@@ -408,3 +409,89 @@ def test_custom_price_set_and_list(client, db):
     resp_clear = client.post("/api/admin/users/555/custom-price", json={"custom_price_per_dragon": None})
     assert resp_clear.status_code == 200
     assert resp_clear.json()["custom_price_per_dragon"] is None
+
+
+# ─── Auto-cancel expired orders ───
+
+def test_create_order_auto_cancels_expired_pending(client, db):
+    now_str = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
+    old_str = (datetime.now() - timedelta(hours=2)).strftime("%Y-%m-%dT%H:%M:%S")
+    for i in range(3):
+        _dragon(db, f"EX{i}", family_id=i, pin=f"EX{i:04d}")
+    s = _set(db, quantity=2)
+    old_order = PaymentOrder(
+        vk_id=99, set_id=s.id, amount_rub=19000, quantity=2,
+        price_per_pin=9500, status="pending", dragon_ids="[]",
+        created_at=old_str,
+    )
+    db.add(old_order)
+    db.commit()
+
+    resp = client.post("/api/payment/create-order", json={"vk_id": 99, "set_id": s.id})
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["order_id"] != old_order.id
+
+    db.refresh(old_order)
+    assert old_order.status == "cancelled"
+
+
+def test_create_order_expired_pending_returns_new(client, db):
+    now_str = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
+    for i in range(3):
+        _dragon(db, f"EY{i}", family_id=i, pin=f"EY{i:04d}")
+    s = _set(db, quantity=2)
+    old_order = PaymentOrder(
+        vk_id=98, set_id=s.id, amount_rub=19000, quantity=2,
+        price_per_pin=9500, status="pending", dragon_ids="[]",
+        created_at=(datetime.now() - timedelta(hours=2)).strftime("%Y-%m-%dT%H:%M:%S"),
+    )
+    db.add(old_order)
+    db.commit()
+
+    resp = client.post("/api/payment/create-order", json={"vk_id": 98, "set_id": s.id})
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["order_id"] != old_order.id
+
+
+def test_payment_page_rejects_expired_order(client, db):
+    from datetime import timedelta
+    for i in range(2):
+        _dragon(db, f"EZ{i}", family_id=i, pin=f"EZ{i:04d}")
+    s = _set(db, quantity=1)
+    order = PaymentOrder(
+        vk_id=97, set_id=s.id, amount_rub=9500, quantity=1,
+        price_per_pin=9500, status="pending", dragon_ids="[]",
+        created_at=(datetime.now() - timedelta(hours=2)).strftime("%Y-%m-%dT%H:%M:%S"),
+    )
+    db.add(order)
+    db.commit()
+    db.refresh(order)
+
+    resp = client.get(f"/api/payment/pay/{order.id}?vk_id=97")
+    assert resp.status_code == 410
+    assert "просрочен" in resp.text
+
+
+def test_payment_url_uses_inv_id_offset(client, db, monkeypatch):
+    import config as _cfg
+    monkeypatch.setattr(_cfg, "ROBOKASSA_INV_ID_OFFSET", 100)
+    from routes.payment import build_payment_url, inv_id_for_order
+    for i in range(3):
+        _dragon(db, f"IO{i}", family_id=i, pin=f"IO{i:04d}")
+    s = _set(db, quantity=1)
+    order = PaymentOrder(
+        vk_id=96, set_id=s.id, amount_rub=9500, quantity=1,
+        price_per_pin=9500, status="pending", dragon_ids="[]",
+        created_at=datetime.now().strftime("%Y-%m-%dT%H:%M:%S"),
+    )
+    db.add(order)
+    db.commit()
+    db.refresh(order)
+
+    url = build_payment_url(order, 96, "Test")
+    assert f"InvId={order.id + 100}" in url or f"InvId={order.id + 100}" in url.replace("InvId=", "&InvId=").split("&")[0]
+    from urllib.parse import urlparse, parse_qs
+    qs = parse_qs(urlparse(url).query)
+    assert qs["InvId"][0] == str(order.id + 100)

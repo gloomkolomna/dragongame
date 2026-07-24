@@ -51,6 +51,7 @@ ROBOKASSA_PASSWORD2 = os.getenv("ROBOKASSA_PASSWORD2", "")
 ROBOKASSA_TEST_PASSWORD1 = os.getenv("ROBOKASSA_TEST_PASSWORD1", "")
 ROBOKASSA_TEST_PASSWORD2 = os.getenv("ROBOKASSA_TEST_PASSWORD2", "")
 ROBOKASSA_TEST_MODE = os.getenv("ROBOKASSA_TEST_MODE", "1")
+ROBOKASSA_INV_ID_OFFSET = _env_int("ROBOKASSA_INV_ID_OFFSET", 100)
 SITE_URL = os.getenv("SITE_URL", "https://belovolovhome.ru/dragons")
 VK_GROUP_URL = os.getenv("VK_GROUP_URL", "https://vk.ru/bestiaryofdragonlegends")
 

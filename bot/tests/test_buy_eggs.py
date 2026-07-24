@@ -1,3 +1,4 @@
+from datetime import datetime
 from models import User, DragonSet, PaymentOrder, Dragon, PricingConfig
 from bot.handlers.buy_eggs import handle_buy_eggs, handle_buy_set, handle_partial_confirm
 
@@ -94,7 +95,7 @@ def test_buy_set_pending_order_reuses(db):
     db.add(PricingConfig(id=1, base_price_per_dragon=10000))
     existing = PaymentOrder(vk_id=u.vk_id, set_id=s.id, amount_rub=30000,
                             quantity=3, price_per_pin=10000, status="pending",
-                            dragon_ids="[]", created_at="2026-01-01T00:00:00")
+                            dragon_ids="[]", created_at=datetime.now().strftime("%Y-%m-%dT%H:%M:%S"))
     db.add(existing)
     db.commit()
 
@@ -198,3 +199,82 @@ def test_buy_set_not_found(db):
     msgs = []
     handle_buy_set(u, 999, db, lambda m, **k: msgs.append(m))
     assert "не найден" in msgs[0].lower()
+
+
+def test_buy_set_auto_cancels_expired_pending(db):
+    from datetime import timedelta
+    u = _make_user(db, vk_id=50)
+    s = _make_set(db, name="Стартовый", quantity=3)
+    db.add(PricingConfig(id=1, base_price_per_dragon=10000))
+    for i in range(1, 6):
+        db.add(Dragon(name=f"D{i}", rarity=1, steps_count=1, is_active=True))
+    db.commit()
+
+    old_str = (datetime.now() - timedelta(hours=2)).strftime("%Y-%m-%dT%H:%M:%S")
+    existing = PaymentOrder(
+        vk_id=u.vk_id, set_id=s.id, amount_rub=30000, quantity=3,
+        price_per_pin=10000, status="pending", dragon_ids="[]",
+        created_at=old_str,
+    )
+    db.add(existing)
+    db.commit()
+
+    msgs = []
+    handle_buy_set(u, s.id, db, lambda m, **k: msgs.append(m))
+
+    db.refresh(existing)
+    assert existing.status == "cancelled"
+    assert "Стартовый" in msgs[0]
+
+
+def test_cancel_payment_cancels_order(db):
+    import json
+    u = _make_user(db, vk_id=60, state_data=json.dumps({"_payment_order_id": 1}))
+    s = _make_set(db, name="Тестовый", quantity=3)
+    order = PaymentOrder(
+        id=1, vk_id=u.vk_id, set_id=s.id, amount_rub=30000, quantity=3,
+        price_per_pin=10000, status="pending", dragon_ids="[]",
+        created_at=datetime.now().strftime("%Y-%m-%dT%H:%M:%S"),
+    )
+    db.add(order)
+    db.commit()
+
+    from bot.handlers.buy_eggs import handle_cancel_payment
+    msgs = []
+    handle_cancel_payment(u, db, lambda m, **k: msgs.append(m))
+
+    db.refresh(order)
+    assert order.status == "cancelled"
+    assert "отменён" in msgs[0].lower()
+
+    sd = json.loads(u.state_data or "{}")
+    assert "_payment_order_id" not in sd
+
+
+def test_cancel_payment_no_order(db):
+    u = _make_user(db)
+    from bot.handlers.buy_eggs import handle_cancel_payment
+    msgs = []
+    handle_cancel_payment(u, db, lambda m, **k: msgs.append(m))
+    assert "нет активного" in msgs[0].lower()
+
+
+def test_cancel_payment_not_pending(db):
+    import json
+    u = _make_user(db, vk_id=70, state_data=json.dumps({"_payment_order_id": 2}))
+    s = _make_set(db, name="Тестовый", quantity=3)
+    order = PaymentOrder(
+        id=2, vk_id=u.vk_id, set_id=s.id, amount_rub=30000, quantity=3,
+        price_per_pin=10000, status="success", dragon_ids="[]",
+        created_at=datetime.now().strftime("%Y-%m-%dT%H:%M:%S"),
+    )
+    db.add(order)
+    db.commit()
+
+    from bot.handlers.buy_eggs import handle_cancel_payment
+    msgs = []
+    handle_cancel_payment(u, db, lambda m, **k: msgs.append(m))
+
+    db.refresh(order)
+    assert order.status == "success"
+    assert "уже" in msgs[0].lower()

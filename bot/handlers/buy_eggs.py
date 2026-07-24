@@ -33,7 +33,7 @@ def _build_payment_url(order, vk_id: int, description: str) -> str:
     import config
     login = config.ROBOKASSA_MERCHANT_LOGIN
     out_sum = f"{order.amount_rub / 100:.2f}"
-    inv_id = str(order.id)
+    inv_id = str(order.id + config.ROBOKASSA_INV_ID_OFFSET)
     receipt = _build_receipt(out_sum, order, description)
     receipt_encoded = quote_plus(receipt, safe="")
     password1 = config.robokassa_password1()
@@ -133,6 +133,19 @@ def handle_buy_eggs(user, db, send_message):
     send_message("\n".join(lines) + OFFERTA_TEXT, keyboard=buy_eggs_keyboard(set_data))
 
 
+def _is_order_expired(order):
+    if not order or order.status != "pending":
+        return False
+    if not order.created_at:
+        return False
+    try:
+        from datetime import datetime, timedelta
+        created = datetime.strptime(order.created_at, "%Y-%m-%dT%H:%M:%S")
+        return (datetime.now() - created) > timedelta(hours=1)
+    except (ValueError, TypeError):
+        return False
+
+
 def handle_buy_set(user, set_id, db, send_message):
     from models import DragonSet, PaymentOrder
     from services.payment_service import is_donor, calc_set_price, count_available
@@ -149,19 +162,24 @@ def handle_buy_set(user, set_id, db, send_message):
         PaymentOrder.status == "pending",
     ).first()
     if pending:
-        _store_payment(user, pending.id, db)
-        pending_dset = db.query(DragonSet).filter(DragonSet.id == pending.set_id).first()
-        set_name = pending_dset.name if pending_dset else "?"
-        price_rub = pending.amount_rub // 100
-        from bot.keyboard import payment_link_keyboard
-        send_message(
-            f"⚠ У тебя уже есть неоплаченный заказ:\n"
-            f"🛒 Набор «{set_name}» — {pending.quantity} шт. за {price_rub} ₽\n\n"
-            f"Нажми кнопку ниже, чтобы перейти к оплате."
-            + OFFERTA_TEXT,
-            keyboard=payment_link_keyboard(),
-        )
-        return
+        if _is_order_expired(pending):
+            pending.status = "cancelled"
+            db.commit()
+        else:
+            _store_payment(user, pending.id, db)
+            pending_dset = db.query(DragonSet).filter(DragonSet.id == pending.set_id).first()
+            set_name = pending_dset.name if pending_dset else "?"
+            price_rub = pending.amount_rub // 100
+            from bot.keyboard import payment_link_keyboard
+            send_message(
+                f"⚠ У тебя уже есть неоплаченный заказ:\n"
+                f"🛒 Набор «{set_name}» — {pending.quantity} шт. за {price_rub} ₽\n\n"
+                f"💡 Ссылка на оплату действует 1 час.\n"
+                f"Нажми кнопку ниже, чтобы перейти к оплате."
+                + OFFERTA_TEXT,
+                keyboard=payment_link_keyboard(),
+            )
+            return
 
     donor = is_donor(user.vk_id, db)
     total, price_per_pin = calc_set_price(dset, donor, user.vk_id, db)
@@ -212,6 +230,7 @@ def handle_buy_set(user, set_id, db, send_message):
         f"🛒 Набор «{dset.name}»\n"
         f"🥚 {quantity} шт.\n"
         f"💰 {amount_rub} ₽{donor_text}\n\n"
+        f"💡 Ссылка на оплату действует 1 час.\n"
         f"Нажми кнопку ниже, чтобы перейти к оплате:"
         + OFFERTA_TEXT,
         keyboard=payment_link_keyboard(),
@@ -264,6 +283,7 @@ def handle_partial_confirm(user, db, send_message):
         f"🛒 Набор «{dset.name}» (частичный)\n"
         f"🥚 {quantity} шт.\n"
         f"💰 {amount_rub} ₽{donor_text}\n\n"
+        f"💡 Ссылка на оплату действует 1 час.\n"
         f"Нажми кнопку ниже, чтобы перейти к оплате:"
         + OFFERTA_TEXT,
         keyboard=payment_link_keyboard(),
@@ -284,13 +304,28 @@ def handle_open_payment(user, db, send_message):
         send_message("❌ Заказ не найден.")
         return
 
+    if _is_order_expired(order):
+        order.status = "cancelled"
+        db.commit()
+        send_message("⏰ Срок оплаты заказа истёк (1 час). Создай новый заказ.")
+        return
+
+    if order.status == "cancelled":
+        send_message("❌ Заказ отменён. Создай новый заказ.")
+        return
+
+    if order.status != "pending":
+        send_message(f"❌ Статус заказа: {order.status}. Обратись в поддержку.")
+        return
+
     dset = db.query(DragonSet).filter(DragonSet.id == order.set_id).first()
     set_name = dset.name if dset else "?"
     import config as _cfg
     url = f"{_cfg.SITE_URL}/api/payment/pay/{order.id}?vk_id={user.vk_id}"
 
     send_message(
-        f"💳 Ссылка для оплаты набора «{set_name}»:\n{url}"
+        f"💳 Ссылка для оплаты набора «{set_name}»:\n{url}\n\n"
+        f"💡 Ссылка на оплату действует 1 час."
         + OFFERTA_TEXT,
         keyboard=json.dumps({
             "one_time": False,
@@ -305,3 +340,34 @@ def handle_open_payment(user, db, send_message):
             ],
         }, ensure_ascii=False),
     )
+
+
+def handle_cancel_payment(user, db, send_message):
+    from models import PaymentOrder
+
+    sd = json.loads(user.state_data or "{}")
+    order_id = sd.pop("_payment_order_id", None)
+    if not order_id:
+        send_message("❌ Нет активного заказа для отмены.")
+        user.state_data = json.dumps(sd, ensure_ascii=False)
+        db.commit()
+        return
+
+    order = db.query(PaymentOrder).filter(PaymentOrder.id == order_id).first()
+    if not order:
+        send_message("❌ Заказ не найден.")
+        user.state_data = json.dumps(sd, ensure_ascii=False)
+        db.commit()
+        return
+
+    if order.status != "pending":
+        send_message(f"❌ Заказ уже {order.status}, отмена невозможна.")
+        user.state_data = json.dumps(sd, ensure_ascii=False)
+        db.commit()
+        return
+
+    order.status = "cancelled"
+    user.state_data = json.dumps(sd, ensure_ascii=False)
+    db.commit()
+
+    send_message("✅ Заказ отменён. Если передумаешь, можешь создать новый.")
