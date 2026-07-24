@@ -77,6 +77,7 @@ class User(Base):
     stitches_earned = Column(Integer, default=0)
     epic_unlocked = Column(Boolean, default=False)
     epic_dragon_id = Column(Integer, nullable=True)
+    reserved_epic_dragon_id = Column(Integer, nullable=True)
     custom_price_per_dragon = Column(Integer, nullable=True)
 
 

@@ -702,6 +702,10 @@ def get_user_detail(vk_id: int, db: Session = Depends(get_db)):
     from services.epic_service import get_epic_name
     epic_name = get_epic_name(db, vk_id)
 
+    reserved_dragon = None
+    if user.reserved_epic_dragon_id:
+        reserved_dragon = db.query(Dragon).filter(Dragon.id == user.reserved_epic_dragon_id).first()
+
     return {
         "vk_id": user.vk_id,
         "first_name": vk_nm.get("first_name", ""),
@@ -712,6 +716,8 @@ def get_user_detail(vk_id: int, db: Session = Depends(get_db)):
         "epic_unlocked": user.epic_unlocked,
         "epic_dragon_id": user.epic_dragon_id,
         "epic_name": epic_name,
+        "reserved_epic_dragon_id": user.reserved_epic_dragon_id,
+        "reserved_epic_dragon_name": reserved_dragon.name if reserved_dragon else None,
         "is_don": bool(donor.is_don) if donor else False,
         "don_since": donor.don_since if donor else None,
         "don_synced_at": donor.last_synced_at if donor else None,
@@ -1371,6 +1377,35 @@ async def give_epic_dragon(vk_id: int, request: Request, db: Session = Depends(g
         )
     _notify_user(vk_id, message, attachment)
     return {"ok": True, "dragon_id": dragon_id, "dragon_name": dragon.name}
+
+
+@router.post("/users/{vk_id}/reserve-epic")
+async def reserve_epic_dragon(vk_id: int, request: Request, db: Session = Depends(get_db)):
+    b = await _json_body(request)
+    dragon_id = b.get("dragon_id")
+    if dragon_id is None:
+        raise HTTPException(status_code=400, detail="dragon_id required")
+    dragon_id = int(dragon_id)
+
+    user = db.query(User).filter(User.vk_id == vk_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    if dragon_id == 0:
+        user.reserved_epic_dragon_id = None
+        db.commit()
+        return {"ok": True, "reserved_epic_dragon_id": None}
+
+    dragon = db.query(Dragon).filter(Dragon.id == dragon_id, Dragon.is_epic == True).first()
+    if not dragon:
+        raise HTTPException(status_code=404, detail="Epic dragon not found")
+
+    if user.epic_unlocked:
+        raise HTTPException(status_code=400, detail="У игрока уже разблокированы эпические драконы. Резервация имеет смысл только до первого спавна.")
+
+    user.reserved_epic_dragon_id = dragon_id
+    db.commit()
+    return {"ok": True, "reserved_epic_dragon_id": dragon_id, "dragon_name": dragon.name}
 
 
 # ─── Epic care admin stepping ───

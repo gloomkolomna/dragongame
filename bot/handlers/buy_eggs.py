@@ -323,22 +323,31 @@ def handle_open_payment(user, db, send_message):
     import config as _cfg
     url = f"{_cfg.SITE_URL}/api/payment/pay/{order.id}?vk_id={user.vk_id}"
 
+    from bot.keyboard import garden_row, bestiary_link_row, _keyboard
+    payment_kb = _keyboard([
+        [{
+            "action": {
+                "type": "open_link",
+                "label": "💳 Перейти к оплате",
+                "link": url,
+            },
+        }],
+        [{
+            "action": {
+                "type": "text",
+                "label": "❌ Отменить оплату",
+                "payload": json.dumps({"cmd": "cancel_payment"}, ensure_ascii=False),
+            },
+            "color": "negative",
+        }],
+        garden_row(),
+        bestiary_link_row(),
+    ])
     send_message(
         f"💳 Ссылка для оплаты набора «{set_name}»:\n{url}\n\n"
         f"💡 Ссылка на оплату действует 1 час."
         + OFFERTA_TEXT,
-        keyboard=json.dumps({
-            "one_time": False,
-            "buttons": [
-                [{
-                    "action": {
-                        "type": "open_link",
-                        "label": "💳 Перейти к оплате",
-                        "link": url,
-                    },
-                }],
-            ],
-        }, ensure_ascii=False),
+        keyboard=payment_kb,
     )
 
 

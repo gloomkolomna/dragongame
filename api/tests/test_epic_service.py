@@ -658,3 +658,53 @@ def test_character_summary(db):
     assert len(summary) == 2
     assert summary[0] == {"axis": "Добрый", "label": "Добрый", "polarity": "positive"}
     assert summary[1] == {"axis": "Слабый", "label": "Слабый", "polarity": "negative"}
+
+
+# ─── Epic reservation ───
+
+def test_spawn_random_epic_uses_reservation(db):
+    u = User(vk_id=200, epic_unlocked=False, reserved_epic_dragon_id=None)
+    db.add(u)
+    d1 = _epic_dragon(db)
+    d2 = Dragon(name="E2", rarity=1, steps_count=1, is_active=True, is_epic=True, egg_type="Свет")
+    db.add(d2)
+    db.flush()
+    u.reserved_epic_dragon_id = d2.id
+    _regular_completed(db, 200)
+    db.commit()
+
+    got = epic_service.maybe_spawn_first_epic(db, 200)
+    assert got is not None
+    assert got.id == d2.id
+    db.refresh(u)
+    assert u.reserved_epic_dragon_id is None
+    assert u.epic_dragon_id == d2.id
+
+
+def test_spawn_random_epic_falls_back_when_reservation_invalid(db):
+    u = User(vk_id=201, epic_unlocked=False, reserved_epic_dragon_id=99999)
+    db.add(u)
+    d = _epic_dragon(db)
+    _regular_completed(db, 201)
+    db.commit()
+
+    got = epic_service.maybe_spawn_first_epic(db, 201)
+    assert got is not None
+    assert got.id == d.id
+    db.refresh(u)
+    assert u.reserved_epic_dragon_id is None
+
+
+def test_spawn_random_epic_ignores_reservation_when_exclude_id_set(db):
+    u = User(vk_id=202, epic_unlocked=True, reserved_epic_dragon_id=None)
+    db.add(u)
+    d1 = _epic_dragon(db)
+    d2 = Dragon(name="E2", rarity=1, steps_count=1, is_active=True, is_epic=True, egg_type="Пламя")
+    db.add(d2)
+    db.flush()
+    u.reserved_epic_dragon_id = d2.id
+    db.commit()
+
+    got = epic_service.spawn_random_epic(db, 202, exclude_id=d2.id)
+    assert got is not None
+    assert got.id == d1.id

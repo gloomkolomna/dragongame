@@ -22,15 +22,37 @@ def get_epic_pool(db, exclude_id=None):
 
 
 def spawn_random_epic(db, vk_id, exclude_id=None):
+    user = db.query(User).filter(User.vk_id == vk_id).first()
+    if not user:
+        return None
+
+    if user.reserved_epic_dragon_id and not exclude_id:
+        reserved = db.query(Dragon).filter(
+            Dragon.id == user.reserved_epic_dragon_id,
+            Dragon.is_epic == True,
+        ).first()
+        if reserved:
+            user.reserved_epic_dragon_id = None
+            db.commit()
+            existing = db.query(UserDragon).filter(
+                UserDragon.user_id == vk_id, UserDragon.dragon_id == reserved.id,
+                UserDragon.completed_at == "",
+            ).first()
+            if not existing:
+                db.add(UserDragon(user_id=vk_id, dragon_id=reserved.id, completed_at=""))
+            user.epic_unlocked = True
+            user.epic_dragon_id = reserved.id
+            db.commit()
+            return reserved
+        user.reserved_epic_dragon_id = None
+        db.commit()
+
     pool = get_epic_pool(db, exclude_id=exclude_id)
     if not pool and exclude_id:
         pool = get_epic_pool(db)
     if not pool:
         return None
     dragon = random.choice(pool)
-    user = db.query(User).filter(User.vk_id == vk_id).first()
-    if not user:
-        return None
     existing = db.query(UserDragon).filter(
         UserDragon.user_id == vk_id, UserDragon.dragon_id == dragon.id,
         UserDragon.completed_at == "",

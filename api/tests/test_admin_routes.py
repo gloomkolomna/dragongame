@@ -1381,3 +1381,73 @@ def test_give_epic_requires_dragon_id(client, db):
 
     resp = client.post("/api/admin/users/704/give-epic", json={})
     assert resp.status_code == 400
+
+
+# ─── Epic reservation ───
+
+def _epic_d_simple(db, name="EpicTest", egg="Тень"):
+    d = Dragon(name=name, rarity=1, steps_count=1, is_active=True, is_epic=True, egg_type=egg)
+    db.add(d)
+    db.commit()
+    return d
+
+
+def test_reserve_epic_sets_reservation(client, db):
+    user = User(vk_id=800, state="idle", epic_unlocked=False)
+    db.add(user)
+    d = _epic_d_simple(db)
+    db.commit()
+
+    resp = client.post(f"/api/admin/users/800/reserve-epic", json={"dragon_id": d.id})
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["reserved_epic_dragon_id"] == d.id
+    assert data["dragon_name"] == d.name
+
+    db.refresh(user)
+    assert user.reserved_epic_dragon_id == d.id
+
+
+def test_reserve_epic_clear_reservation(client, db):
+    user = User(vk_id=801, state="idle", epic_unlocked=False)
+    db.add(user)
+    d = _epic_d_simple(db)
+    user.reserved_epic_dragon_id = d.id
+    db.commit()
+
+    resp = client.post(f"/api/admin/users/801/reserve-epic", json={"dragon_id": 0})
+    assert resp.status_code == 200
+    assert resp.json()["reserved_epic_dragon_id"] is None
+
+    db.refresh(user)
+    assert user.reserved_epic_dragon_id is None
+
+
+def test_reserve_epic_rejects_non_epic(client, db):
+    user = User(vk_id=802, state="idle", epic_unlocked=False)
+    db.add(user)
+    d = Dragon(name="Regular", rarity=1, steps_count=1, is_active=True, is_epic=False)
+    db.add(d)
+    db.commit()
+
+    resp = client.post(f"/api/admin/users/802/reserve-epic", json={"dragon_id": d.id})
+    assert resp.status_code == 404
+
+
+def test_reserve_epic_user_not_found(client, db):
+    resp = client.post(f"/api/admin/users/99999/reserve-epic", json={"dragon_id": 1})
+    assert resp.status_code == 404
+
+
+def test_user_detail_shows_reservation(client, db):
+    user = User(vk_id=804, state="idle", epic_unlocked=False)
+    db.add(user)
+    d = _epic_d_simple(db, name="ReservedDragon", egg="Пламя")
+    user.reserved_epic_dragon_id = d.id
+    db.commit()
+
+    resp = client.get("/api/admin/users/804")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["reserved_epic_dragon_id"] == d.id
+    assert data["reserved_epic_dragon_name"] == "ReservedDragon"
