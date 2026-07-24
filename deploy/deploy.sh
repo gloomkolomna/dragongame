@@ -1,16 +1,20 @@
 #!/bin/bash
 #
 # Деплой системы «Коллекция драконов» на прод.
-# Логика (по образцу Учёт):
-#   1. Фиксируем текущую ревизию Alembic (точка отката).
-#   2. Бэкап БД строго до миграции.
+# Логика:
+#   1. Фиксируем текущую ревизию Alembic (точка отката БД) и git (точка отката кода).
+#   2. Бэкап БД строго до миграции. Бэкап dist (фронтенд) до сборки.
 #   3. git pull.
 #   4. alembic upgrade head.
-#   5. При ошибке — откат к зафиксированной ревизии, при неудаче — восстановление из бэкапа.
-#   6. Сборка фронта + рестарт сервисов (dragons-api + dragons-bot).
-#   7. Health-check после рестарта; при неудаче — откат БД.
+#   5. Сборка фронта + рестарт сервисов (dragons-api + dragons-bot).
+#   6. Health-check после рестарта.
+#   7. При ЛЮБОЙ ошибке на этапах 3–6:
+#      — откат БД (downgrade или бэкап)
+#      — откат кода (git reset --hard)
+#      — восстановление старого dist (фронтенда)
+#      — переустановка зависимостей от старой версии
+#      — рестарт сервисов
 #
-# Любая ошибка на этапах 4–5 НЕ приводит к рестарту сервиса: прод остаётся на прежнем состоянии.
 
 set -euo pipefail
 
@@ -20,25 +24,28 @@ API_DIR="$APP_DIR/api"
 FRONTEND_DIR="$APP_DIR/frontend"
 DB_FILE="$API_DIR/dragons.db"
 BACKUP_DIR="$API_DIR/backups"
-BACKUPS_TO_KEEP=10            # сколько последних бэкапов хранить
-HEALTH_URL="https://belovolovhome.ru/dragons/api/"   # endpoint для проверки после рестарта
+BACKUPS_TO_KEEP=10
+HEALTH_URL="https://belovolovhome.ru/dragons/api/"
 LOG_FILE="$API_DIR/deploy.log"
 
-# Флаги состояния (заполняются по ходу)
-PREV_REV=""
-FRESH_DEPLOY=0                # 1, если до деплоя ревизии не было (пустая БД) — откатывать не к чему
+# Флаги состояния
+PREV_REV=""                   # ревизия Alembic до миграции
+PREV_GIT=""                   # git revision до pull
+FRESH_DEPLOY=0
 BACKUP_PATH=""
-MIGRATION_RAN=0               # 1, если миграция уже применена (нужно ли откатывать)
-SERVICES_RESTARTED=0          # 1, если сервисы уже перезапущены (для health-check rollback)
+DIST_BACKUP_PATH=""            # бэкап папки dist (если был)
+MIGRATION_RAN=0
+BUILD_RAN=0                   # 1, если сборка фронта уже запускалась
+SERVICES_RESTARTED=0
 
 mkdir -p "$BACKUP_DIR"
 
-# ===== Логирование с временными метками =====
+# ===== Логирование =====
 log() {
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" | tee -a "$LOG_FILE"
 }
 
-# ===== Откат: пытаемся downgrade к PREV_REV, при неудаче — восстанавливаем БД =====
+# ===== Откат БД =====
 rollback_db() {
     log "ОТКАТ: попытка вернуться к ревизии '$PREV_REV'..."
 
@@ -52,7 +59,6 @@ rollback_db() {
         log "ОТКАТ: downgrade не удался, переходим к восстановлению из бэкапа."
     fi
 
-    # Восстановление из бэкапа (безусловный фолбэк)
     if [ -n "$BACKUP_PATH" ] && [ -f "$BACKUP_PATH" ]; then
         log "ОТКАТ: восстановление БД из '$BACKUP_PATH'..."
         cp "$BACKUP_PATH" "$DB_FILE"
@@ -64,51 +70,100 @@ rollback_db() {
     return 1
 }
 
-# ===== Ловушка ошибок =====
-# Срабатывает при ошибке на любом этапе после начала деплоя.
-on_error() {
-    local exit_code=$?
-    log "ДЕПЛОЙ ПРОВАЛЕН (код $exit_code). Запускаю откат..."
-    rollback_db || log "ОТКАТ: не удалось полностью откатить состояние."
+# ===== Полный откат: БД + код + фронтенд + сервисы =====
+rollback_all() {
+    log "=== ПОЛНЫЙ ОТКАТ ВСЕХ КОМПОНЕНТОВ ==="
 
-    if [ "$SERVICES_RESTARTED" -eq 1 ]; then
-        # Сервисы успели перезапустить, но health-check провалился — пробуем ещё раз на откаченной БД
-        log "Попытка повторного рестарта сервисов после отката..."
-        systemctl restart dragons-api dragons-bot || true
+    rollback_db || log "ОТКАТ: не удалось полностью откатить БД."
+
+    if [ -n "$PREV_GIT" ]; then
+        log "ОТКАТ: сброс git к '$PREV_GIT'..."
+        cd "$APP_DIR"
+        git reset --hard "$PREV_GIT"
+        git clean -fd 2>/dev/null || true
+        log "ОТКАТ: git сброшен к '$PREV_GIT'."
+    else
+        log "ОТКАТ: предыдущая git-ревизия неизвестна, пропускаю сброс кода."
     fi
 
+    # Переустановка зависимостей от старой версии кода
+    log "ОТКАТ: переустановка Python-зависимостей..."
+    cd "$API_DIR"
+    source venv/bin/activate
+    pip install -r requirements.txt || log "ОТКАТ: pip install завершился с ошибкой (не критично)."
+
+    # Восстановление старого фронтенда
+    if [ -n "$DIST_BACKUP_PATH" ] && [ -d "$DIST_BACKUP_PATH" ]; then
+        log "ОТКАТ: восстановление старого фронтенда из '$DIST_BACKUP_PATH'..."
+        rm -rf "$FRONTEND_DIR/dist"
+        mv "$DIST_BACKUP_PATH" "$FRONTEND_DIR/dist"
+    fi
+
+    log "ОТКАТ: перезапуск сервисов..."
+    systemctl restart dragons-api dragons-bot || true
+
+    # Очистка временного бэкапа dist
+    rm -rf "$FRONTEND_DIR/dist.bak" 2>/dev/null || true
+
+    log "ОТКАТ завершён. API: $(systemctl is-active dragons-api || true). Bot: $(systemctl is-active dragons-bot || true)."
+}
+
+# ===== Ловушка ошибок =====
+on_error() {
+    local exit_code=$?
+    log "ДЕПЛОЙ ПРОВАЛЕН (код $exit_code). Запускаю полный откат..."
+    trap - ERR
+    rollback_all
     log "Деплой завершён с ошибкой. API: $(systemctl is-active dragons-api || true). Bot: $(systemctl is-active dragons-bot || true)."
 }
 trap on_error ERR
 
-# ===== 1. Текущая ревизия (точка отката) =====
-log "=== 1. Фиксация текущей ревизии БД ==="
+# ===== 1. Текущая ревизия БД + git =====
+log "=== 1. Фиксация текущего состояния ==="
+cd "$APP_DIR"
+
+PREV_GIT=$(git rev-parse HEAD 2>/dev/null || echo "")
+if [ -n "$PREV_GIT" ]; then
+    log "Git-ревизия до деплоя: $PREV_GIT"
+else
+    log "Не удалось определить текущую git-ревизию."
+fi
+
 cd "$API_DIR"
 source venv/bin/activate
 
 PREV_REV=$(python -m alembic current 2>/dev/null | awk '{print $1}' | head -n1)
 if [ -z "$PREV_REV" ]; then
-    log "Текущая ревизия не определена (пустая/новая БД). Откат миграцией будет недоступен — только из бэкапа."
+    log "Текущая ревизия БД не определена (пустая/новая БД)."
     FRESH_DEPLOY=1
 else
-    log "Текущая ревизия: $PREV_REV"
+    log "Текущая ревизия БД: $PREV_REV"
 fi
 
-# ===== 2. Бэкап БД строго до миграции =====
-log "=== 2. Резервное копирование БД ==="
+# ===== 2. Бэкап БД + dist =====
+log "=== 2. Резервное копирование ==="
+
+# Бэкап БД
 if [ -f "$DB_FILE" ]; then
     BACKUP_PATH="$BACKUP_DIR/dragons.db.bak.$(date '+%Y%m%d_%H%M%S')"
     cp "$DB_FILE" "$BACKUP_PATH"
-    log "Бэкап создан: $BACKUP_PATH ($(du -h "$BACKUP_PATH" | cut -f1))"
+    log "Бэкап БД создан: $BACKUP_PATH ($(du -h "$BACKUP_PATH" | cut -f1))"
 
-    # Ротация: оставляем только последние N бэкапов (безопасно через while read)
     ls -1t "$BACKUP_DIR"/dragons.db.bak.* 2>/dev/null | tail -n +$((BACKUPS_TO_KEEP + 1)) | while read -r old; do
         rm -f "$old"
         log "Удалён старый бэкап: $old"
     done
 else
-    log "Внимание: файл БД '$DB_FILE' не найден — бэкап пропущен (новая установка?)."
+    log "Внимание: файл БД '$DB_FILE' не найден — бэкап пропущен."
     BACKUP_PATH=""
+fi
+
+# Бэкап старого dist (чтобы при откате фронтенд остался рабочим)
+if [ -d "$FRONTEND_DIR/dist" ]; then
+    DIST_BACKUP_PATH="$FRONTEND_DIR/dist.bak"
+    rm -rf "$DIST_BACKUP_PATH"
+    cp -r "$FRONTEND_DIR/dist" "$DIST_BACKUP_PATH"
+    log "Бэкап dist создан: $DIST_BACKUP_PATH"
 fi
 
 # ===== 3. Git pull =====
@@ -119,10 +174,10 @@ rm -f frontend/tsconfig.tsbuildinfo
 git pull
 
 # ===== 4. Зависимости + миграции =====
-log "=== 4. Установка зависимостей и применение миграций ==="
+log "=== 4. Установка зависимостей и миграции ==="
 cd "$API_DIR"
 source venv/bin/activate
-pip install -r requirements.txt   # на случай новых зависимостей (напр. python-multipart)
+pip install -r requirements.txt
 python -m alembic upgrade head
 MIGRATION_RAN=1
 log "Миграции применены. Текущая ревизия: $(python -m alembic current 2>/dev/null | awk '{print $1}' | head -n1)"
@@ -133,6 +188,7 @@ cd "$FRONTEND_DIR"
 rm -rf "$FRONTEND_DIR/dist"
 npm install
 npm run build
+BUILD_RAN=1
 
 # ===== 6. Перезапуск сервисов =====
 log "=== 6. Перезапуск сервисов ==="
@@ -144,7 +200,6 @@ systemctl status dragons-api dragons-bot --no-pager | tee -a "$LOG_FILE" || true
 
 # ===== 7. Health-check =====
 log "=== 7. Health-check ==="
-# Несколько попыток — сервисам нужно время на старт
 HEALTH_OK=0
 for i in 1 2 3 4 5; do
     if curl -fsS -o /dev/null "$HEALTH_URL"; then
@@ -157,10 +212,11 @@ done
 
 if [ "$HEALTH_OK" -ne 1 ]; then
     log "Health-check провалился — запускаю откат."
-    # Отключаем ловушку, чтобы вызвать контролируемый откат без рекурсии
-    trap - ERR
-    false   # спровоцировать rollback_db + финальную диагностику
+    false
 fi
 
 log "=== Деплой успешно завершён ==="
 log "Проверь: https://belovolovhome.ru/dragons/"
+
+# Очистка временных файлов после успешного деплоя
+rm -rf "$DIST_BACKUP_PATH" 2>/dev/null || true

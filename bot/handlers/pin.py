@@ -42,7 +42,7 @@ def handle_my_pins(user, db, send_message):
     kb_buttons = []
     if reservations:
         kb_buttons.append(row(("\u26a1 Активировать все", "activate_all")))
-    kb_buttons.append(row(("\uD83E\uDD5A Добавить яйцо дракона", "pin")))
+    kb_buttons.append(row(("\U0001f95a Добавить яйцо дракона", "pin")))
     kb_buttons.append(buy_eggs_row())
     kb_buttons.append(row(("\u25C0 Назад", "garden")))
     kb_buttons.append(bestiary_link_row())
