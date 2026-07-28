@@ -16,9 +16,9 @@ sys.path.insert(0, os.path.join(_root, "api"))
 
 import config
 from db import SessionLocal
-from bot.fsm import IDLE, AWAIT_PIN, AWAIT_GARDEN, AWAIT_LEGENDS, AWAIT_EPICS, AWAIT_RULES, is_growing, is_waiting_text, grow_state, step_from_state, is_legend, is_legend_waiting, is_epic_egg, is_epic_egg_waiting, is_epic_care, is_epic_care_waiting, is_epic_care_sub, is_epic_care_sub_waiting, AWAIT_EPIC_NAME, AWAIT_EPIC_RESTART, AWAIT_EPIC_EGG_INTRO, is_intro_chapter, intro_chapter_from_state
+from bot.fsm import IDLE, AWAIT_PIN, AWAIT_PIN_LIST, AWAIT_GARDEN, AWAIT_LEGENDS, AWAIT_EPICS, AWAIT_RULES, is_growing, is_waiting_text, grow_state, step_from_state, is_legend, is_legend_waiting, is_epic_egg, is_epic_egg_waiting, is_epic_care, is_epic_care_waiting, is_epic_care_sub, is_epic_care_sub_waiting, AWAIT_EPIC_NAME, AWAIT_EPIC_RESTART, AWAIT_EPIC_EGG_INTRO, is_intro_chapter, intro_chapter_from_state
 from bot.handlers.commands import handle_start, handle_help, handle_garden, switch_dragon, cancel_garden, handle_switch_to, handle_balance, handle_legends, handle_legends_pick, cancel_legends, user_has_legendary
-from bot.handlers.pin import handle_pin_command, handle_pin_entry, handle_my_pins, handle_activate_all, handle_activate_by_number
+from bot.handlers.pin import handle_pin_command, handle_pin_entry, handle_my_pins, handle_activate_all, handle_activate_by_number, cancel_pin_list
 from bot.handlers.grow import handle_grow_message, handle_grow_command, handle_norm_command, handle_x2_command, handle_back_command
 from bot.handlers.shop import handle_shop_command, handle_buy, handle_inventory
 from bot.handlers.buy_eggs import handle_buy_eggs, handle_buy_set, handle_partial_confirm, handle_open_payment, handle_cancel_payment
@@ -71,6 +71,9 @@ def get_keyboard(state: str, user=None, db=None) -> str:
         return epic_name_keyboard()
     if state == AWAIT_PIN:
         return await_pin_keyboard()
+    if state == AWAIT_PIN_LIST:
+        from bot.keyboard import await_pin_list_keyboard
+        return await_pin_list_keyboard()
     if state == AWAIT_GARDEN:
         return await_garden_keyboard(with_cancel=True)
     if state == AWAIT_EPIC_RESTART:
@@ -330,7 +333,18 @@ def main():
                     handle_partial_confirm(user, db, send_message)
                     continue
 
-            if text and not cmd and handle_activate_by_number(user, text, db, send_message):
+            if user.state == AWAIT_PIN_LIST and not cmd:
+                t = text.strip().lower()
+                if t in ("0", "назад", "отмена"):
+                    cancel_pin_list(user, db, send_message, upload_image)
+                    continue
+                if handle_activate_by_number(user, text, db, send_message):
+                    continue
+                send_message(
+                    "🔑 Введи номер PIN-кода из списка выше (например «1»), "
+                    "несколько через запятую «1,3», или нажми «\u26a1 Активировать все».",
+                    keyboard=get_keyboard(user.state, user, db),
+                )
                 continue
 
             if user.state == AWAIT_GARDEN and not cmd:
@@ -594,6 +608,8 @@ def main():
                 handle_epics(user, db, send_message)
             elif cmd == "garden_cancel":
                 cancel_garden(user, db, send_message, upload_image)
+            elif cmd == "pin_list_cancel":
+                cancel_pin_list(user, db, send_message, upload_image)
             elif cmd == "pin":
                 handle_pin_command(user, db, send_message)
             elif cmd == "my_pins":
@@ -615,6 +631,13 @@ def main():
             elif user.state == AWAIT_PIN and text and not cmd:
                 handle_pin_entry(user, text, db, send_message, upload_image)
 
+            elif user.state == AWAIT_PIN and attachments and not text and not cmd:
+                send_message(
+                    "🔑 Я жду PIN-код для активации яйца дракона.\n"
+                    "Отправь его текстом или используй кнопки клавиатуры.",
+                    keyboard=await_pin_keyboard(),
+                )
+
             elif is_waiting_text(user.state) and user.current_dragon_id:
                 handle_grow_message(user, text, attachments, db, send_message, upload_image)
 
@@ -628,11 +651,28 @@ def main():
                 else:
                     _handle_growing_chat(user, db, send_message, upload_image)
 
+            elif is_growing(user.state) and user.current_dragon_id and attachments and not text and not cmd:
+                from bot.services.grow_service import get_timeout_remaining
+                if not is_waiting_text(user.state) and not get_timeout_remaining(db, user.vk_id, user.current_dragon_id):
+                    send_message(
+                        "🥚 Твой дракон ждёт! Используй кнопки клавиатуры для выращивания.",
+                        keyboard=step_buttons_keyboard(),
+                    )
+                else:
+                    _handle_growing_chat(user, db, send_message, upload_image)
+
             elif user.state == AWAIT_EPIC_RESTART and text and not cmd:
                 from bot.keyboard import epic_restart_keyboard
                 send_message(
                     "🐲 Выбери, кого растить дальше: «🐲 Такого же заново» или «🎲 Нового случайного».\n"
                     "Или нажми «📖 Список Бестиария», чтобы вернуться к другим драконам.",
+                    keyboard=epic_restart_keyboard(),
+                )
+
+            elif user.state == AWAIT_EPIC_RESTART and attachments and not text and not cmd:
+                from bot.keyboard import epic_restart_keyboard
+                send_message(
+                    "🐲 Выбери вариант кнопкой или текстом: «🐲 Такого же заново» / «🎲 Нового случайного».",
                     keyboard=epic_restart_keyboard(),
                 )
 
@@ -644,7 +684,18 @@ def main():
                 db.commit()
                 handle_epic_command(user, db, send_message, upload_image)
 
+            elif user.state == AWAIT_EPIC_EGG_INTRO and attachments and not text and not cmd:
+                import json as _j
+                sd = _j.loads(user.state_data or "{}")
+                sd.pop("_needs_egg_intro", None)
+                user.state_data = _j.dumps(sd, ensure_ascii=False)
+                db.commit()
+                handle_epic_command(user, db, send_message, upload_image)
+
             elif is_intro_chapter(user.state) and text and not cmd:
+                handle_intro_chat(user, db, send_message, upload_image)
+
+            elif is_intro_chapter(user.state) and attachments and not text and not cmd:
                 handle_intro_chat(user, db, send_message, upload_image)
 
             elif user.state == IDLE and text and not cmd:
@@ -664,6 +715,25 @@ def main():
                             "🐲 У тебя пока нет ни одного яйца дракона для выращивания.\n"
                             "Открой «📖 Список Бестиария» → «🥚 Добавить яйцо дракона», чтобы начать."
                         )
+
+            elif user.state == IDLE and attachments and not text and not cmd:
+                from models import UserDragon
+                has_any = db.query(UserDragon).filter(UserDragon.user_id == user_id).first() is not None
+                if has_any:
+                    send_message(
+                        "🐲 Добро пожаловать в Бестиарий драконьих легенд!\n"
+                        "Открой «📖 Список Бестиария», чтобы выбрать яйцо или добавить новое.\n\n"
+                        "💬 Отправь текст или используй кнопки для взаимодействия со мной.",
+                        keyboard=idle_keyboard(),
+                    )
+                else:
+                    send_message(
+                        "🐲 Привет! Я бот Бестиария драконьих легенд. 🐉\n"
+                        "Чтобы начать приключение, отправь мне любое текстовое сообщение "
+                        "или используй кнопки клавиатуры.\n"
+                        "Открой «📖 Список Бестиария» → «🥚 Добавить яйцо дракона», чтобы получить первого дракона.",
+                        keyboard=idle_keyboard(),
+                    )
 
         except Exception as exc:
             print(f"Error processing message from {user_id}: {exc}")

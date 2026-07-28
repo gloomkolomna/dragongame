@@ -2,6 +2,7 @@
 
 IDLE = "idle"
 AWAIT_PIN = "await_pin"
+AWAIT_PIN_LIST = "await_pin_list"
 AWAIT_GARDEN = "await_garden"
 GROW_STEP = "grow_step"
 COMPLETED = "completed"

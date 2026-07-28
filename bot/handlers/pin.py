@@ -2,15 +2,16 @@
 
 import json
 import os
-from bot.fsm import AWAIT_PIN, IDLE, grow_state
+from bot.fsm import AWAIT_PIN, AWAIT_PIN_LIST, IDLE, grow_state
 from bot.services.pin_service import validate_pin_code, activate_pin, activate_all_reservations, activate_pin_silently
-from bot.keyboard import start_growing_keyboard, await_garden_keyboard, row, bestiary_link_row, buy_eggs_row, _keyboard as kb_json
+from bot.keyboard import start_growing_keyboard, await_garden_keyboard, await_pin_list_keyboard, row, bestiary_link_row, buy_eggs_row, _keyboard as kb_json
 
 _IMAGES = os.path.join(os.path.dirname(__file__), "..", "..", "images", "dragons")
 
 
 def handle_pin_command(user, db, send_message):
     was_growing = user.current_dragon_id is not None
+    _restore_pin_list_prev_state(user)
     user.state = AWAIT_PIN
     db.commit()
 
@@ -18,6 +19,21 @@ def handle_pin_command(user, db, send_message):
         send_message("🔑 У тебя уже есть активный дракон — сейчас добавим ещё одного.\nВведи 5-символьный PIN-код с листка из яйца (заглавные буквы и цифры):")
     else:
         send_message("🔑 Введи 5-символьный PIN-код с листка из нового яйца (заглавные буквы и цифры):")
+
+
+def _save_pin_list_prev_state(user):
+    if user.state != AWAIT_PIN_LIST:
+        sd = json.loads(user.state_data or "{}")
+        sd["_pin_list_prev_state"] = user.state
+        user.state_data = json.dumps(sd, ensure_ascii=False)
+
+
+def _restore_pin_list_prev_state(user):
+    sd = json.loads(user.state_data or "{}")
+    prev_state = sd.pop("_pin_list_prev_state", None)
+    sd.pop("_pin_list", None)
+    user.state_data = json.dumps(sd, ensure_ascii=False)
+    return prev_state
 
 
 def handle_my_pins(user, db, send_message):
@@ -34,25 +50,18 @@ def handle_my_pins(user, db, send_message):
     )
 
     reservation_ids = [r.dragon_id for r in reservations]
+    _save_pin_list_prev_state(user)
     sd = json.loads(user.state_data or "{}")
     sd["_pin_list"] = reservation_ids
     user.state_data = json.dumps(sd, ensure_ascii=False)
+    user.state = AWAIT_PIN_LIST
     db.commit()
-
-    kb_buttons = []
-    if reservations:
-        kb_buttons.append(row(("\u26a1 Активировать все", "activate_all")))
-    kb_buttons.append(row(("\U0001f95a Добавить яйцо дракона", "pin")))
-    kb_buttons.append(buy_eggs_row())
-    kb_buttons.append(row(("\u25C0 Назад", "garden")))
-    kb_buttons.append(bestiary_link_row())
-    kb = kb_json(kb_buttons)
 
     if not reservations:
         send_message(
             "\U0001f511 У тебя пока нет неактивированных PIN-кодов.\n\n"
             "PIN-коды появляются здесь после покупки яиц или получения бесплатных.",
-            keyboard=kb,
+            keyboard=await_pin_list_keyboard(),
         )
         return
 
@@ -65,7 +74,7 @@ def handle_my_pins(user, db, send_message):
         lines.append("Или несколько через запятую: «1,3,5».")
     lines.append("Или нажми «\u26a1 Активировать все».")
 
-    send_message("\n".join(lines), keyboard=kb)
+    send_message("\n".join(lines), keyboard=await_pin_list_keyboard())
 
 
 def handle_pin_entry(user, text, db, send_message, upload_image=None):
@@ -168,9 +177,11 @@ def handle_activate_all(user, db, send_message):
 
     activated, total = activate_all_reservations(db, user.vk_id)
 
-    sd = json.loads(user.state_data or "{}")
-    sd.pop("_pin_list", None)
-    user.state_data = json.dumps(sd, ensure_ascii=False)
+    prev_state = _restore_pin_list_prev_state(user)
+    if prev_state and prev_state != AWAIT_PIN_LIST:
+        user.state = prev_state
+    else:
+        user.state = IDLE
     db.commit()
 
     if activated == 0:
@@ -191,6 +202,9 @@ def handle_activate_all(user, db, send_message):
 
 def handle_activate_by_number(user, text, db, send_message):
     from models import DragonReservation, Dragon
+
+    if user.state != AWAIT_PIN_LIST:
+        return False
 
     sd = json.loads(user.state_data or "{}")
     pin_list = sd.get("_pin_list", [])
@@ -221,8 +235,11 @@ def handle_activate_by_number(user, text, db, send_message):
         else:
             failed += 1
 
-    sd.pop("_pin_list", None)
-    user.state_data = json.dumps(sd, ensure_ascii=False)
+    prev_state = _restore_pin_list_prev_state(user)
+    if prev_state and prev_state != AWAIT_PIN_LIST:
+        user.state = prev_state
+    else:
+        user.state = IDLE
     db.commit()
 
     parts = []
@@ -239,3 +256,50 @@ def handle_activate_by_number(user, text, db, send_message):
         bestiary_link_row(),
     ]))
     return True
+
+
+def cancel_pin_list(user, db, send_message, upload_image=None):
+    prev_state = _restore_pin_list_prev_state(user)
+    if prev_state and prev_state != AWAIT_PIN_LIST:
+        user.state = prev_state
+    else:
+        user.state = IDLE
+    db.commit()
+
+    if prev_state and (prev_state.startswith("epic_egg_") or prev_state.startswith("epic_care_")
+                       or prev_state in ("await_epic_name", "await_epic_restart", "await_epic_egg_intro")):
+        from bot.handlers.epic import handle_epic_command
+        handle_epic_command(user, db, send_message, upload_image)
+        return
+
+    if user.current_dragon_id:
+        from bot.services.grow_service import get_timeout_remaining, get_dragon_step, get_total_steps
+        from models import Dragon
+        from bot.keyboard import step_buttons_keyboard
+        dragon = db.query(Dragon).filter(Dragon.id == user.current_dragon_id).first()
+        remaining = get_timeout_remaining(db, user.vk_id, user.current_dragon_id)
+        if remaining is not None:
+            total_secs = int(remaining.total_seconds())
+            hours, remainder = divmod(total_secs, 3600)
+            minutes = remainder // 60
+            label = dragon.egg_type if dragon else "яйцо"
+            send_message(
+                f"\U0001f95a Яйцо «{label}» выращивается.\n\u23f3 Осталось: {hours} ч. {minutes} мин."
+            )
+            return
+        user.state = grow_state(user.current_step)
+        db.commit()
+        total = get_total_steps(db, user.current_dragon_id)
+        step_def = get_dragon_step(db, user.current_dragon_id, user.current_step)
+        label = dragon.egg_type if dragon else "яйцо"
+        msg = f"\U0001f95a {label}\n\U0001f4cb Шаг {user.current_step} из {total}"
+        if step_def:
+            msg += f"\n\n\U0001f3af Норма: {step_def.crosses_norm} стежков\nВыбери режим:"
+        send_message(msg, keyboard=step_buttons_keyboard())
+        return
+
+    from bot.keyboard import idle_keyboard
+    send_message(
+        "\U0001f511 Раздел PIN-кодов закрыт.",
+        keyboard=idle_keyboard(),
+    )

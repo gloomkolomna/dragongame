@@ -1,8 +1,8 @@
 import json
 from datetime import datetime, timedelta
 from models import Dragon, DragonReservation, User, UserDragon
-from bot.fsm import AWAIT_PIN, grow_state
-from bot.handlers.pin import handle_my_pins, handle_pin_entry, handle_activate_by_number
+from bot.fsm import AWAIT_PIN, AWAIT_PIN_LIST, AWAIT_GARDEN, IDLE, grow_state
+from bot.handlers.pin import handle_my_pins, handle_pin_entry, handle_activate_by_number, cancel_pin_list, handle_activate_all
 from bot.services.pin_service import activate_pin_silently
 
 
@@ -52,7 +52,8 @@ def test_handle_my_pins_keeps_state_and_populates_pin_list(db):
     assert any("9585K" in m for m in sent)
     sd = json.loads(user.state_data or "{}")
     assert sd.get("_pin_list") == [dragon.id]
-    assert user.state == AWAIT_PIN
+    assert user.state == AWAIT_PIN_LIST
+    assert sd.get("_pin_list_prev_state") == AWAIT_PIN
 
 
 def test_my_pins_single_hides_send_number_hint(db):
@@ -264,3 +265,111 @@ def test_send_eleven_out_of_ten_does_not_activate(db):
 
     cnt = db.query(UserDragon).filter(UserDragon.user_id == 970).count()
     assert cnt == 0
+
+
+def test_digit_in_await_garden_does_not_activate_pin(db):
+    dragon = _make_dragon(db, "GardenPin", "GPIN1")
+    db.commit()
+    _make_reservation(db, dragon.id, 980)
+    db.commit()
+
+    user = User(vk_id=980, state=AWAIT_GARDEN)
+    db.add(user)
+    db.commit()
+
+    result = handle_activate_by_number(user, "1", db, lambda *a, **k: None)
+    assert result is False
+
+    cnt = db.query(UserDragon).filter(UserDragon.user_id == 980).count()
+    assert cnt == 0
+    assert user.state == AWAIT_GARDEN
+
+
+def test_cancel_pin_list_restores_prev_state(db):
+    dragon = _make_dragon(db, "CancelDrag", "CAN01")
+    db.commit()
+    _make_reservation(db, dragon.id, 981)
+    db.commit()
+
+    user = User(vk_id=981, state=AWAIT_GARDEN)
+    db.add(user)
+    db.commit()
+
+    send, _ = _capture()
+    handle_my_pins(user, db, send)
+    assert user.state == AWAIT_PIN_LIST
+
+    cancel_pin_list(user, db, lambda *a, **k: None)
+    assert user.state == AWAIT_GARDEN
+
+    sd = json.loads(user.state_data or "{}")
+    assert "_pin_list" not in sd
+    assert "_pin_list_prev_state" not in sd
+
+
+def test_activate_by_number_restores_prev_state(db):
+    dragon = _make_dragon(db, "RestoreDrag", "RST01")
+    db.commit()
+    _make_reservation(db, dragon.id, 982)
+    db.commit()
+
+    user = User(vk_id=982, state=AWAIT_GARDEN)
+    db.add(user)
+    db.commit()
+
+    send, _ = _capture()
+    handle_my_pins(user, db, send)
+    assert user.state == AWAIT_PIN_LIST
+
+    send2, _ = _capture()
+    handle_activate_by_number(user, "1", db, send2)
+    assert user.state == AWAIT_GARDEN
+
+    sd = json.loads(user.state_data or "{}")
+    assert "_pin_list" not in sd
+    assert "_pin_list_prev_state" not in sd
+
+
+def test_activate_all_restores_prev_state(db):
+    d1 = _make_dragon(db, "AllDrag1", "ALL01")
+    d2 = _make_dragon(db, "AllDrag2", "ALL02")
+    db.commit()
+    _make_reservation(db, d1.id, 983)
+    _make_reservation(db, d2.id, 983)
+    db.commit()
+
+    user = User(vk_id=983, state=AWAIT_GARDEN)
+    db.add(user)
+    db.commit()
+
+    send, _ = _capture()
+    handle_my_pins(user, db, send)
+    assert user.state == AWAIT_PIN_LIST
+
+    handle_activate_all(user, db, lambda *a, **k: None)
+    assert user.state == AWAIT_GARDEN
+
+    sd = json.loads(user.state_data or "{}")
+    assert "_pin_list" not in sd
+    assert "_pin_list_prev_state" not in sd
+
+
+def test_manual_pin_command_clears_pin_list_prev_state(db):
+    dragon = _make_dragon(db, "ManualDrag", "MAN01")
+    db.commit()
+    _make_reservation(db, dragon.id, 984)
+    db.commit()
+
+    user = User(vk_id=984, state=AWAIT_PIN_LIST)
+    db.add(user)
+    sd = {"_pin_list_prev_state": AWAIT_GARDEN}
+    user.state_data = json.dumps(sd)
+    db.commit()
+
+    from bot.handlers.pin import handle_pin_command
+    handle_pin_command(user, db, lambda *a, **k: None)
+    assert user.state == AWAIT_PIN
+
+    sd = json.loads(user.state_data or "{}")
+    assert "_pin_list_prev_state" not in sd
+    assert "_pin_list" not in sd

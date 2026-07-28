@@ -260,6 +260,16 @@ def finale_new_dragon_keyboard():
     ])
 
 
+def await_pin_list_keyboard():
+    buttons = [
+        row(("\u26a1 Активировать все", "activate_all")),
+        row(("\u25C0 Назад", "pin_list_cancel")),
+        buy_eggs_row(),
+        bestiary_link_row(),
+    ]
+    return _keyboard(buttons)
+
+
 def await_garden_keyboard(with_cancel=False):
     buttons = [
         row(("🥚 Добавить яйцо дракона", "pin")),
