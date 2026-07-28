@@ -165,7 +165,7 @@ def main():
     def _is_group_member(uid):
         now = time.time()
         entry = _member_cache.get(uid)
-        if entry and now - entry[0] < 300:
+        if entry and now - entry[0] < 30:
             return entry[1]
         try:
             result = vk.groups.isMember(group_id=config.VK_GROUP_ID, user_id=uid)
