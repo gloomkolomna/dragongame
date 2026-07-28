@@ -2746,23 +2746,35 @@ async def adjust_balance(vk_id: int, request: Request, db: Session = Depends(get
 def get_settings(db: Session = Depends(get_db)):
     cfg = db.query(AppSettings).filter(AppSettings.id == 1).first()
     if not cfg:
-        return {"welcome_keyword": ""}
-    return {"welcome_keyword": cfg.welcome_keyword or ""}
+        return {"welcome_keyword": "", "suspicious_multiplier": 2, "block_multiplier": 3}
+    return {
+        "welcome_keyword": cfg.welcome_keyword or "",
+        "suspicious_multiplier": cfg.suspicious_multiplier if cfg.suspicious_multiplier is not None else 2,
+        "block_multiplier": cfg.block_multiplier if cfg.block_multiplier is not None else 3,
+    }
 
 
 @router.put("/settings")
 async def update_settings(request: Request, db: Session = Depends(get_db)):
     b = await _json_body(request)
     keyword = str(b.get("welcome_keyword", "")).strip()
+    suspicious = int(b.get("suspicious_multiplier", 2))
+    block = int(b.get("block_multiplier", 3))
     cfg = db.query(AppSettings).filter(AppSettings.id == 1).first()
     if not cfg:
-        cfg = AppSettings(id=1, welcome_keyword=keyword, updated_at=datetime.now().isoformat())
+        cfg = AppSettings(
+            id=1, welcome_keyword=keyword,
+            suspicious_multiplier=suspicious, block_multiplier=block,
+            updated_at=datetime.now().isoformat(),
+        )
         db.add(cfg)
     else:
         cfg.welcome_keyword = keyword
+        cfg.suspicious_multiplier = suspicious
+        cfg.block_multiplier = block
         cfg.updated_at = datetime.now().isoformat()
     db.commit()
-    return {"welcome_keyword": keyword}
+    return {"welcome_keyword": keyword, "suspicious_multiplier": suspicious, "block_multiplier": block}
 
 
 # ─── Магазин: цена и наборы (Robokassa) ───

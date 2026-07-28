@@ -317,7 +317,7 @@ def handle_care_message(user, text, attachments, db, send_message, upload_image=
     from services.epic_service import get_epic_dragon
     epic_dragon = get_epic_dragon(db, user.vk_id)
 
-    if is_blocked(crosses, required):
+    if is_blocked(crosses, required, db):
         create_suspicious_report(
             db, user.vk_id, epic_dragon.id if epic_dragon else None,
             action.order_in_cycle, crosses, required, mode,
@@ -332,7 +332,7 @@ def handle_care_message(user, text, attachments, db, send_message, upload_image=
         return True
 
     credit_stitches(db, user.vk_id, crosses)
-    if is_suspicious(crosses, required):
+    if is_suspicious(crosses, required, db):
         create_suspicious_report(
             db, user.vk_id, epic_dragon.id if epic_dragon else None,
             action.order_in_cycle, crosses, required, mode,
@@ -686,7 +686,7 @@ def handle_sub_message(user, text, attachments, db, send_message, upload_image=N
     from services.epic_service import get_epic_dragon
     epic_dragon = get_epic_dragon(db, user.vk_id)
 
-    if is_blocked(crosses, required):
+    if is_blocked(crosses, required, db):
         create_suspicious_report(
             db, user.vk_id, epic_dragon.id if epic_dragon else None,
             0, crosses, required, mode,
@@ -701,7 +701,7 @@ def handle_sub_message(user, text, attachments, db, send_message, upload_image=N
         return True
 
     credit_stitches(db, user.vk_id, crosses)
-    if is_suspicious(crosses, required):
+    if is_suspicious(crosses, required, db):
         create_suspicious_report(
             db, user.vk_id, epic_dragon.id if epic_dragon else None,
             0, crosses, required, mode,

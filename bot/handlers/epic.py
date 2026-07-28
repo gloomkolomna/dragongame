@@ -284,7 +284,7 @@ def handle_epic_egg_message(user, text, attachments, db, send_message, upload_im
     photo_before_id = _fmt_photo(photos[0])
     photo_after_id = _fmt_photo(photos[1]) if len(photos) > 1 else ""
 
-    if is_blocked(crosses, required):
+    if is_blocked(crosses, required, db):
         create_suspicious_report(
             db, user.vk_id, dragon.id, step, crosses, required, mode,
             photo_before_id=photo_before_id, photo_after_id=photo_after_id,
@@ -298,7 +298,7 @@ def handle_epic_egg_message(user, text, attachments, db, send_message, upload_im
         return True
 
     credit_stitches(db, user.vk_id, crosses)
-    if is_suspicious(crosses, required):
+    if is_suspicious(crosses, required, db):
         create_suspicious_report(
             db, user.vk_id, dragon.id, step, crosses, required, mode,
             photo_before_id=photo_before_id, photo_after_id=photo_after_id,

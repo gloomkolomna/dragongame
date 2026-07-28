@@ -218,16 +218,22 @@ def complete_dragon(db, vk_id: int, dragon_id: int):
     return treasure, family_treasures
 
 
-def is_blocked(declared: int, required: int) -> bool:
+def is_blocked(declared: int, required: int, db) -> bool:
     if required <= 0:
         return False
-    return declared > required * 3
+    from models import AppSettings
+    cfg = db.query(AppSettings).filter(AppSettings.id == 1).first()
+    multiplier = (cfg.block_multiplier if cfg and cfg.block_multiplier is not None else 3)
+    return declared > required * multiplier
 
 
-def is_suspicious(declared: int, required: int) -> bool:
+def is_suspicious(declared: int, required: int, db) -> bool:
     if required <= 0:
         return False
-    return declared > required * 2
+    from models import AppSettings
+    cfg = db.query(AppSettings).filter(AppSettings.id == 1).first()
+    multiplier = (cfg.suspicious_multiplier if cfg and cfg.suspicious_multiplier is not None else 2)
+    return declared > required * multiplier
 
 
 def credit_stitches(db, vk_id: int, amount: int) -> int:

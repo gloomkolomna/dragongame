@@ -168,7 +168,7 @@ def handle_legend_message(user, text, attachments, db, send_message, upload_imag
     photo_before_id = fmt_photo(photo_infos[0])
     photo_after_id = fmt_photo(photo_infos[1]) if len(photo_infos) > 1 else ""
 
-    if is_blocked(crosses, required):
+    if is_blocked(crosses, required, db):
         create_suspicious_report(
             db, user.vk_id, dragon_id, frag_num, crosses, required, mode,
             photo_before_id=photo_before_id, photo_after_id=photo_after_id,
@@ -183,7 +183,7 @@ def handle_legend_message(user, text, attachments, db, send_message, upload_imag
 
     credit_stitches(db, user.vk_id, crosses)
 
-    if is_suspicious(crosses, required):
+    if is_suspicious(crosses, required, db):
         create_suspicious_report(
             db, user.vk_id, dragon_id, frag_num, crosses, required, mode,
             photo_before_id=photo_before_id, photo_after_id=photo_after_id,

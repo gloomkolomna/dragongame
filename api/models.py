@@ -438,6 +438,8 @@ class AppSettings(Base):
     __tablename__ = "app_settings"
     id = Column(Integer, primary_key=True, default=1)
     welcome_keyword = Column(String, default="")
+    suspicious_multiplier = Column(Integer, default=2)
+    block_multiplier = Column(Integer, default=3)
     updated_at = Column(String, default="")
 
 
