@@ -21,7 +21,7 @@ from models import (
     EpicSubAction, EpicSubActionItem, EpicSubActionStep, EpicSubActionOutcome,
     EpicActionOutcome, EpicCareState,
     IntroChapter, RewardConfig, UserRewardPin,
-    DragonReservation,
+    DragonReservation, AppSettings,
 )
 from config import API_ERROR_LOG, DONOR_SYNC_INTERVAL_HOURS, DEBUG_LOG_PATH, DEBUG_LOG_REQUESTS
 from services.dragon_service import (
@@ -2738,6 +2738,31 @@ async def adjust_balance(vk_id: int, request: Request, db: Session = Depends(get
         raise HTTPException(status_code=400, detail="balance or delta required")
     db.commit()
     return {"ok": True, "stitches_balance": user.stitches_balance}
+
+
+# ─── Настройки ───
+
+@router.get("/settings")
+def get_settings(db: Session = Depends(get_db)):
+    cfg = db.query(AppSettings).filter(AppSettings.id == 1).first()
+    if not cfg:
+        return {"welcome_keyword": ""}
+    return {"welcome_keyword": cfg.welcome_keyword or ""}
+
+
+@router.put("/settings")
+async def update_settings(request: Request, db: Session = Depends(get_db)):
+    b = await _json_body(request)
+    keyword = str(b.get("welcome_keyword", "")).strip()
+    cfg = db.query(AppSettings).filter(AppSettings.id == 1).first()
+    if not cfg:
+        cfg = AppSettings(id=1, welcome_keyword=keyword, updated_at=datetime.now().isoformat())
+        db.add(cfg)
+    else:
+        cfg.welcome_keyword = keyword
+        cfg.updated_at = datetime.now().isoformat()
+    db.commit()
+    return {"welcome_keyword": keyword}
 
 
 # ─── Магазин: цена и наборы (Robokassa) ───

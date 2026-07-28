@@ -163,27 +163,6 @@ def main():
 
     print(f"Dragons bot started (group {config.VK_GROUP_ID})")
 
-    _check_membership = os.getenv("CHECK_GROUP_MEMBERSHIP", "").strip().lower() in ("true", "1", "yes")
-    _member_cache = {}
-    print(f"Group membership check: {'enabled' if _check_membership else 'DISABLED'}")
-
-    def _is_group_member(uid):
-        if not _check_membership:
-            return True
-        now = time.time()
-        entry = _member_cache.get(uid)
-        if entry and now - entry[0] < 300:
-            return entry[1]
-        try:
-            result = vk.groups.isMember(group_id=config.VK_GROUP_ID, user_id=uid)
-            is_member = bool(result)
-            _member_cache[uid] = (now, is_member)
-            print(f"[MEMBERSHIP] user_id={uid} result={result} is_member={is_member}")
-            return is_member
-        except Exception as e:
-            print(f"[MEMBERSHIP] ERROR for user_id={uid}: {type(e).__name__}: {e}")
-            return True
-
     scheduler_thread = threading.Thread(
         target=run_timeout_checker,
         args=(SessionLocal, vk, 30),
@@ -259,9 +238,6 @@ def main():
         if not text and not attachments:
             continue
 
-        if not _is_group_member(user_id):
-            continue
-
         db = SessionLocal()
         try:
             user = get_or_create_user(db, user_id)
@@ -296,6 +272,15 @@ def main():
                 vk.messages.send(**kwargs)
 
             cmd = extract_cmd(text, payload_str)
+
+            if user.state == IDLE and text and not is_intro_chapter(user.state):
+                from models import UserDragon, AppSettings
+                has_any = db.query(UserDragon).filter(UserDragon.user_id == user_id).first() is not None
+                if not has_any:
+                    cfg = db.query(AppSettings).filter(AppSettings.id == 1).first()
+                    keyword = (cfg.welcome_keyword or "").strip().lower() if cfg else ""
+                    if keyword and keyword not in text.lower():
+                        continue
 
             try:
                 from bot.handlers.epic import maybe_offer_epic

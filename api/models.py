@@ -434,6 +434,13 @@ class PricingConfig(Base):
     updated_at = Column(String, default="")
 
 
+class AppSettings(Base):
+    __tablename__ = "app_settings"
+    id = Column(Integer, primary_key=True, default=1)
+    welcome_keyword = Column(String, default="")
+    updated_at = Column(String, default="")
+
+
 class DragonSet(Base):
     __tablename__ = "dragon_sets"
     id = Column(Integer, primary_key=True, autoincrement=True)

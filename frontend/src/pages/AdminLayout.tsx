@@ -20,6 +20,7 @@ const NAV_ITEMS = [
   { path: '/admin/suspicious', label: 'Подозрительные', icon: '⚠' },
   { path: '/admin/intro', label: 'Вступительная история', icon: '📖' },
   { path: '/admin/logs', label: 'Логи', icon: '📋' },
+  { path: '/admin/settings', label: 'Настройки', icon: '⚙' },
 ];
 
 function AdminLayout() {
