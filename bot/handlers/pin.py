@@ -60,8 +60,9 @@ def handle_my_pins(user, db, send_message):
     for i, r in enumerate(reservations, 1):
         dragon = db.query(Dragon).filter(Dragon.id == r.dragon_id).first()
         lines.append(f"{i}. {dragon.pin_code if dragon else '—'}")
-    lines.append("\nОтправь номер из списка (например «1»), чтобы активировать яйцо.")
-    lines.append("Или несколько через запятую: «1,3,5».")
+    if len(reservations) >= 2:
+        lines.append("\nОтправь номер из списка (например «1»), чтобы активировать яйцо.")
+        lines.append("Или несколько через запятую: «1,3,5».")
     lines.append("Или нажми «\u26a1 Активировать все».")
 
     send_message("\n".join(lines), keyboard=kb)
