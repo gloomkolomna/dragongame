@@ -160,19 +160,25 @@ def main():
 
     print(f"Dragons bot started (group {config.VK_GROUP_ID})")
 
+    _check_membership = os.getenv("CHECK_GROUP_MEMBERSHIP", "").strip().lower() in ("true", "1", "yes")
     _member_cache = {}
+    print(f"Group membership check: {'enabled' if _check_membership else 'DISABLED'}")
 
     def _is_group_member(uid):
+        if not _check_membership:
+            return True
         now = time.time()
         entry = _member_cache.get(uid)
-        if entry and now - entry[0] < 30:
+        if entry and now - entry[0] < 300:
             return entry[1]
         try:
             result = vk.groups.isMember(group_id=config.VK_GROUP_ID, user_id=uid)
             is_member = bool(result)
             _member_cache[uid] = (now, is_member)
+            print(f"[MEMBERSHIP] user_id={uid} result={result} is_member={is_member}")
             return is_member
-        except Exception:
+        except Exception as e:
+            print(f"[MEMBERSHIP] ERROR for user_id={uid}: {type(e).__name__}: {e}")
             return True
 
     scheduler_thread = threading.Thread(
