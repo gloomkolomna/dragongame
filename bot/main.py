@@ -330,6 +330,9 @@ def main():
                     handle_partial_confirm(user, db, send_message)
                     continue
 
+            if text and not cmd and handle_activate_by_number(user, text, db, send_message):
+                continue
+
             if user.state == AWAIT_GARDEN and not cmd:
                 t = text.strip().lower()
                 if t in ("0", "не менять"):
@@ -608,9 +611,6 @@ def main():
 
             elif cmd == "intro_next" and is_intro_chapter(user.state):
                 handle_intro_next(user, db, send_message, upload_image)
-
-            elif text and not cmd and handle_activate_by_number(user, text, db, send_message):
-                pass
 
             elif user.state == AWAIT_PIN and text and not cmd:
                 handle_pin_entry(user, text, db, send_message, upload_image)
