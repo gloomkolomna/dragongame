@@ -5,6 +5,7 @@ import os
 import json
 import random
 import threading
+import time
 import traceback
 import vk_api
 from vk_api.bot_longpoll import VkBotLongPoll, VkBotEventType
@@ -159,6 +160,21 @@ def main():
 
     print(f"Dragons bot started (group {config.VK_GROUP_ID})")
 
+    _member_cache = {}
+
+    def _is_group_member(uid):
+        now = time.time()
+        entry = _member_cache.get(uid)
+        if entry and now - entry[0] < 300:
+            return entry[1]
+        try:
+            result = vk.groups.isMember(group_id=config.VK_GROUP_ID, user_id=uid)
+            is_member = bool(result)
+            _member_cache[uid] = (now, is_member)
+            return is_member
+        except Exception:
+            return True
+
     scheduler_thread = threading.Thread(
         target=run_timeout_checker,
         args=(SessionLocal, vk, 30),
@@ -232,6 +248,9 @@ def main():
         if not user_id:
             continue
         if not text and not attachments:
+            continue
+
+        if not _is_group_member(user_id):
             continue
 
         db = SessionLocal()
