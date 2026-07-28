@@ -173,6 +173,7 @@ def _process_rewards(db, vk, logger):
 
                 existing_reservation = db.query(DragonReservation).filter(
                     DragonReservation.dragon_id == dragon.id,
+                    DragonReservation.vk_user_id == user.vk_id,
                     DragonReservation.is_activated == False,
                 ).first()
                 if not existing_reservation:

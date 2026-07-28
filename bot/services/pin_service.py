@@ -7,8 +7,15 @@ def _update_reservation_on_activation(db, vk_id: int, dragon_id: int):
     from models import DragonReservation
     reservation = db.query(DragonReservation).filter(
         DragonReservation.dragon_id == dragon_id,
+        DragonReservation.vk_user_id == vk_id,
         DragonReservation.is_activated == False,
     ).first()
+    if not reservation:
+        reservation = db.query(DragonReservation).filter(
+            DragonReservation.dragon_id == dragon_id,
+            DragonReservation.vk_user_id == None,
+            DragonReservation.is_activated == False,
+        ).first()
     if reservation:
         reservation.is_activated = True
         reservation.activated_at = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")

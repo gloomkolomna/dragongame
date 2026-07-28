@@ -1,5 +1,14 @@
 import sys
 import os
+
+_TEST_DB_PATH = os.path.join(os.path.dirname(__file__), "test.db")
+if os.path.exists(_TEST_DB_PATH):
+    try:
+        os.remove(_TEST_DB_PATH)
+    except OSError:
+        pass
+os.environ["DATABASE_URL"] = f"sqlite:///{_TEST_DB_PATH}"
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../.."))
 
@@ -14,9 +23,8 @@ from db import get_db
 from models import Base
 from auth import get_current_admin
 
-TEST_DATABASE_URL = "sqlite:///:memory:"
 engine = create_engine(
-    TEST_DATABASE_URL,
+    _config.DATABASE_URL,
     connect_args={"check_same_thread": False},
     poolclass=StaticPool,
 )

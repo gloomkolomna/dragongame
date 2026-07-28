@@ -156,6 +156,7 @@ def _send_pins(vk_id: int, dragons: list, db=None) -> bool:
     for d in dragons:
         existing = db.query(DragonReservation).filter(
             DragonReservation.dragon_id == d.id,
+            DragonReservation.vk_user_id == vk_id,
             DragonReservation.is_activated == False,
         ).first() if db else None
         if not existing and db:
