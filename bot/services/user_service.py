@@ -20,4 +20,9 @@ def get_or_create_user(db, vk_id: int):
             sync_user(db, vk_id)
         except Exception:
             pass
+        try:
+            from bot.services.welcome_service import ensure_donor_welcome_pin
+            ensure_donor_welcome_pin(db, vk_id)
+        except Exception:
+            pass
     return user
