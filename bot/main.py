@@ -325,6 +325,10 @@ def main():
                     continue
                 if handle_activate_by_number(user, text, db, send_message):
                     continue
+                raw = text.strip()
+                if len(raw) == 5 and raw.isalnum():
+                    handle_pin_entry(user, raw, db, send_message, upload_image)
+                    continue
                 send_message(
                     "🔑 Введи номер PIN-кода из списка выше (например «1»), "
                     "несколько через запятую «1,3», или нажми «\u26a1 Активировать все».",
