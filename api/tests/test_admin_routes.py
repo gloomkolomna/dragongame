@@ -1267,6 +1267,53 @@ def test_available_dragons_exclude_same_user(client, db):
     assert d2 in available_ids
 
 
+def _make_pin_dragon(db, name, pin):
+    d = Dragon(name=name, rarity=1, steps_count=1, is_active=True, egg_type=name, pin_code=pin)
+    db.add(d)
+    db.commit()
+    db.refresh(d)
+    return d.id
+
+
+def test_create_random_reservation(client, db):
+    d1 = _make_pin_dragon(db, "RandA", "11111")
+    d2 = _make_pin_dragon(db, "RandB", "22222")
+    d3 = _make_pin_dragon(db, "RandC", "33333")
+    pool = {d1, d2, d3}
+
+    resp = client.post("/api/admin/reservations/random", json={"vk_url": "https://vk.ru/id777"})
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["vk_user_id"] == 777
+    assert data["dragon_id"] in pool
+    assert data["is_activated"] is False
+
+
+def test_create_random_reservation_excludes_reserved_and_owned(client, db):
+    reserved = _make_pin_dragon(db, "Res", "11111")
+    owned = _make_pin_dragon(db, "Owned", "22222")
+    free = _make_pin_dragon(db, "Free", "33333")
+
+    client.post("/api/admin/reservations", json={"vk_url": "https://vk.ru/id888", "dragon_id": reserved})
+    db.add(User(vk_id=888, state="idle"))
+    db.add(UserDragon(user_id=888, dragon_id=owned, completed_at="2024-01-01T00:00:00"))
+    db.commit()
+
+    resp = client.post("/api/admin/reservations/random", json={"vk_url": "https://vk.ru/id888"})
+    assert resp.status_code == 200
+    assert resp.json()["dragon_id"] == free
+
+
+def test_create_random_reservation_no_available(client, db):
+    resp = client.post("/api/admin/reservations/random", json={"vk_url": "https://vk.ru/id999"})
+    assert resp.status_code == 400
+
+
+def test_create_random_reservation_no_vk(client, db):
+    resp = client.post("/api/admin/reservations/random", json={"vk_url": ""})
+    assert resp.status_code == 400
+
+
 # ─── Give epic dragon ───
 
 def test_give_epic_creates_user_dragon(client, db):

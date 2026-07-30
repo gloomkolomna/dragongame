@@ -3260,6 +3260,42 @@ async def create_reservation(request: Request, db: Session = Depends(get_db)):
     return _reservation_dict(db, reservation)
 
 
+@router.post("/reservations/random")
+async def create_random_reservation(request: Request, db: Session = Depends(get_db)):
+    import random
+
+    b = await _json_body(request)
+    vk_url = (b.get("vk_url") or "").strip()
+    notes = (b.get("notes") or "").strip()
+
+    if not vk_url:
+        raise HTTPException(status_code=400, detail="VK URL is required")
+
+    vk_user_id = _parse_vk_id(vk_url)
+    pool = _available_reservation_dragons(db, vk_user_id)
+    if not pool:
+        raise HTTPException(status_code=400, detail="Нет доступных драконов для случайной брони")
+
+    dragon = random.choice(pool)
+
+    vk_name = _resolve_vk_name(vk_url)
+    now = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
+    reservation = DragonReservation(
+        vk_url=vk_url,
+        vk_user_id=vk_user_id,
+        vk_name=vk_name,
+        dragon_id=dragon.id,
+        is_activated=False,
+        notes=notes,
+        created_at=now,
+        updated_at=now,
+    )
+    db.add(reservation)
+    db.commit()
+    db.refresh(reservation)
+    return _reservation_dict(db, reservation)
+
+
 @router.put("/reservations/{reservation_id}")
 async def update_reservation(reservation_id: int, request: Request, db: Session = Depends(get_db)):
     r = db.query(DragonReservation).filter(DragonReservation.id == reservation_id).first()
@@ -3313,29 +3349,23 @@ def delete_reservation(reservation_id: int, db: Session = Depends(get_db)):
     return {"ok": True}
 
 
-@router.get("/reservations/available-dragons")
-def list_available_for_reservation(
-    exclude_vk_url: str = Query(""),
-    db: Session = Depends(get_db),
-):
+def _available_reservation_dragons(db, vk_user_id) -> list:
     reserved_ids = set()
-    if exclude_vk_url:
-        vk_user_id = _parse_vk_id(exclude_vk_url)
-        if vk_user_id:
-            reserved_ids = {
-                row[0] for row in db.query(DragonReservation.dragon_id).filter(
-                    DragonReservation.vk_user_id == vk_user_id,
-                ).all()
-            }
-            from models import UserDragon
-            owned_ids = {
-                row[0] for row in db.query(UserDragon.dragon_id).filter(
-                    UserDragon.user_id == vk_user_id,
-                ).all()
-            }
-            reserved_ids |= owned_ids
+    if vk_user_id:
+        reserved_ids = {
+            row[0] for row in db.query(DragonReservation.dragon_id).filter(
+                DragonReservation.vk_user_id == vk_user_id,
+            ).all()
+        }
+        from models import UserDragon
+        owned_ids = {
+            row[0] for row in db.query(UserDragon.dragon_id).filter(
+                UserDragon.user_id == vk_user_id,
+            ).all()
+        }
+        reserved_ids |= owned_ids
 
-    dragons = (
+    return (
         db.query(Dragon)
         .filter(
             Dragon.is_active == True,
@@ -3346,6 +3376,15 @@ def list_available_for_reservation(
         )
         .all()
     )
+
+
+@router.get("/reservations/available-dragons")
+def list_available_for_reservation(
+    exclude_vk_url: str = Query(""),
+    db: Session = Depends(get_db),
+):
+    vk_user_id = _parse_vk_id(exclude_vk_url) if exclude_vk_url else None
+    dragons = _available_reservation_dragons(db, vk_user_id)
 
     family_map = {}
     family_ids = {d.family_id for d in dragons if d.family_id}

@@ -41,6 +41,8 @@ function ReservationsList() {
 
   const [form, setForm] = useState({ vk_url: '', dragon_id: 0, notes: '' });
   const [showForm, setShowForm] = useState(false);
+  const [randomForm, setRandomForm] = useState({ vk_url: '', notes: '' });
+  const [showRandomForm, setShowRandomForm] = useState(false);
 
   const navigate = useNavigate();
 
@@ -75,6 +77,22 @@ function ReservationsList() {
       await client.post('/admin/reservations', form);
       setShowForm(false);
       setForm({ vk_url: '', dragon_id: 0, notes: '' });
+      fetchReservations();
+      fetchDragons();
+    } catch (e: any) {
+      setError(e?.response?.data?.detail || 'Ошибка');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleCreateRandom = async () => {
+    if (!randomForm.vk_url.trim()) { setError('Введите ссылку VK'); return; }
+    setSaving(true); setError('');
+    try {
+      await client.post('/admin/reservations/random', randomForm);
+      setShowRandomForm(false);
+      setRandomForm({ vk_url: '', notes: '' });
       fetchReservations();
       fetchDragons();
     } catch (e: any) {
@@ -144,8 +162,11 @@ function ReservationsList() {
       <div className="lair-header">
         <h2>🔖 Бронирования драконов</h2>
         <span style={{ marginLeft: 'auto', color: 'var(--parchment-faded)', fontSize: 14 }}>{filtered.length} из {reservations.length}</span>
-        <button className="lair-btn" style={{ marginLeft: 12 }} onClick={() => { setShowForm(!showForm); setError(''); fetchDragons(form.vk_url); }}>
+        <button className="lair-btn" style={{ marginLeft: 12 }} onClick={() => { setShowForm(!showForm); setShowRandomForm(false); setError(''); fetchDragons(form.vk_url); }}>
           {showForm ? 'Скрыть' : '+ Новая бронь'}
+        </button>
+        <button className="lair-btn" style={{ marginLeft: 8 }} onClick={() => { setShowRandomForm(!showRandomForm); setShowForm(false); setError(''); }}>
+          {showRandomForm ? 'Скрыть' : '🎲 Случайная бронь'}
         </button>
       </div>
       <div className="lair-content">
@@ -205,6 +226,27 @@ function ReservationsList() {
                   {saving ? '...' : 'Создать'}
                 </button>
               </div>
+            </div>
+          </div>
+        )}
+
+        {showRandomForm && (
+          <div className="lair-card" style={{ marginBottom: 24 }}>
+            <h3 style={{ margin: '0 0 16px', color: 'var(--gold)', fontFamily: 'var(--font-title)' }}>🎲 Случайная бронь</h3>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 12, marginBottom: 16, alignItems: 'end' }}>
+              <div>
+                <label className="lair-label">Ссылка VK</label>
+                <input className="lair-input" type="text" value={randomForm.vk_url} placeholder="https://vk.ru/id123456"
+                  onChange={(e) => setRandomForm({ ...randomForm, vk_url: e.target.value })} />
+              </div>
+              <div>
+                <button className="lair-btn" disabled={saving} onClick={handleCreateRandom}>
+                  {saving ? '...' : '🎲 Забронировать случайного'}
+                </button>
+              </div>
+            </div>
+            <div style={{ fontSize: 12, color: 'var(--parchment-faded)' }}>
+              Дракон выберется случайно из доступных (неэпические, которых у пользователя ещё нет и которые не забронированы).
             </div>
           </div>
         )}
