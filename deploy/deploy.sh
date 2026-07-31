@@ -3,7 +3,9 @@
 # Деплой системы «Коллекция драконов» на прод.
 # Логика:
 #   1. Фиксируем текущую ревизию Alembic (точка отката БД) и git (точка отката кода).
-#   2. Бэкап БД строго до миграции. Бэкап dist (фронтенд) до сборки.
+#   2. Полный архив проекта (код + БД + dist + изображения + .env) ДО изменений.
+#      Ротация 5 архивов в /opt/dragons-backups. Бэкап БД строго до миграции.
+#      Бэкап dist (фронтенд) до сборки.
 #   3. git pull.
 #   4. alembic upgrade head.
 #   5. Сборка фронта + рестарт сервисов (dragons-api + dragons-bot).
@@ -25,6 +27,8 @@ FRONTEND_DIR="$APP_DIR/frontend"
 DB_FILE="$API_DIR/dragons.db"
 BACKUP_DIR="$API_DIR/backups"
 BACKUPS_TO_KEEP=10
+FULL_BACKUP_DIR="/opt/dragons-backups"
+FULL_BACKUPS_TO_KEEP=5
 GIT_REMOTE="https://github.com/gloomkolomna/dragongame"
 GIT_BRANCH="main"
 HEALTH_URL="https://belovolovhome.ru/dragons/api/"
@@ -41,6 +45,7 @@ BUILD_RAN=0                   # 1, если сборка фронта уже з�
 SERVICES_RESTARTED=0
 
 mkdir -p "$BACKUP_DIR"
+mkdir -p "$FULL_BACKUP_DIR"
 
 # ===== Логирование =====
 log() {
@@ -144,6 +149,29 @@ fi
 
 # ===== 2. Бэкап БД + dist =====
 log "=== 2. Резервное копирование ==="
+
+# Полный архив рабочего состояния (код + БД + dist + изображения + .env)
+# ДО git pull/миграций/сборки — это точка отката на случай провала деплоя.
+FULL_ARCHIVE="$FULL_BACKUP_DIR/dragons_full_$(date '+%Y%m%d_%H%M%S').tar.gz"
+if tar -czf "$FULL_ARCHIVE" \
+    --exclude="$APP_DIR/api/venv" \
+    --exclude="$APP_DIR/frontend/node_modules" \
+    --exclude="$APP_DIR/.git" \
+    --exclude="$APP_DIR/api/backups" \
+    --exclude="$APP_DIR/frontend/tsconfig.tsbuildinfo" \
+    --exclude='*.log' \
+    -C "$(dirname "$APP_DIR")" "$(basename "$APP_DIR")" 2>/dev/null; then
+    log "Полный архив создан: $FULL_ARCHIVE ($(du -h "$FULL_ARCHIVE" | cut -f1))"
+
+    # Ротация: оставляем только $FULL_BACKUPS_TO_KEEP последних архивов
+    ls -1t "$FULL_BACKUP_DIR"/dragons_full_*.tar.gz 2>/dev/null | tail -n +$((FULL_BACKUPS_TO_KEEP + 1)) | while read -r old; do
+        rm -f "$old"
+        log "Удалён старый полный архив: $old"
+    done
+else
+    log "ВНИМАНИЕ: не удалось создать полный архив '$FULL_ARCHIVE'. Деплой продолжится, но точки полного отката не будет."
+    rm -f "$FULL_ARCHIVE" 2>/dev/null || true
+fi
 
 # Бэкап БД
 if [ -f "$DB_FILE" ]; then
