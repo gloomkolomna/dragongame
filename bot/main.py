@@ -196,6 +196,7 @@ def main():
     print("Weekly post scheduler started")
 
     def upload_image(filepath: str, log_error=None, peer_id=0) -> str:
+        import time
         last_error = None
         last_tb = ""
         backoff = [0, 3, 7]
