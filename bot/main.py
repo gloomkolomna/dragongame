@@ -734,13 +734,14 @@ def main():
             traceback.print_exc()
             try:
                 from models import ErrorLog
+                from bot.services.user_service import now_msk_iso
                 err = ErrorLog(
                     source="bot",
                     error_type=type(exc).__name__,
                     message=str(exc),
                     traceback_text=traceback.format_exc(),
                     user_id=user_id,
-                    created_at=datetime.now().isoformat(),
+                    created_at=now_msk_iso(),
                 )
                 db.add(err)
                 db.commit()

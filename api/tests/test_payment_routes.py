@@ -544,3 +544,61 @@ def test_payment_url_uses_inv_id_offset(client, db, monkeypatch):
     from urllib.parse import urlparse, parse_qs
     qs = parse_qs(urlparse(url).query)
     assert qs["InvId"][0] == str(order.id + 100)
+
+
+# ─── Background auto-cancel of expired orders ───
+
+def test_cancel_expired_orders_all_batch(client, db):
+    from routes.payment import _cancel_expired_orders
+    from datetime import timedelta
+    s = _set(db, quantity=1)
+    expired_old = PaymentOrder(
+        vk_id=101, set_id=s.id, amount_rub=9500, quantity=1,
+        price_per_pin=9500, status="pending", dragon_ids="[]",
+        created_at=(datetime.now() - timedelta(hours=2)).strftime("%Y-%m-%dT%H:%M:%S"),
+    )
+    expired_other = PaymentOrder(
+        vk_id=102, set_id=s.id, amount_rub=9500, quantity=1,
+        price_per_pin=9500, status="pending", dragon_ids="[]",
+        created_at=(datetime.now() - timedelta(hours=3)).strftime("%Y-%m-%dT%H:%M:%S"),
+    )
+    fresh = PaymentOrder(
+        vk_id=103, set_id=s.id, amount_rub=9500, quantity=1,
+        price_per_pin=9500, status="pending", dragon_ids="[]",
+        created_at=datetime.now().strftime("%Y-%m-%dT%H:%M:%S"),
+    )
+    db.add_all([expired_old, expired_other, fresh])
+    db.commit()
+    db.refresh(expired_old)
+    db.refresh(expired_other)
+    db.refresh(fresh)
+
+    cancelled = _cancel_expired_orders(db)
+
+    cancelled_ids = {o.id for o in cancelled}
+    assert expired_old.id in cancelled_ids
+    assert expired_other.id in cancelled_ids
+    assert fresh.id not in cancelled_ids
+    db.refresh(expired_old)
+    db.refresh(expired_other)
+    db.refresh(fresh)
+    assert expired_old.status == "cancelled"
+    assert expired_other.status == "cancelled"
+    assert fresh.status == "pending"
+
+
+def test_cancel_expired_orders_idempotent(client, db):
+    from routes.payment import _cancel_expired_orders
+    s = _set(db, quantity=1)
+    order = PaymentOrder(
+        vk_id=201, set_id=s.id, amount_rub=9500, quantity=1,
+        price_per_pin=9500, status="cancelled", dragon_ids="[]",
+        created_at=(datetime.now() - timedelta(hours=2)).strftime("%Y-%m-%dT%H:%M:%S"),
+    )
+    db.add(order)
+    db.commit()
+
+    cancelled = _cancel_expired_orders(db)
+    assert order.id not in {o.id for o in cancelled}
+    db.refresh(order)
+    assert order.status == "cancelled"

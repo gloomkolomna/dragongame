@@ -1,6 +1,6 @@
 import json
 import hashlib
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from urllib.parse import urlencode, quote_plus
 from fastapi import APIRouter, Depends, Request, HTTPException
 from fastapi.responses import PlainTextResponse, RedirectResponse, HTMLResponse
@@ -19,6 +19,13 @@ ROBOKASSA_URL = "https://auth.robokassa.ru/Merchant/Index.aspx"
 
 def _now() -> str:
     return datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
+
+
+MSK = timezone(timedelta(hours=3))
+
+
+def _now_msk() -> str:
+    return datetime.now(MSK).strftime("%Y-%m-%dT%H:%M:%S")
 
 
 def _md5(raw: str) -> str:
@@ -95,7 +102,7 @@ def _log_payment(vk_id: int, order_id: int, action: str, login: str,
             sig=sig,
             receipt_json=receipt_json,
             detail=detail,
-            created_at=_now(),
+            created_at=_now_msk(),
         )
         db.add(log)
         db.commit()

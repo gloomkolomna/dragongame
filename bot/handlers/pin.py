@@ -78,8 +78,8 @@ def handle_my_pins(user, db, send_message):
 
 
 def handle_pin_entry(user, text, db, send_message, upload_image=None):
-    from datetime import datetime
     from models import ErrorLog
+    from bot.services.user_service import now_msk_iso
 
     code = text.strip().upper()
 
@@ -136,23 +136,23 @@ def handle_pin_entry(user, text, db, send_message, upload_image=None):
 
     attachment = ""
     if not upload_image:
-        db.add(ErrorLog(source="bot", error_type="PIN", message=f"upload_image not provided (egg_path={dragon.egg_path})", user_id=user.vk_id, created_at=datetime.now().isoformat()))
+        db.add(ErrorLog(source="bot", error_type="PIN", message=f"upload_image not provided (egg_path={dragon.egg_path})", user_id=user.vk_id, created_at=now_msk_iso()))
         db.commit()
     elif not dragon.egg_path:
-        db.add(ErrorLog(source="bot", error_type="PIN", message=f"egg_path is empty for dragon {dragon.id}", user_id=user.vk_id, created_at=datetime.now().isoformat()))
+        db.add(ErrorLog(source="bot", error_type="PIN", message=f"egg_path is empty for dragon {dragon.id}", user_id=user.vk_id, created_at=now_msk_iso()))
         db.commit()
     else:
         filepath = os.path.join(_IMAGES, os.path.basename(dragon.egg_path))
         if not os.path.isfile(filepath):
-            db.add(ErrorLog(source="bot", error_type="PIN", message=f"Image not found: {filepath} (egg_path={dragon.egg_path})", user_id=user.vk_id, created_at=datetime.now().isoformat()))
+            db.add(ErrorLog(source="bot", error_type="PIN", message=f"Image not found: {filepath} (egg_path={dragon.egg_path})", user_id=user.vk_id, created_at=now_msk_iso()))
             db.commit()
         else:
             def log_err(msg, tb=""):
-                db.add(ErrorLog(source="bot", error_type="PIN", message=f"Upload failed for {filepath}: {msg}", user_id=user.vk_id, traceback_text=tb, created_at=datetime.now().isoformat()))
+                db.add(ErrorLog(source="bot", error_type="PIN", message=f"Upload failed for {filepath}: {msg}", user_id=user.vk_id, traceback_text=tb, created_at=now_msk_iso()))
                 db.commit()
             attachment = upload_image(filepath, log_error=log_err, peer_id=user.vk_id)
             if not attachment:
-                db.add(ErrorLog(source="bot", error_type="PIN", message=f"Upload returned empty for: {filepath}", user_id=user.vk_id, created_at=datetime.now().isoformat()))
+                db.add(ErrorLog(source="bot", error_type="PIN", message=f"Upload returned empty for: {filepath}", user_id=user.vk_id, created_at=now_msk_iso()))
                 db.commit()
 
     keyboard = start_growing_keyboard()

@@ -20,13 +20,14 @@ def log_to_db(source: str, error_type: str, message: str, traceback_text: str = 
         else:
             _own = False
         from models import ErrorLog
+        from bot.services.user_service import now_msk_iso
         db.add(ErrorLog(
             source=source,
             error_type=error_type,
             message=message,
             traceback_text=traceback_text,
             user_id=user_id,
-            created_at=datetime.now().isoformat(),
+            created_at=now_msk_iso(),
         ))
         db.commit()
         if _own:

@@ -1,6 +1,13 @@
 """Service functions shared between API and bot."""
 
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
+
+
+MSK = timezone(timedelta(hours=3))
+
+
+def now_msk_iso() -> str:
+    return datetime.now(MSK).isoformat()
 
 
 def get_or_create_user(db, vk_id: int):

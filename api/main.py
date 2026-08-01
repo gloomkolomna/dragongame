@@ -5,12 +5,21 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 from fastapi.responses import FileResponse, HTMLResponse
-from db import init_db
+from contextlib import asynccontextmanager
+from db import init_db, SessionLocal
 from middleware import log_failed_requests
 
 init_db()
 
-app = FastAPI(title="Dragons Admin API")
+
+@asynccontextmanager
+async def lifespan(app):
+    from services.payment_scheduler import start_payment_scheduler
+    start_payment_scheduler(SessionLocal, interval=300)
+    yield
+
+
+app = FastAPI(title="Dragons Admin API", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,

@@ -53,9 +53,9 @@ def start_intro(user, db, send_message, upload_image=None):
         filepath = _intro_chapter_image(chapter)
         if filepath and os.path.isfile(filepath):
             def log_err(msg, tb=""):
-                from datetime import datetime
                 from models import ErrorLog
-                db.add(ErrorLog(source="bot", error_type="UPLOAD", message=f"{msg} (file={filepath})", user_id=user.vk_id, traceback_text=tb, created_at=datetime.now().isoformat()))
+                from bot.services.user_service import now_msk_iso
+                db.add(ErrorLog(source="bot", error_type="UPLOAD", message=f"{msg} (file={filepath})", user_id=user.vk_id, traceback_text=tb, created_at=now_msk_iso()))
                 db.commit()
             attachment = upload_image(filepath, log_error=log_err, peer_id=user.vk_id)
 
@@ -94,9 +94,9 @@ def handle_intro_next(user, db, send_message, upload_image=None):
         filepath = _intro_chapter_image(chapter)
         if filepath and os.path.isfile(filepath):
             def log_err(msg, tb=""):
-                from datetime import datetime
                 from models import ErrorLog
-                db.add(ErrorLog(source="bot", error_type="UPLOAD", message=f"{msg} (file={filepath})", user_id=user.vk_id, traceback_text=tb, created_at=datetime.now().isoformat()))
+                from bot.services.user_service import now_msk_iso
+                db.add(ErrorLog(source="bot", error_type="UPLOAD", message=f"{msg} (file={filepath})", user_id=user.vk_id, traceback_text=tb, created_at=now_msk_iso()))
                 db.commit()
             attachment = upload_image(filepath, log_error=log_err, peer_id=user.vk_id)
 
@@ -126,9 +126,9 @@ def handle_intro_chat(user, db, send_message, upload_image=None):
         filepath = _intro_chapter_image(chapter)
         if filepath and os.path.isfile(filepath):
             def log_err(msg, tb=""):
-                from datetime import datetime
                 from models import ErrorLog
-                db.add(ErrorLog(source="bot", error_type="UPLOAD", message=f"{msg} (file={filepath})", user_id=user.vk_id, traceback_text=tb, created_at=datetime.now().isoformat()))
+                from bot.services.user_service import now_msk_iso
+                db.add(ErrorLog(source="bot", error_type="UPLOAD", message=f"{msg} (file={filepath})", user_id=user.vk_id, traceback_text=tb, created_at=now_msk_iso()))
                 db.commit()
             attachment = upload_image(filepath, log_error=log_err, peer_id=user.vk_id)
 

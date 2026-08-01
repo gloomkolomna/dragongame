@@ -27,15 +27,15 @@ def _attach_egg(db, user, dragon, upload_image):
         return ""
     filepath = os.path.join(_IMAGES, os.path.basename(dragon.egg_path))
     if not os.path.isfile(filepath):
-        from datetime import datetime
         from models import ErrorLog
-        db.add(ErrorLog(source="bot", error_type="UPLOAD", message=f"Egg file not found: {filepath}", user_id=user.vk_id, created_at=datetime.now().isoformat()))
+        from bot.services.user_service import now_msk_iso
+        db.add(ErrorLog(source="bot", error_type="UPLOAD", message=f"Egg file not found: {filepath}", user_id=user.vk_id, created_at=now_msk_iso()))
         db.commit()
         return ""
     def log_err(msg, tb=""):
-        from datetime import datetime
         from models import ErrorLog
-        db.add(ErrorLog(source="bot", error_type="UPLOAD", message=f"{msg} (file={filepath})", user_id=user.vk_id, traceback_text=tb, created_at=datetime.now().isoformat()))
+        from bot.services.user_service import now_msk_iso
+        db.add(ErrorLog(source="bot", error_type="UPLOAD", message=f"{msg} (file={filepath})", user_id=user.vk_id, traceback_text=tb, created_at=now_msk_iso()))
         db.commit()
     return upload_image(filepath, log_error=log_err, peer_id=user.vk_id)
 

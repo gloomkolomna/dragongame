@@ -71,16 +71,16 @@ def run_timeout_checker(session_factory, vk, interval=30):
         except Exception as e:
             logger.error(f"Checker error: {e}")
             try:
-                from datetime import datetime
                 import traceback
                 db = session_factory()
                 from models import ErrorLog
+                from bot.services.user_service import now_msk_iso
                 err = ErrorLog(
                     source="scheduler",
                     error_type=type(e).__name__,
                     message=str(e),
                     traceback_text=traceback.format_exc(),
-                    created_at=datetime.now().isoformat(),
+                    created_at=now_msk_iso(),
                 )
                 db.add(err)
                 db.commit()
