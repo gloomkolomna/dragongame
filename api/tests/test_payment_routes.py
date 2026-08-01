@@ -1,7 +1,7 @@
 import hashlib
 from datetime import datetime, timedelta
 import config
-from models import Dragon, DragonSet, PaymentOrder
+from models import Dragon, DragonSet, PaymentOrder, PaymentLog
 
 
 def _dragon(db, name, family_id=None, pin="P0001"):
@@ -472,6 +472,55 @@ def test_payment_page_rejects_expired_order(client, db):
     resp = client.get(f"/api/payment/pay/{order.id}?vk_id=97")
     assert resp.status_code == 410
     assert "просрочен" in resp.text
+
+
+def test_payment_page_logs_not_found(client, db):
+    resp = client.get("/api/payment/pay/9999?vk_id=77")
+    assert resp.status_code == 404
+    log = db.query(PaymentLog).filter(PaymentLog.action == "pay_not_found").first()
+    assert log is not None
+    assert log.order_id == 9999
+    assert log.vk_id == 77
+    assert "not found" in log.detail
+
+
+def test_payment_page_logs_expired(client, db):
+    from datetime import timedelta
+    s = _set(db, quantity=1)
+    order = PaymentOrder(
+        vk_id=88, set_id=s.id, amount_rub=9500, quantity=1,
+        price_per_pin=9500, status="pending", dragon_ids="[]",
+        created_at=(datetime.now() - timedelta(hours=2)).strftime("%Y-%m-%dT%H:%M:%S"),
+    )
+    db.add(order)
+    db.commit()
+    db.refresh(order)
+
+    resp = client.get(f"/api/payment/pay/{order.id}?vk_id=88")
+    assert resp.status_code == 410
+    log = db.query(PaymentLog).filter(PaymentLog.action == "pay_expired").first()
+    assert log is not None
+    assert log.order_id == order.id
+    assert "expired" in log.detail
+
+
+def test_payment_page_logs_already_paid(client, db):
+    s = _set(db, quantity=1)
+    order = PaymentOrder(
+        vk_id=66, set_id=s.id, amount_rub=9500, quantity=1,
+        price_per_pin=9500, status="success", dragon_ids="[]",
+        created_at=datetime.now().strftime("%Y-%m-%dT%H:%M:%S"),
+    )
+    db.add(order)
+    db.commit()
+    db.refresh(order)
+
+    resp = client.get(f"/api/payment/pay/{order.id}?vk_id=66")
+    assert resp.status_code == 400
+    log = db.query(PaymentLog).filter(PaymentLog.action == "pay_already_success").first()
+    assert log is not None
+    assert log.order_id == order.id
+    assert "status=success" in log.detail
 
 
 def test_payment_url_uses_inv_id_offset(client, db, monkeypatch):

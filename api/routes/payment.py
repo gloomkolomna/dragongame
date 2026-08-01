@@ -357,16 +357,23 @@ async def payment_result(request: Request, db: Session = Depends(get_db)):
 
 
 @router.get("/pay/{order_id}", response_class=HTMLResponse)
-def payment_post_redirect(order_id: int, vk_id: int, db: Session = Depends(get_db)):
+def payment_post_redirect(request: Request, order_id: int, vk_id: int, db: Session = Depends(get_db)):
+    client_ip = request.client.host if request.client else ""
     order = db.query(PaymentOrder).filter(PaymentOrder.id == order_id).first()
     if not order:
+        _log_payment(vk_id, order_id, "pay_not_found", "", "", "", False, "", "",
+                     f"order_id={order_id} not found (ip={client_ip})", db=db)
         return HTMLResponse("<h1>Заказ не найден</h1>", status_code=404)
     if _is_order_expired(order):
+        _log_payment(vk_id, order_id, "pay_expired", "", "", "", False, "", "",
+                     f"order_id={order_id} expired, was status={order.status} (ip={client_ip})", db=db)
         return HTMLResponse(
             "<h1>Заказ просрочен</h1><p>Время оплаты истекло (1 час). Создай новый заказ.</p>",
             status_code=410,
         )
     if order.status != "pending":
+        _log_payment(vk_id, order_id, f"pay_already_{order.status}", "", "", "", False, "", "",
+                     f"order_id={order_id} status={order.status} amount_rub={order.amount_rub} (ip={client_ip})", db=db)
         return HTMLResponse(f"<h1>Заказ уже {order.status}</h1>", status_code=400)
 
     dset = db.query(DragonSet).filter(DragonSet.id == order.set_id).first()

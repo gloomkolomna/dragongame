@@ -198,25 +198,30 @@ def main():
     def upload_image(filepath: str, log_error=None, peer_id=0) -> str:
         last_error = None
         last_tb = ""
+        backoff = [0, 3, 7]
         for attempt in range(3):
             try:
+                if attempt > 0:
+                    time.sleep(backoff[attempt])
                 if not os.path.isfile(filepath):
                     return ""
+                file_size = os.path.getsize(filepath)
                 upload_url = vk.photos.getMessagesUploadServer(peer_id=peer_id)["upload_url"]
                 import requests
                 with open(filepath, "rb") as f:
                     resp = requests.post(upload_url, files={"photo": ("image.jpg", f, "image/jpeg")}, timeout=30)
                 resp.raise_for_status()
                 data = resp.json()
+                if not data.get("photo"):
+                    raise RuntimeError(
+                        f"VK upload returned empty photo (peer_id={peer_id}, size={file_size}, "
+                        f"status={resp.status_code}, server={data.get('server')}, body={resp.text[:500]})"
+                    )
                 saved = vk.photos.saveMessagesPhoto(photo=data["photo"], server=data["server"], hash=data["hash"])[0]
                 return f"photo{saved['owner_id']}_{saved['id']}"
             except Exception as e:
                 last_error = e
-                import traceback
                 last_tb = traceback.format_exc()
-                if attempt < 2:
-                    import time
-                    time.sleep(1)
         msg = f"Image upload failed after 3 retries: {last_error}"
         print(msg)
         if log_error:
