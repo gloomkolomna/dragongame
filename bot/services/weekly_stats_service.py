@@ -44,7 +44,7 @@ def _get_weekly_stats(db):
     return result
 
 
-def _get_top_users(db, limit=5):
+def _get_top_users(db, limit=10):
     from models import UserDragon
     from sqlalchemy import func, desc
 
@@ -171,7 +171,7 @@ def _check_and_post(db, vk, logger):
         return
 
     stats = _get_weekly_stats(db)
-    top = _get_top_users(db, 5)
+    top = _get_top_users(db, 10)
 
     if not top and all(v == 0 for v in stats.values()):
         logger.info(f"No completions for week of {monday_str}, skipping post")
