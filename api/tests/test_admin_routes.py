@@ -1565,3 +1565,93 @@ def test_reset_to_idle_preserves_dragons(client, db):
     assert user.state == "idle"
     assert user.epic_dragon_id == d.id
     assert db.query(UserDragon).filter(UserDragon.user_id == 904).count() == 1
+
+
+def test_resolve_vk_names_partial_result():
+    """VK вернул часть юзеров — возвращаем то, что есть, не теряем всех."""
+    from routes.admin import _resolve_vk_names
+
+    response = [
+        {"id": 100, "first_name": "Иван", "last_name": "Иванов"},
+    ]
+
+    class _FakeApi:
+        def __init__(self):
+            self.users = type("U", (), {"get": lambda self, **kw: response})()
+
+    class _FakeVkApi:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def get_api(self):
+            return _FakeApi()
+
+    import config
+    config.VK_GROUP_TOKEN = "fake_token"
+
+    import vk_api as real_vk_api
+    saved = real_vk_api.VkApi
+    real_vk_api.VkApi = _FakeVkApi
+    try:
+        result = _resolve_vk_names([100, 200, 300])
+    finally:
+        real_vk_api.VkApi = saved
+        config.VK_GROUP_TOKEN = ""
+
+    assert len(result) == 1
+    assert result[100]["first_name"] == "Иван"
+    assert 200 not in result
+    assert 300 not in result
+
+
+def test_resolve_vk_names_total_failure(monkeypatch):
+    """VK упал после 2 попыток — возвращаем пустой словарь, не падаем."""
+    from routes.admin import _resolve_vk_names
+
+    class _FakeApi:
+        def __init__(self):
+            class _Users:
+                def get(self, **kwargs):
+                    raise RuntimeError("VK is down")
+            self.users = _Users()
+
+    class _FakeVkApi:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def get_api(self):
+            return _FakeApi()
+
+    import config
+    config.VK_GROUP_TOKEN = "fake_token"
+
+    import builtins
+    real_sleep = __import__("time").sleep
+    monkeypatch.setattr(builtins, "__import__", __import__)  # no-op safety
+    import vk_api as real_vk_api
+    saved = real_vk_api.VkApi
+    real_vk_api.VkApi = _FakeVkApi
+
+    import time as _t
+    _t.sleep = lambda _: None
+    try:
+        result = _resolve_vk_names([100, 200])
+    finally:
+        real_vk_api.VkApi = saved
+        _t.sleep = real_sleep
+        config.VK_GROUP_TOKEN = ""
+
+    assert result == {}
+
+
+def test_resolve_vk_names_no_token():
+    """Без токена — пустой результат, без запросов к VK."""
+    from routes.admin import _resolve_vk_names
+    import config
+    saved = config.VK_GROUP_TOKEN
+    config.VK_GROUP_TOKEN = ""
+    try:
+        result = _resolve_vk_names([100, 200])
+    finally:
+        config.VK_GROUP_TOKEN = saved
+    assert result == {}

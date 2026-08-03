@@ -578,25 +578,68 @@ def list_pins(dragon_id: Optional[int] = Query(None), db: Session = Depends(get_
 
 # ─── Users ───
 
+def _log_name_resolve(issue: str, requested: list[int], received: dict[int, dict], exc: Exception = None):
+    """Записать сбой резолва имён в error_logs, чтобы было видно в админке."""
+    try:
+        from db import SessionLocal
+        missing = [x for x in requested if x not in received]
+        msg = f"{issue}. Запрошено: {len(requested)}, получено: {len(received)}."
+        if missing:
+            msg += f" Без имени остались vk_id: {missing[:50]}{'...' if len(missing) > 50 else ''}"
+        tb = ""
+        if exc:
+            import traceback
+            tb = traceback.format_exc()
+        _db = SessionLocal()
+        try:
+            _db.add(ErrorLog(
+                source="api",
+                error_type="VK_NAME_RESOLVE",
+                message=msg,
+                traceback_text=tb,
+                created_at=datetime.now().strftime("%Y-%m-%dT%H:%M:%S"),
+            ))
+            _db.commit()
+        finally:
+            _db.close()
+    except Exception:
+        pass
+
+
 def _resolve_vk_names(vk_ids: list[int]) -> dict[int, dict]:
     """Batch-resolve VK user names using group token. Returns {vk_id: {first_name, last_name}}."""
     import config
     if not config.VK_GROUP_TOKEN or not vk_ids:
         return {}
-    try:
-        import vk_api
-        vk = vk_api.VkApi(token=config.VK_GROUP_TOKEN, api_version="5.199").get_api()
-        ids_str = ",".join(str(x) for x in vk_ids[:1000])
-        users = vk.users.get(user_ids=ids_str, fields="first_name,last_name")
-        return {
-            u["id"]: {
-                "first_name": u.get("first_name", ""),
-                "last_name": u.get("last_name", ""),
-            }
-            for u in users
-        }
-    except Exception:
+    ids_to_request = [int(x) for x in vk_ids[:1000]]
+    import vk_api
+    vk = vk_api.VkApi(token=config.VK_GROUP_TOKEN, api_version="5.199").get_api()
+    ids_str = ",".join(str(x) for x in ids_to_request)
+    last_exc = None
+    users = None
+    for attempt in (1, 2):
+        try:
+            users = vk.users.get(user_ids=ids_str, fields="first_name,last_name")
+            last_exc = None
+            break
+        except Exception as e:
+            last_exc = e
+            if attempt == 1:
+                import time
+                time.sleep(0.4)
+    if last_exc is not None or users is None:
+        _log_name_resolve("VK users.get упал после 2 попыток", ids_to_request, {}, last_exc)
         return {}
+    resolved = {
+        u["id"]: {
+            "first_name": u.get("first_name", ""),
+            "last_name": u.get("last_name", ""),
+        }
+        for u in users
+    }
+    if len(resolved) < len(ids_to_request):
+        _log_name_resolve("VK вернул не все имена", ids_to_request, resolved)
+    return resolved
 
 
 @router.get("/users")
