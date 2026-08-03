@@ -23,7 +23,7 @@ from models import (
     IntroChapter, RewardConfig, UserRewardPin,
     DragonReservation, AppSettings,
 )
-from config import API_ERROR_LOG, DONOR_SYNC_INTERVAL_HOURS, DEBUG_LOG_PATH, DEBUG_LOG_REQUESTS
+from config import API_ERROR_LOG, BOT_ERROR_LOG, DONOR_SYNC_INTERVAL_HOURS, DEBUG_LOG_PATH, DEBUG_LOG_REQUESTS
 from services.dragon_service import (
     get_dragons, get_dragon, create_dragon, update_dragon, delete_dragon, sync_steps_count,
 )
@@ -1662,10 +1662,18 @@ def delete_user(vk_id: int, db: Session = Depends(get_db)):
 
 
 @router.get("/logs")
-def list_logs(page: int = Query(1, ge=1), per_page: int = Query(50, ge=1, le=200), db: Session = Depends(get_db)):
+def list_logs(
+    page: int = Query(1, ge=1),
+    per_page: int = Query(50, ge=1, le=200),
+    source: Optional[str] = Query(None, description="Фильтр по источнику: bot, api"),
+    db: Session = Depends(get_db),
+):
+    q = db.query(ErrorLog)
+    if source:
+        q = q.filter(ErrorLog.source == source)
     offset = (page - 1) * per_page
-    total = db.query(ErrorLog).count()
-    logs = db.query(ErrorLog).order_by(ErrorLog.id.desc()).offset(offset).limit(per_page).all()
+    total = q.count()
+    logs = q.order_by(ErrorLog.id.desc()).offset(offset).limit(per_page).all()
     return {"logs": logs, "total": total, "page": page, "per_page": per_page}
 
 
@@ -1683,6 +1691,22 @@ def list_api_logs(page: int = Query(1, ge=1), per_page: int = Query(50, ge=1, le
     offset = (page - 1) * per_page
     chunk = all_lines[offset:offset + per_page]
     return {"lines": chunk, "total": total, "page": page, "per_page": per_page}
+
+
+@router.get("/logs/bot")
+def list_bot_logs(page: int = Query(1, ge=1), per_page: int = Query(50, ge=1, le=200)):
+    if not os.path.isfile(BOT_ERROR_LOG):
+        return {"lines": [], "total": 0, "page": page, "per_page": per_page, "available": False}
+    try:
+        with open(BOT_ERROR_LOG, "r", encoding="utf-8", errors="replace") as f:
+            all_lines = f.readlines()
+    except Exception:
+        return {"lines": [], "total": 0, "page": page, "per_page": per_page, "available": False}
+    all_lines.reverse()
+    total = len(all_lines)
+    offset = (page - 1) * per_page
+    chunk = all_lines[offset:offset + per_page]
+    return {"lines": chunk, "total": total, "page": page, "per_page": per_page, "available": True}
 
 
 @router.get("/logs/api-requests")

@@ -72,6 +72,7 @@ def robokassa_password2() -> str:
     return ROBOKASSA_PASSWORD2
 
 API_ERROR_LOG = os.getenv("API_ERROR_LOG", "/var/log/dragons/api-error.log")
+BOT_ERROR_LOG = os.getenv("BOT_ERROR_LOG", "/var/log/dragons/bot-error.log")
 
 DEBUG_LOG_REQUESTS = os.getenv("DEBUG_LOG_REQUESTS", "").strip() == "1"
 DEBUG_LOG_PATH = os.getenv("DEBUG_LOG_PATH", os.path.join(os.path.dirname(os.path.abspath(__file__)), "debug_requests.log"))

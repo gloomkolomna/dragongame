@@ -8,7 +8,7 @@ from models import (
     UserInventory, EpicMoodlet, ShopItem,
     CharacterAxis, CharacterBalance,
     EpicSubAction, EpicSubActionItem, EpicSubActionStep, EpicSubActionOutcome,
-    EpicActionOutcome, UserItemUsage, StageShopItem,
+    EpicActionOutcome, UserItemUsage, StageShopItem, ErrorLog,
 )
 
 
@@ -108,6 +108,20 @@ def _recover_epic_dragon_id(db, user):
         return None
     user.epic_dragon_id = ud.dragon_id
     db.commit()
+    try:
+        import traceback
+        from datetime import datetime
+        db.add(ErrorLog(
+            source="bot",
+            error_type="EPIC_POINTER_LOST",
+            message=f"epic_dragon_id был NULL у vk_id={user.vk_id}; восстановлен на dragon_id={ud.dragon_id}. Это симптом бага обнуления — нужен стек вызова ниже.",
+            traceback_text=traceback.format_exc(),
+            user_id=user.vk_id,
+            created_at=datetime.now().strftime("%Y-%m-%dT%H:%M:%S"),
+        ))
+        db.commit()
+    except Exception:
+        pass
     return ud.dragon_id
 
 

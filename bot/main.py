@@ -66,6 +66,13 @@ def _handle_growing_chat(user, db, send_message, upload_image=None):
         send_message(msg, attachment=attachment, keyboard=step_buttons_keyboard())
 
 
+def is_int_str(t: str) -> bool:
+    """Строгая проверка: только ASCII-цифры 0-9.
+    str.isdigit() возвращает True для Unicode-цифр (²³¹, римских и т.д.),
+    на которых int() падает с ValueError. Эта проверка безопасна."""
+    return t.isascii() and t.isdigit() and t != ""
+
+
 def should_warn_stitches_out_of_turn(state: str, text: str, attachments: list) -> bool:
     """True, если юзер прислал «вышито N»/стежки или фото-отчёт,
     но бот сейчас НЕ ждёт отчёта (норма/штраф ещё не выбраны или идёт таймаут).
@@ -373,36 +380,60 @@ def main():
                 if t in ("0", "не менять"):
                     cancel_garden(user, db, send_message, upload_image)
                     continue
-                if t.isdigit():
+                if is_int_str(t):
                     switch_dragon(user, int(t), db, send_message, upload_image)
                     continue
+                send_message(
+                    "📖 Введи номер дракона из списка выше (только цифру), "
+                    "или «0», чтобы отменить.",
+                    keyboard=get_keyboard(user.state, user, db),
+                )
+                continue
 
             if user.state == AWAIT_LEGENDS and not cmd:
                 t = text.strip().lower()
                 if t in ("0", "назад", "отмена", "не читать"):
                     cancel_legends(user, db, send_message)
                     continue
-                if t.isdigit():
+                if is_int_str(t):
                     handle_legends_pick(user, int(t), db, send_message, upload_image)
                     continue
+                send_message(
+                    "📜 Введи номер легенды из списка выше (только цифру), "
+                    "или «0», чтобы вернуться.",
+                    keyboard=get_keyboard(user.state, user, db),
+                )
+                continue
 
             if user.state == AWAIT_EPICS and not cmd:
                 t = text.strip().lower()
                 if t in ("0", "назад", "отмена"):
                     cancel_epics(user, db, send_message)
                     continue
-                if t.isdigit():
+                if is_int_str(t):
                     handle_epics_pick(user, int(t), db, send_message, upload_image)
                     continue
+                send_message(
+                    "🐉 Введи номер эпического дракона из списка выше (только цифру), "
+                    "или «0», чтобы вернуться.",
+                    keyboard=get_keyboard(user.state, user, db),
+                )
+                continue
 
             if user.state == AWAIT_RULES and not cmd:
                 t = text.strip().lower()
                 if t in ("0", "закрыть правила", "назад", "отмена"):
                     cancel_rules(user, db, send_message, upload_image)
                     continue
-                if t.isdigit():
+                if is_int_str(t):
                     handle_rules_pick(user, db, send_message, int(t))
                     continue
+                send_message(
+                    "📜 Введи номер раздела из списка выше (только цифру), "
+                    "или «0», чтобы закрыть правила.",
+                    keyboard=get_keyboard(user.state, user, db),
+                )
+                continue
 
             if not cmd and should_warn_stitches_out_of_turn(user.state, text, attachments):
                 send_message(
@@ -771,6 +802,22 @@ def main():
 
             else:
                 if not cmd:
+                    try:
+                        from models import ErrorLog
+                        from bot.services.user_service import now_msk_iso
+                        preview = (text or "")[:120]
+                        if attachments and not text:
+                            preview = f"[{len(attachments)} вложений]"
+                        db.add(ErrorLog(
+                            source="bot",
+                            error_type="ORPHAN_STATE",
+                            message=f"Нет ветки dispatch: state={user.state!r}, text={preview!r}",
+                            user_id=user_id,
+                            created_at=now_msk_iso(),
+                        ))
+                        db.commit()
+                    except Exception:
+                        pass
                     send_message(
                         "🤔 Я не совсем понял сообщение. Воспользуйся кнопками клавиатуры или командой «❓ Помощь».",
                         keyboard=get_keyboard(user.state, user, db),

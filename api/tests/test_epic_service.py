@@ -723,6 +723,24 @@ def test_get_epic_dragon_recovers_lost_pointer(db):
     db.refresh(u)
     assert u.epic_dragon_id == d.id
 
+    from models import ErrorLog
+    log = db.query(ErrorLog).filter(ErrorLog.error_type == "EPIC_POINTER_LOST", ErrorLog.user_id == 300).first()
+    assert log is not None, "восстановление должно писать EPIC_POINTER_LOST в error_logs"
+
+
+def test_recover_pointer_no_log_when_already_set(db):
+    """Если указатель уже на месте — восстановление не логируется (нет ложных срабатываний)."""
+    d = _epic_dragon(db)
+    u = User(vk_id=305, epic_unlocked=True, epic_dragon_id=d.id)
+    db.add(u)
+    db.add(UserDragon(user_id=305, dragon_id=d.id, completed_at=""))
+    db.commit()
+
+    epic_service.get_epic_dragon(db, 305)
+    from models import ErrorLog
+    cnt = db.query(ErrorLog).filter(ErrorLog.error_type == "EPIC_POINTER_LOST", ErrorLog.user_id == 305).count()
+    assert cnt == 0, "не должно быть ложного EPIC_POINTER_LOST при валидном указателе"
+
 
 def test_get_epic_dragon_recovers_skips_completed(db):
     u = User(vk_id=301, epic_unlocked=True, epic_dragon_id=None)

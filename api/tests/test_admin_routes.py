@@ -1,6 +1,6 @@
 import json
 from datetime import datetime, timedelta
-from models import Dragon, DragonStep, User, UserDragon, UserProgress
+from models import Dragon, DragonStep, User, UserDragon, UserProgress, ErrorLog
 
 
 def _create_dragon(client, name="TestDragon"):
@@ -1699,3 +1699,37 @@ def test_resolve_vk_names_batches_over_100():
     assert len(result) == 150, f"должны вернуться все 150 имён, вернулось {len(result)}"
     assert result[1]["first_name"] == "Имя1"
     assert result[150]["first_name"] == "Имя150"
+
+
+def test_list_logs_filter_by_source(client, db):
+    """Фильтр ?source=bot отдаёт только логи бота, ?source=api — только API."""
+    from bot.services.user_service import now_msk_iso
+    db.add(ErrorLog(source="bot", error_type="B1", message="bot error", created_at=now_msk_iso()))
+    db.add(ErrorLog(source="bot", error_type="B2", message="another bot", created_at=now_msk_iso()))
+    db.add(ErrorLog(source="api", error_type="A1", message="api error", created_at=now_msk_iso()))
+    db.commit()
+
+    resp_bot = client.get("/api/admin/logs?source=bot")
+    assert resp_bot.status_code == 200
+    bot_logs = resp_bot.json()["logs"]
+    assert len(bot_logs) == 2
+    assert all(l["source"] == "bot" for l in bot_logs)
+
+    resp_api = client.get("/api/admin/logs?source=api")
+    assert resp_api.status_code == 200
+    api_logs = resp_api.json()["logs"]
+    assert len(api_logs) == 1
+    assert api_logs[0]["source"] == "api"
+
+    resp_all = client.get("/api/admin/logs")
+    assert resp_all.status_code == 200
+    assert len(resp_all.json()["logs"]) == 3
+
+
+def test_list_bot_logs_file_missing(client):
+    """Если файл лога бота не существует — пустой ответ без ошибки."""
+    resp = client.get("/api/admin/logs/bot")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["lines"] == []
+    assert data["available"] is False

@@ -8,6 +8,8 @@ WorkingDirectory=/opt/dragons
 Environment=PATH=/opt/dragons/api/venv/bin
 Environment=PYTHONPATH=/opt/dragons:/opt/dragons/api
 ExecStart=/opt/dragons/api/venv/bin/python -m bot.main
+StandardOutput=append:/var/log/dragons/bot-error.log
+StandardError=append:/var/log/dragons/bot-error.log
 Restart=always
 RestartSec=10
 

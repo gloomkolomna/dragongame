@@ -20,7 +20,7 @@ interface ApiRequestItem {
   created_at: string;
 }
 
-type Tab = 'db' | 'api' | 'requests' | 'payments' | 'donors';
+type Tab = 'db' | 'api' | 'bot' | 'requests' | 'payments' | 'donors';
 
 interface PaginatedState<T> {
   items: T[];
@@ -62,7 +62,9 @@ function LogsList() {
   const perPage = 50;
 
   const [dbState, setDbState] = useState<PaginatedState<ErrorLog>>({ items: [], total: 0, page: 1 });
+  const [dbSource, setDbSource] = useState<'' | 'bot' | 'api'>('');
   const [apiState, setApiState] = useState<PaginatedState<string>>({ items: [], total: 0, page: 1 });
+  const [botState, setBotState] = useState<PaginatedState<string>>({ items: [], total: 0, page: 1 });
   const [reqState, setReqState] = useState<PaginatedState<ApiRequestItem>>({ items: [], total: 0, page: 1 });
   const [payState, setPayState] = useState<PaginatedState<PaymentLogItem>>({ items: [], total: 0, page: 1 });
   const [payExpanded, setPayExpanded] = useState<number | null>(null);
@@ -80,15 +82,22 @@ function LogsList() {
 
   const fetchDbLogs = useCallback((p: number) => {
     setLoad(true);
-    client.get('/admin/logs', { params: { page: p, per_page: perPage } })
+    client.get('/admin/logs', { params: { page: p, per_page: perPage, source: dbSource || undefined } })
       .then((r) => setDbState({ items: r.data.logs, total: r.data.total, page: r.data.page }))
       .finally(() => setLoad(false));
-  }, []);
+  }, [dbSource]);
 
   const fetchApiLogs = useCallback((p: number) => {
     setLoad(true);
     client.get('/admin/logs/api', { params: { page: p, per_page: perPage } })
       .then((r) => setApiState({ items: r.data.lines, total: r.data.total, page: r.data.page }))
+      .finally(() => setLoad(false));
+  }, []);
+
+  const fetchBotLogs = useCallback((p: number) => {
+    setLoad(true);
+    client.get('/admin/logs/bot', { params: { page: p, per_page: perPage } })
+      .then((r) => setBotState({ items: r.data.lines, total: r.data.total, page: r.data.page }))
       .finally(() => setLoad(false));
   }, []);
 
@@ -121,6 +130,7 @@ function LogsList() {
     setPayExpanded(null);
     setFilter('');
     if (t === 'api' && apiState.items.length === 0) fetchApiLogs(1);
+    if (t === 'bot' && botState.items.length === 0) fetchBotLogs(1);
     if (t === 'requests' && reqState.items.length === 0) fetchReqLogs(1);
     if (t === 'payments' && payState.items.length === 0) fetchPayLogs(1);
     if (t === 'donors' && donorState.items.length === 0) fetchDonorLogs(1);
@@ -169,13 +179,14 @@ function LogsList() {
     return sortedFiltered(items);
   }, [donorState.items, filter, sortKey, sortDir]);
 
-  const cur = tab === 'db' ? dbState : tab === 'api' ? apiState : tab === 'requests' ? reqState : tab === 'donors' ? donorState : payState;
+  const cur = tab === 'db' ? dbState : tab === 'api' ? apiState : tab === 'bot' ? botState : tab === 'requests' ? reqState : tab === 'donors' ? donorState : payState;
   const totalPages = Math.ceil(cur.total / perPage);
   const formatDate = (s: string) => s ? s.slice(0, 16).replace('T', ' ') + ' МСК' : '—';
 
   const goPage = (p: number) => {
     if (tab === 'db') fetchDbLogs(p);
     else if (tab === 'api') fetchApiLogs(p);
+    else if (tab === 'bot') fetchBotLogs(p);
     else if (tab === 'requests') fetchReqLogs(p);
     else if (tab === 'donors') fetchDonorLogs(p);
     else fetchPayLogs(p);
@@ -199,16 +210,16 @@ function LogsList() {
       <div className="lair-header" style={{ flexWrap: 'wrap', gap: 8, paddingBottom: 12 }}>
         <h2 style={{ flexShrink: 0 }}>📋 Логи</h2>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-          {(['db', 'api', 'requests', 'payments', 'donors'] as Tab[]).map((t) => (
+          {(['db', 'api', 'bot', 'requests', 'payments', 'donors'] as Tab[]).map((t) => (
             <button key={t}
               className={tab === t ? 'lair-btn' : 'lair-btn lair-btn-outline'}
               style={{ fontSize: 15 }}
               onClick={() => switchTab(t)}
             >
-              {t === 'db' ? 'Логи БД' : t === 'api' ? 'Логи API' : t === 'requests' ? 'Запросы API' : t === 'payments' ? 'Платежи' : 'Донат'}
+              {t === 'db' ? 'Логи БД' : t === 'api' ? 'Логи API' : t === 'bot' ? 'Логи Бота' : t === 'requests' ? 'Запросы API' : t === 'payments' ? 'Платежи' : 'Донат'}
             </button>
           ))}
-          {tab !== 'api' && tab !== 'donors' && (
+          {tab !== 'api' && tab !== 'bot' && tab !== 'donors' && (
             <button className="lair-btn lair-btn-danger" style={{ fontSize: 14, marginLeft: 8 }}
                     onClick={clearLogs}>🗑 Очистить</button>
           )}
@@ -219,15 +230,26 @@ function LogsList() {
           <div className="lair-skeleton" />
         ) : (
           <>
-            {tab !== 'api' && (
+            {tab !== 'api' && tab !== 'bot' && (
               <input className="lair-input" placeholder="Фильтр..." value={filter}
                      onChange={(e) => setFilter(e.target.value)}
                      style={{ marginBottom: 12, maxWidth: 300, fontSize: 16, padding: '8px 12px' }} />
             )}
             {tab === 'db' ? (
               <>
-                <div style={{ marginBottom: 12, color: 'var(--parchment-faded)', fontSize: 14 }}>
-                  Всего: {dbState.total} / показано: {filteredDb.length}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
+                  <div style={{ color: 'var(--parchment-faded)', fontSize: 14 }}>
+                    Всего: {dbState.total} / показано: {filteredDb.length}
+                  </div>
+                  <div style={{ display: 'flex', gap: 4 }}>
+                    {([['', 'Все'], ['bot', 'Бот'], ['api', 'API']] as const).map(([val, label]) => (
+                      <button key={val}
+                        className={dbSource === val ? 'lair-btn lair-btn-sm' : 'lair-btn lair-btn-sm lair-btn-outline'}
+                        onClick={() => { setDbSource(val); }}>
+                        {label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
                 <div className="lair-card" style={{ padding: 0, overflow: 'hidden' }}>
                   <table className="lair-table">
@@ -283,6 +305,28 @@ function LogsList() {
                     </pre>
                   ) : (
                     <div style={{ textAlign: 'center', padding: 32, color: 'var(--parchment-faded)' }}>Лог-файл пуст или недоступен</div>
+                  )}
+                </div>
+              </>
+            ) : tab === 'bot' ? (
+              <>
+                <div style={{ marginBottom: 12, color: 'var(--parchment-faded)', fontSize: 14 }}>
+                  Строк в логе бота: {botState.total}
+                </div>
+                <div className="lair-card" style={{ padding: 0, overflow: 'hidden' }}>
+                  {botState.items.length > 0 ? (
+                    <pre style={{ margin: 0, padding: '16px 20px', fontSize: 13, lineHeight: 1.6, color: 'var(--parchment-dim)', whiteSpace: 'pre-wrap', wordBreak: 'break-all', maxHeight: 'calc(100vh - 320px)', overflowY: 'auto', fontFamily: 'var(--font-mono)' }}>
+                      {botState.items.map((line, i) => (
+                        <div key={i} style={{ color: line.includes('Error') || line.includes('Traceback') || line.includes('ERROR') ? 'var(--fire)' : line.includes('WARN') || line.includes('warning') ? 'var(--ember)' : undefined }}>{line.trimEnd()}</div>
+                      ))}
+                    </pre>
+                  ) : (
+                    <div style={{ textAlign: 'center', padding: 32, color: 'var(--parchment-faded)' }}>
+                      Лог бота пуст или файл недоступен.
+                      <div style={{ marginTop: 8, fontSize: 12 }}>
+                        Если только что включили — перезапусти бота (systemctl restart dragons-bot), чтобы systemd начал писать stdout в файл.
+                      </div>
+                    </div>
                   )}
                 </div>
               </>
