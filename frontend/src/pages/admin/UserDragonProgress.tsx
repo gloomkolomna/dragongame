@@ -116,6 +116,34 @@ function UserDragonProgress() {
     await careAction('goto', patch);
   };
 
+  const restorePointer = async () => {
+    if (!window.confirm('Восстановить связь игрока с эпическим драконом (если бот его «не видит»)?')) return;
+    setUpdating(true);
+    try {
+      const r = await client.post(`/admin/users/${vkId}/epic-care/restore-pointer`);
+      if (r.data.already) {
+        alert('Указатель уже на месте — дракон не был потерян.');
+      } else {
+        await fetchData();
+      }
+    } catch (e: any) {
+      alert(e.response?.data?.detail || 'Ошибка');
+    }
+    setUpdating(false);
+  };
+
+  const resetToIdle = async () => {
+    if (!window.confirm('Сбросить застрявшее состояние игрока в idle? Прогресс и стежки сохранятся.')) return;
+    setUpdating(true);
+    try {
+      await client.post(`/admin/users/${vkId}/reset-to-idle`);
+      await fetchData();
+    } catch (e: any) {
+      alert(e.response?.data?.detail || 'Ошибка');
+    }
+    setUpdating(false);
+  };
+
   const completed = steps.filter((s) => s.completed).length;
   const pct = total ? Math.round((completed / total) * 100) : 0;
   return (
@@ -190,6 +218,14 @@ function UserDragonProgress() {
             </button>
             <button className="lair-btn lair-btn-outline" onClick={restartDragon} disabled={updating}>
               🔄 Начать заново
+            </button>
+            <button className="lair-btn lair-btn-outline" onClick={resetToIdle} disabled={updating}
+                    title="Вытащить игрока из застрявшего состояния в idle. Прогресс и стежки сохраняются.">
+              🆘 Сбросить в idle
+            </button>
+            <button className="lair-btn lair-btn-outline" onClick={restorePointer} disabled={updating}
+                    title="Восстановить связь с активным эпическим драконом, если бот его «не видит».">
+              🐉 Восстановить дракона
             </button>
           </div>
 

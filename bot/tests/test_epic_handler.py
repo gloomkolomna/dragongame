@@ -633,3 +633,36 @@ def test_finale_get_new_command_spawns_egg(db):
         f"должны показываться шаги яйца: {msgs}"
     )
 
+
+def test_show_care_action_recovers_lost_epic_pointer(db):
+    """Регрессия продакшен-бага: epic_dragon_id = NULL при активном эпическом
+    и состоянии epic_care_{stage} без суффикса. show_care_action (вызывается
+    из dispatch при любом тексте в epic_care) должен сам восстановить указатель
+    и показать текущее действие ухода, а не молчать."""
+    u, d = _epic(db, vk=400)
+    u.epic_unlocked = True
+    db.commit()
+    st = EpicStage(dragon_id=d.id, stage_number=1, name="S1")
+    db.add(st)
+    db.flush()
+    db.add(EpicStageAction(dragon_id=d.id, stage_id=st.id, action_label="кормить",
+                           order_in_cycle=0, crosses_norm=500))
+    db.commit()
+    epic_service.set_epic_name(db, 400, "Агбар")
+    care = epic_service.start_care(db, 400)
+    u.state = f"epic_care_{care.stage_id}"
+    u.epic_dragon_id = None
+    db.commit()
+
+    msgs = []
+
+    def send(m, **k):
+        msgs.append(m)
+
+    show_care_action(u, db, send)
+    db.refresh(u)
+
+    assert u.epic_dragon_id == d.id, "указатель должен восстановиться автоматически"
+    assert msgs, "бот должен показать действие ухода, а не молчать"
+    assert any("кормить" in m for m in msgs), f"должно быть показано текущее действие: {msgs}"
+

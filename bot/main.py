@@ -4,6 +4,7 @@ import sys
 import os
 import json
 import random
+import re
 import threading
 import time
 import traceback
@@ -63,6 +64,31 @@ def _handle_growing_chat(user, db, send_message, upload_image=None):
         from bot.handlers.grow import step_attachment
         attachment = step_attachment(db, user, dragon, step_def, upload_image)
         send_message(msg, attachment=attachment, keyboard=step_buttons_keyboard())
+
+
+def should_warn_stitches_out_of_turn(state: str, text: str, attachments: list) -> bool:
+    """True, если юзер прислал «вышито N»/стежки или фото-отчёт,
+    но бот сейчас НЕ ждёт отчёта (норма/штраф ещё не выбраны или идёт таймаут).
+    Возвращает True только в «растущих» состояниях, чтобы не мешать idle/спискам."""
+    text_lower = (text or "").lower()
+    looks_like_stitches = "вышито" in text_lower or "стежк" in text_lower
+    photo_only = bool(attachments) and not text
+    if not (looks_like_stitches or photo_only):
+        return False
+    if not (
+        is_growing(state)
+        or is_epic_egg(state)
+        or is_epic_care(state)
+        or is_legend(state)
+    ):
+        return False
+    return not (
+        is_waiting_text(state)
+        or is_epic_egg_waiting(state)
+        or is_epic_care_waiting(state)
+        or is_epic_care_sub_waiting(state)
+        or is_legend_waiting(state)
+    )
 
 
 def get_keyboard(state: str, user=None, db=None) -> str:
@@ -377,6 +403,15 @@ def main():
                 if t.isdigit():
                     handle_rules_pick(user, db, send_message, int(t))
                     continue
+
+            if not cmd and should_warn_stitches_out_of_turn(user.state, text, attachments):
+                send_message(
+                    "🐉 Я ещё не готов принять вышивку!\n"
+                    "Сначала выбери режим: «🎯 Норма» или «⚡ Штраф (x2)» — "
+                    "и только потом присылай «вышито [число]» с фото.",
+                    keyboard=get_keyboard(user.state, user, db),
+                )
+                continue
 
             if cmd == "switch_to":
                 try:
@@ -693,6 +728,10 @@ def main():
             elif is_intro_chapter(user.state) and attachments and not text and not cmd:
                 handle_intro_chat(user, db, send_message, upload_image)
 
+            elif is_epic_care(user.state) and (text or attachments) and not cmd:
+                from bot.handlers.epic_care import show_care_action
+                show_care_action(user, db, send_message, upload_image)
+
             elif user.state == IDLE and text and not cmd:
                 from models import UserDragon, IntroChapter
                 has_any = db.query(UserDragon).filter(UserDragon.user_id == user_id).first() is not None
@@ -723,11 +762,18 @@ def main():
                     )
                 else:
                     send_message(
-                        "🐲 Привет! Я бот Бестиария драконьих легенд. 🐉\n"
+                        "🐲 Привет! Я бот Бестиарий драконьих легенд. 🐉\n"
                         "Чтобы начать приключение, отправь мне любое текстовое сообщение "
                         "или используй кнопки клавиатуры.\n"
                         "Открой «📖 Список Бестиария» → «🥚 Добавить яйцо дракона», чтобы получить первого дракона.",
                         keyboard=idle_keyboard(),
+                    )
+
+            else:
+                if not cmd:
+                    send_message(
+                        "🤔 Я не совсем понял сообщение. Воспользуйся кнопками клавиатуры или командой «❓ Помощь».",
+                        keyboard=get_keyboard(user.state, user, db),
                     )
 
         except Exception as exc:

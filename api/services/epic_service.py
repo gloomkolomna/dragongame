@@ -90,20 +90,43 @@ def maybe_spawn_first_epic(db, vk_id):
 
 # ─── Epic dragon accessors ───
 
+def _recover_epic_dragon_id(db, user):
+    if not user or user.epic_dragon_id:
+        return user.epic_dragon_id if user else None
+    ud = (
+        db.query(UserDragon)
+        .join(Dragon, Dragon.id == UserDragon.dragon_id)
+        .filter(
+            UserDragon.user_id == user.vk_id,
+            Dragon.is_epic == True,
+            UserDragon.completed_at == "",
+        )
+        .order_by(UserDragon.id.desc())
+        .first()
+    )
+    if not ud:
+        return None
+    user.epic_dragon_id = ud.dragon_id
+    db.commit()
+    return ud.dragon_id
+
+
 def get_epic_dragon(db, vk_id):
     user = db.query(User).filter(User.vk_id == vk_id).first()
-    if not user or not user.epic_dragon_id:
+    epic_id = _recover_epic_dragon_id(db, user)
+    if not epic_id:
         return None
-    return db.query(Dragon).filter(Dragon.id == user.epic_dragon_id).first()
+    return db.query(Dragon).filter(Dragon.id == epic_id).first()
 
 
 def get_epic_user_dragon(db, vk_id):
     user = db.query(User).filter(User.vk_id == vk_id).first()
-    if not user or not user.epic_dragon_id:
+    epic_id = _recover_epic_dragon_id(db, user)
+    if not epic_id:
         return None
     return db.query(UserDragon).filter(
         UserDragon.user_id == vk_id,
-        UserDragon.dragon_id == user.epic_dragon_id,
+        UserDragon.dragon_id == epic_id,
         UserDragon.completed_at == "",
     ).first()
 
@@ -180,10 +203,11 @@ def is_egg_hatched(db, vk_id):
 
 def get_care(db, vk_id):
     user = db.query(User).filter(User.vk_id == vk_id).first()
-    if not user or not user.epic_dragon_id:
+    epic_id = _recover_epic_dragon_id(db, user)
+    if not epic_id:
         return None
     ud = db.query(UserDragon).filter(
-        UserDragon.user_id == vk_id, UserDragon.dragon_id == user.epic_dragon_id
+        UserDragon.user_id == vk_id, UserDragon.dragon_id == epic_id
     ).order_by(UserDragon.id.desc()).first()
     if not ud:
         return None

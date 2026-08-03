@@ -1,7 +1,15 @@
 #!/bin/bash
 #
 # Деплой системы «Коллекция драконов» на прод.
-# Логика:
+#
+# Режим восстановления (флаг -recovery / --recovery):
+#   ./deploy.sh -recovery
+#   Интерактивное восстановление проекта из tar-архива (dragons_full_*.tar.gz).
+#   Перед распаковкой создаёт резервную копию ТЕКУЩЕГО состояния
+#   (dragons_pre_recovery_<ts>.tar.gz), чтобы можно было откатиться.
+#
+# Обычный деплой (без флагов):
+#   ./deploy.sh
 #   1. Фиксируем текущую ревизию Alembic (точка отката БД) и git (точка отката кода).
 #   2. Полный архив проекта (код + БД + dist + изображения + .env) ДО изменений.
 #      Ротация 5 архивов в /opt/dragons-backups. Бэкап БД строго до миграции.
@@ -19,6 +27,144 @@
 #
 
 set -euo pipefail
+
+# ===== Парсинг аргументов: режим восстановления =====
+RECOVERY_MODE=0
+for arg in "$@"; do
+    case "$arg" in
+        -recovery|--recovery)
+            RECOVERY_MODE=1
+            ;;
+        -help|--help|-h)
+            echo "Использование: deploy.sh [-recovery]"
+            echo "  без флагов            — обычный деплой"
+            echo "  -recovery, --recovery — восстановить проект из tar-архива (интерактивно)"
+            exit 0
+            ;;
+    esac
+done
+
+# ===== Режим восстановления из tar-архива =====
+if [ "$RECOVERY_MODE" -eq 1 ]; then
+    RECOVERY_BACKUP_DIR="/opt/dragons-backups"
+    RECOVERY_APP_PARENT="/opt"
+    RECOVERY_APP_NAME="dragons"
+    RECOVERY_LOG="/opt/dragons-backups/recovery.log"
+
+    mkdir -p "$RECOVERY_BACKUP_DIR"
+
+    _recovery_log() {
+        echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" | tee -a "$RECOVERY_LOG"
+    }
+
+    _recovery_log "=== ВОССТАНОВЛЕНИЕ ПРОЕКТА ИЗ АРХИВА ==="
+
+    # Список доступных архивов
+    mapfile -t ARCHIVES < <(ls -1t "$RECOVERY_BACKUP_DIR"/dragons_full_*.tar.gz 2>/dev/null || true)
+    if [ "${#ARCHIVES[@]}" -eq 0 ]; then
+        _recovery_log "ОШИБКА: архивы не найдены в $RECOVERY_BACKUP_DIR/dragons_full_*.tar.gz"
+        echo "Нет доступных архивов для восстановления."
+        exit 1
+    fi
+
+    echo ""
+    echo "Доступные архивы (новейшие сверху):"
+    echo "-----------------------------------"
+    for i in "${!ARCHIVES[@]}"; do
+        arc="${ARCHIVES[$i]}"
+        size=$(du -h "$arc" | cut -f1)
+        printf "  [%d] %s  (%s)\n" "$((i+1))" "$(basename "$arc")" "$size"
+    done
+    echo "-----------------------------------"
+    echo ""
+
+    # Выбор архива
+    while true; do
+        read -r -p "Выбери номер архива [1-${#ARCHIVES[@]}]: " CHOICE
+        if [[ "$CHOICE" =~ ^[0-9]+$ ]] && [ "$CHOICE" -ge 1 ] && [ "$CHOICE" -le "${#ARCHIVES[@]}" ]; then
+            SELECTED_ARCHIVE="${ARCHIVES[$((CHOICE-1))]}"
+            break
+        fi
+        echo "Неверный номер. Попробуй ещё раз."
+    done
+
+    echo ""
+    echo "Выбран архив: $SELECTED_ARCHIVE"
+    echo "ВНИМАНИЕ: текущее состояние проекта ($RECOVERY_APP_PARENT/$RECOVERY_APP_NAME) будет заменено."
+    echo "          Перед этим будет создан резервный архив текущего состояния."
+    echo ""
+    read -r -p "Продолжить восстановление? [y/N]: " CONFIRM
+    if [[ ! "$CONFIRM" =~ ^[YyДд]$ ]]; then
+        _recovery_log "Восстановление отменено пользователем."
+        echo "Отменено."
+        exit 0
+    fi
+
+    # Бэкап текущего состояния (страховка)
+    PRE_RECOVERY_ARCHIVE="$RECOVERY_BACKUP_DIR/dragons_pre_recovery_$(date '+%Y%m%d_%H%M%S').tar.gz"
+    _recovery_log "Создаю резервную копию текущего состояния: $PRE_RECOVERY_ARCHIVE ..."
+    if tar -czf "$PRE_RECOVERY_ARCHIVE" \
+        --exclude="$RECOVERY_APP_PARENT/$RECOVERY_APP_NAME/api/venv" \
+        --exclude="$RECOVERY_APP_PARENT/$RECOVERY_APP_NAME/frontend/node_modules" \
+        --exclude="$RECOVERY_APP_PARENT/$RECOVERY_APP_NAME/.git" \
+        --exclude="$RECOVERY_APP_PARENT/$RECOVERY_APP_NAME/api/backups" \
+        --exclude="$RECOVERY_APP_PARENT/$RECOVERY_APP_NAME/frontend/tsconfig.tsbuildinfo" \
+        --exclude='*.log' \
+        -C "$RECOVERY_APP_PARENT" "$RECOVERY_APP_NAME" 2>/dev/null; then
+        _recovery_log "Резервная копия текущего состояния создана: $PRE_RECOVERY_ARCHIVE ($(du -h "$PRE_RECOVERY_ARCHIVE" | cut -f1))"
+    else
+        _recovery_log "ОШИБКА: не удалось создать резервную копию текущего состояния. Восстановление прервано (проект не тронут)."
+        rm -f "$PRE_RECOVERY_ARCHIVE" 2>/dev/null || true
+        echo "ОШИБКА: не удалось создать резервную копию. Отменено, проект не тронут."
+        exit 1
+    fi
+
+    # Остановка сервисов перед распаковкой
+    _recovery_log "Останавливаю сервисы..."
+    systemctl stop dragons-api dragons-bot 2>/dev/null || true
+    sleep 2
+
+    # Распаковка архива поверх текущего состояния
+    _recovery_log "Восстанавливаю из архива: $SELECTED_ARCHIVE ..."
+    if ! tar -xzf "$SELECTED_ARCHIVE" -C "$RECOVERY_APP_PARENT"; then
+        _recovery_log "ОШИБКА: распаковка не удалась. Текущее состояние сохранено в $PRE_RECOVERY_ARCHIVE."
+        echo "ОШИБКА: распаковка не удалась. Откат: $PRE_RECOVERY_ARCHIVE"
+        systemctl start dragons-api dragons-bot 2>/dev/null || true
+        exit 1
+    fi
+    _recovery_log "Архив распакован."
+
+    # Переустановка Python-зависимостей (requirements.txt мог измениться)
+    _recovery_log "Переустанавливаю Python-зависимости..."
+    cd "$RECOVERY_APP_PARENT/$RECOVERY_APP_NAME/api"
+    if [ -d "venv" ]; then
+        source venv/bin/activate
+        pip install -r requirements.txt || _recovery_log "ПРЕДУПРЕЖДЕНИЕ: pip install завершился с ошибкой (не критично, продолжаю)."
+    else
+        _recovery_log "ПРЕДУПРЕЖДЕНИЕ: venv не найден. Зависимости не переустановлены. Возможно, потребуется ручное создание venv."
+    fi
+
+    # Перезапуск сервисов
+    _recovery_log "Запускаю сервисы..."
+    systemctl start dragons-api dragons-bot 2>/dev/null || true
+    sleep 3
+
+    # Ротация: оставляем только последние 5 pre_recovery архивов
+    ls -1t "$RECOVERY_BACKUP_DIR"/dragons_pre_recovery_*.tar.gz 2>/dev/null | tail -n +6 | while read -r old; do
+        rm -f "$old"
+        _recovery_log "Удалён старый pre_recovery архив: $old"
+    done
+
+    _recovery_log "=== ВОССТАНОВЛЕНИЕ ЗАВЕРШЕНО ==="
+    _recovery_log "API: $(systemctl is-active dragons-api || true). Bot: $(systemctl is-active dragons-bot || true)."
+    _recovery_log "Если что-то не так — откат: tar -xzf $PRE_RECOVERY_ARCHIVE -C $RECOVERY_APP_PARENT"
+    echo ""
+    echo "=== Восстановление завершено ==="
+    echo "Статус сервисов: API=$(systemctl is-active dragons-api || echo 'не активен'), Bot=$(systemctl is-active dragons-bot || echo 'не активен')"
+    echo "Резервная копия текущего состояния (до восстановления): $PRE_RECOVERY_ARCHIVE"
+    echo "Проверь: https://belovolovhome.ru/dragons/"
+    exit 0
+fi
 
 # ===== Конфигурация =====
 APP_DIR="/opt/dragons"

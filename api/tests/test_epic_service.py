@@ -708,3 +708,48 @@ def test_spawn_random_epic_ignores_reservation_when_exclude_id_set(db):
     got = epic_service.spawn_random_epic(db, 202, exclude_id=d2.id)
     assert got is not None
     assert got.id == d1.id
+
+
+def test_get_epic_dragon_recovers_lost_pointer(db):
+    u = User(vk_id=300, epic_unlocked=True, epic_dragon_id=None)
+    db.add(u)
+    d = _epic_dragon(db)
+    db.add(UserDragon(user_id=300, dragon_id=d.id, completed_at=""))
+    db.commit()
+
+    got = epic_service.get_epic_dragon(db, 300)
+    assert got is not None
+    assert got.id == d.id
+    db.refresh(u)
+    assert u.epic_dragon_id == d.id
+
+
+def test_get_epic_dragon_recovers_skips_completed(db):
+    u = User(vk_id=301, epic_unlocked=True, epic_dragon_id=None)
+    db.add(u)
+    d_done = _epic_dragon(db, name="Done")
+    d_active = _epic_dragon(db, name="Active")
+    db.add(UserDragon(user_id=301, dragon_id=d_done.id, completed_at="2026-01-01T00:00:00"))
+    db.add(UserDragon(user_id=301, dragon_id=d_active.id, completed_at=""))
+    db.commit()
+
+    got = epic_service.get_epic_dragon(db, 301)
+    assert got is not None
+    assert got.id == d_active.id
+    db.refresh(u)
+    assert u.epic_dragon_id == d_active.id
+
+
+def test_get_epic_user_dragon_recovers_lost_pointer(db):
+    u = User(vk_id=302, epic_unlocked=True, epic_dragon_id=None)
+    db.add(u)
+    d = _epic_dragon(db)
+    ud = UserDragon(user_id=302, dragon_id=d.id, completed_at="")
+    db.add(ud)
+    db.commit()
+
+    got = epic_service.get_epic_user_dragon(db, 302)
+    assert got is not None
+    assert got.dragon_id == d.id
+    db.refresh(u)
+    assert u.epic_dragon_id == d.id

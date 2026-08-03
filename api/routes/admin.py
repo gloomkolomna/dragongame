@@ -1529,6 +1529,36 @@ def epic_care_restart(vk_id: int, db: Session = Depends(get_db)):
     return {"ok": True}
 
 
+@router.post("/users/{vk_id}/epic-care/restore-pointer")
+def epic_care_restore_pointer(vk_id: int, db: Session = Depends(get_db)):
+    from services.epic_service import _recover_epic_dragon_id, get_epic_dragon
+    user = db.query(User).filter(User.vk_id == vk_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    prev = user.epic_dragon_id
+    epic_id = _recover_epic_dragon_id(db, user)
+    if not epic_id:
+        raise HTTPException(status_code=404, detail="У игрока нет активного эпического дракона")
+    if prev == epic_id:
+        return {"ok": True, "already": True, "dragon_id": epic_id}
+    dragon = get_epic_dragon(db, vk_id)
+    name = dragon.name if dragon else None
+    _notify_user(vk_id, "🔧 Администратор восстановил связь с твоим эпическим драконом. Напиши «эпический», чтобы продолжить.")
+    return {"ok": True, "dragon_id": epic_id, "name": name}
+
+
+@router.post("/users/{vk_id}/reset-to-idle")
+def reset_to_idle(vk_id: int, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.vk_id == vk_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    prev_state = user.state
+    user.state = "idle"
+    db.commit()
+    _notify_user(vk_id, "🔧 Администратор сбросил застрявшее состояние. Открой «📖 Список Бестиария», чтобы продолжить.")
+    return {"ok": True, "prev_state": prev_state}
+
+
 @router.delete("/users/{vk_id}/dragons/{dragon_id}")
 def delete_user_dragon(vk_id: int, dragon_id: int, db: Session = Depends(get_db)):
     ud = db.query(UserDragon).filter(UserDragon.user_id == vk_id, UserDragon.dragon_id == dragon_id).first()

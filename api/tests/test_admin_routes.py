@@ -1498,3 +1498,70 @@ def test_user_detail_shows_reservation(client, db):
     data = resp.json()
     assert data["reserved_epic_dragon_id"] == d.id
     assert data["reserved_epic_dragon_name"] == "ReservedDragon"
+
+
+def test_restore_pointer_recovers_lost(client, db):
+    user = User(vk_id=900, state="epic_care_1", epic_unlocked=True, epic_dragon_id=None)
+    db.add(user)
+    d = _epic_d_simple(db, name="Агбар")
+    db.add(UserDragon(user_id=900, dragon_id=d.id, completed_at=""))
+    db.commit()
+
+    resp = client.post("/api/admin/users/900/epic-care/restore-pointer")
+    assert resp.status_code == 200
+    assert resp.json()["dragon_id"] == d.id
+    db.refresh(user)
+    assert user.epic_dragon_id == d.id
+
+
+def test_restore_pointer_already_set(client, db):
+    d = _epic_d_simple(db, name="Уже есть")
+    user = User(vk_id=901, state="epic_care_1", epic_unlocked=True, epic_dragon_id=d.id)
+    db.add(user)
+    db.add(UserDragon(user_id=901, dragon_id=d.id, completed_at=""))
+    db.commit()
+
+    resp = client.post("/api/admin/users/901/epic-care/restore-pointer")
+    assert resp.status_code == 200
+    assert resp.json()["already"] is True
+
+
+def test_restore_pointer_no_active_epic(client, db):
+    user = User(vk_id=902, state="epic_care_1", epic_unlocked=True, epic_dragon_id=None)
+    db.add(user)
+    d = _epic_d_simple(db, name="Завершённый")
+    db.add(UserDragon(user_id=902, dragon_id=d.id, completed_at="2026-01-01T00:00:00"))
+    db.commit()
+
+    resp = client.post("/api/admin/users/902/epic-care/restore-pointer")
+    assert resp.status_code == 404
+
+
+def test_reset_to_idle_clears_state(client, db):
+    user = User(vk_id=903, state="epic_care_1", epic_dragon_id=64,
+                stitches_balance=500, stitches_earned=5000)
+    db.add(user)
+    db.commit()
+
+    resp = client.post("/api/admin/users/903/reset-to-idle")
+    assert resp.status_code == 200
+    assert resp.json()["prev_state"] == "epic_care_1"
+    db.refresh(user)
+    assert user.state == "idle"
+    assert user.stitches_balance == 500
+    assert user.stitches_earned == 5000
+
+
+def test_reset_to_idle_preserves_dragons(client, db):
+    d = _epic_d_simple(db, name="Сохранённый")
+    user = User(vk_id=904, state="grow_step_2", epic_dragon_id=d.id)
+    db.add(user)
+    db.add(UserDragon(user_id=904, dragon_id=d.id, completed_at=""))
+    db.commit()
+
+    resp = client.post("/api/admin/users/904/reset-to-idle")
+    assert resp.status_code == 200
+    db.refresh(user)
+    assert user.state == "idle"
+    assert user.epic_dragon_id == d.id
+    assert db.query(UserDragon).filter(UserDragon.user_id == 904).count() == 1
