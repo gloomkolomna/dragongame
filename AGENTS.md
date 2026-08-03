@@ -33,6 +33,8 @@ This project has a graphify knowledge graph at graphify-out/.
 | Frontend | React 18 / TypeScript / Vite 5 |
 | Auth | VK ID OAuth 2.0 + JWT |
 | Python venv | `api/venv/Scripts/python.exe` |
+| Nginx | `/etc/nginx/fastpanel2-sites/` (FastPanel) |
+| FastPanel user | `belovolovhome_usr` |
 
 ## Структура
 
