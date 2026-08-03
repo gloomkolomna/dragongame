@@ -1655,3 +1655,47 @@ def test_resolve_vk_names_no_token():
     finally:
         config.VK_GROUP_TOKEN = saved
     assert result == {}
+
+
+def test_resolve_vk_names_batches_over_100():
+    """VK отдаёт не более 100 за вызов. При 150 юзерах функция бьёт на 2 чанка
+    и собирает все имена. Регрессия бага «VK вернул 100 из 138»."""
+    from routes.admin import _resolve_vk_names
+
+    call_count = {"n": 0}
+
+    class _FakeApi:
+        def __init__(self):
+            class _Users:
+                def get(self_, **kwargs):
+                    call_count["n"] += 1
+                    ids = [int(x) for x in kwargs["user_ids"].split(",")]
+                    return [
+                        {"id": i, "first_name": f"Имя{i}", "last_name": "Тест"}
+                        for i in ids
+                    ]
+            self.users = _Users()
+
+    class _FakeVkApi:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def get_api(self):
+            return _FakeApi()
+
+    import config
+    config.VK_GROUP_TOKEN = "fake_token"
+
+    import vk_api as real_vk_api
+    saved = real_vk_api.VkApi
+    real_vk_api.VkApi = _FakeVkApi
+    try:
+        result = _resolve_vk_names(list(range(1, 151)))
+    finally:
+        real_vk_api.VkApi = saved
+        config.VK_GROUP_TOKEN = ""
+
+    assert call_count["n"] == 2, f"должно быть 2 вызова (чанки по 100), было {call_count['n']}"
+    assert len(result) == 150, f"должны вернуться все 150 имён, вернулось {len(result)}"
+    assert result[1]["first_name"] == "Имя1"
+    assert result[150]["first_name"] == "Имя150"

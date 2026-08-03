@@ -614,31 +614,40 @@ def _resolve_vk_names(vk_ids: list[int]) -> dict[int, dict]:
     ids_to_request = [int(x) for x in vk_ids[:1000]]
     import vk_api
     vk = vk_api.VkApi(token=config.VK_GROUP_TOKEN, api_version="5.199").get_api()
-    ids_str = ",".join(str(x) for x in ids_to_request)
-    last_exc = None
-    users = None
-    for attempt in (1, 2):
-        try:
-            users = vk.users.get(user_ids=ids_str, fields="first_name,last_name")
-            last_exc = None
-            break
-        except Exception as e:
-            last_exc = e
-            if attempt == 1:
-                import time
-                time.sleep(0.4)
-    if last_exc is not None or users is None:
-        _log_name_resolve("VK users.get упал после 2 попыток", ids_to_request, {}, last_exc)
+
+    resolved: dict[int, dict] = {}
+    failed_all = False
+    for start in range(0, len(ids_to_request), 100):
+        chunk = ids_to_request[start:start + 100]
+        ids_str = ",".join(str(x) for x in chunk)
+        last_exc = None
+        users = None
+        for attempt in (1, 2):
+            try:
+                users = vk.users.get(user_ids=ids_str, fields="first_name,last_name")
+                last_exc = None
+                break
+            except Exception as e:
+                last_exc = e
+                if attempt == 1:
+                    import time
+                    time.sleep(0.4)
+        if last_exc is not None or users is None:
+            _log_name_resolve(f"VK users.get упал на чанке [{start}:{start+len(chunk)}]", chunk, {}, last_exc)
+            failed_all = True
+            continue
+        for u in users:
+            resolved[u["id"]] = {
+                "first_name": u.get("first_name", ""),
+                "last_name": u.get("last_name", ""),
+            }
+        if len(users) < len(chunk):
+            _log_name_resolve(f"VK обрезал чанк [{start}:{start+len(chunk)}]", chunk, {u["id"]: {} for u in users})
+
+    if failed_all and not resolved:
         return {}
-    resolved = {
-        u["id"]: {
-            "first_name": u.get("first_name", ""),
-            "last_name": u.get("last_name", ""),
-        }
-        for u in users
-    }
     if len(resolved) < len(ids_to_request):
-        _log_name_resolve("VK вернул не все имена", ids_to_request, resolved)
+        _log_name_resolve("VK вернул не все имена (после батчинга)", ids_to_request, resolved)
     return resolved
 
 
