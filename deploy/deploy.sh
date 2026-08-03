@@ -28,17 +28,22 @@
 
 set -euo pipefail
 
-# ===== Парсинг аргументов: режим восстановления =====
+# ===== Парсинг аргументов =====
 RECOVERY_MODE=0
+NO_FULL_BACKUP=0
 for arg in "$@"; do
     case "$arg" in
         -recovery|--recovery)
             RECOVERY_MODE=1
             ;;
+        -nobackup|--no-backup)
+            NO_FULL_BACKUP=1
+            ;;
         -help|--help|-h)
-            echo "Использование: deploy.sh [-recovery]"
-            echo "  без флагов            — обычный деплой"
-            echo "  -recovery, --recovery — восстановить проект из tar-архива (интерактивно)"
+            echo "Использование: deploy.sh [-recovery] [-nobackup]"
+            echo "  без флагов                  — обычный деплой"
+            echo "  -recovery, --recovery       — восстановить проект из tar-архива (интерактивно)"
+            echo "  -nobackup, --no-backup      — пропустить создание большого полного архива"
             exit 0
             ;;
     esac
@@ -298,25 +303,29 @@ log "=== 2. Резервное копирование ==="
 
 # Полный архив рабочего состояния (код + БД + dist + изображения + .env)
 # ДО git pull/миграций/сборки — это точка отката на случай провала деплоя.
-FULL_ARCHIVE="$FULL_BACKUP_DIR/dragons_full_$(date '+%Y%m%d_%H%M%S').tar.gz"
-if tar -czf "$FULL_ARCHIVE" \
-    --exclude="$APP_DIR/api/venv" \
-    --exclude="$APP_DIR/frontend/node_modules" \
-    --exclude="$APP_DIR/.git" \
-    --exclude="$APP_DIR/api/backups" \
-    --exclude="$APP_DIR/frontend/tsconfig.tsbuildinfo" \
-    --exclude='*.log' \
-    -C "$(dirname "$APP_DIR")" "$(basename "$APP_DIR")" 2>/dev/null; then
-    log "Полный архив создан: $FULL_ARCHIVE ($(du -h "$FULL_ARCHIVE" | cut -f1))"
-
-    # Ротация: оставляем только $FULL_BACKUPS_TO_KEEP последних архивов
-    ls -1t "$FULL_BACKUP_DIR"/dragons_full_*.tar.gz 2>/dev/null | tail -n +$((FULL_BACKUPS_TO_KEEP + 1)) | while read -r old; do
-        rm -f "$old"
-        log "Удалён старый полный архив: $old"
-    done
+if [ "$NO_FULL_BACKUP" -eq 1 ]; then
+    log "Полный архив пропущен (флаг -nobackup)."
 else
-    log "ВНИМАНИЕ: не удалось создать полный архив '$FULL_ARCHIVE'. Деплой продолжится, но точки полного отката не будет."
-    rm -f "$FULL_ARCHIVE" 2>/dev/null || true
+    FULL_ARCHIVE="$FULL_BACKUP_DIR/dragons_full_$(date '+%Y%m%d_%H%M%S').tar.gz"
+    if tar -czf "$FULL_ARCHIVE" \
+        --exclude="$APP_DIR/api/venv" \
+        --exclude="$APP_DIR/frontend/node_modules" \
+        --exclude="$APP_DIR/.git" \
+        --exclude="$APP_DIR/api/backups" \
+        --exclude="$APP_DIR/frontend/tsconfig.tsbuildinfo" \
+        --exclude='*.log' \
+        -C "$(dirname "$APP_DIR")" "$(basename "$APP_DIR")" 2>/dev/null; then
+        log "Полный архив создан: $FULL_ARCHIVE ($(du -h "$FULL_ARCHIVE" | cut -f1))"
+
+        # Ротация: оставляем только $FULL_BACKUPS_TO_KEEP последних архивов
+        ls -1t "$FULL_BACKUP_DIR"/dragons_full_*.tar.gz 2>/dev/null | tail -n +$((FULL_BACKUPS_TO_KEEP + 1)) | while read -r old; do
+            rm -f "$old"
+            log "Удалён старый полный архив: $old"
+        done
+    else
+        log "ВНИМАНИЕ: не удалось создать полный архив '$FULL_ARCHIVE'. Деплой продолжится, но точки полного отката не будет."
+        rm -f "$FULL_ARCHIVE" 2>/dev/null || true
+    fi
 fi
 
 # Бэкап БД
