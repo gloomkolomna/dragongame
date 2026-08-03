@@ -440,6 +440,7 @@ class AppSettings(Base):
     welcome_keyword = Column(String, default="")
     suspicious_multiplier = Column(Integer, default=2)
     block_multiplier = Column(Integer, default=3)
+    payment_provider = Column(String, default="robokassa")
     updated_at = Column(String, default="")
 
 
@@ -463,7 +464,9 @@ class PaymentOrder(Base):
     amount_rub = Column(Integer, default=0)
     quantity = Column(Integer, default=0)
     price_per_pin = Column(Integer, default=0)
+    provider = Column(String, default="robokassa")
     robokassa_inv_id = Column(Integer, nullable=True)
+    selfwork_order_id = Column(String, nullable=True)
     status = Column(String(20), default="pending")
     dragon_ids = Column(Text, default="[]")
     notified = Column(Boolean, default=False)

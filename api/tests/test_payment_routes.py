@@ -83,7 +83,7 @@ def test_create_order_success(client, db):
     assert "payment_url" in data
     assert data["quantity"] == 5
     assert data["amount_rub"] == 47500
-    assert "auth.robokassa.ru" in data["payment_url"]
+    assert "/api/payment/pay/" in data["payment_url"]
 
 
 def test_create_order_partial_rejection(client, db):
@@ -290,14 +290,27 @@ def test_robokassa_prod_mode_rejects_test_password(client, db, monkeypatch):
     assert resp_wrong.status_code == 400
 
 
+def _pay_html(client, order_id, vk_id):
+    return client.get(f"/api/payment/pay/{order_id}?vk_id={vk_id}").text
+
+
+def _extract_input(html, name):
+    import re
+    m = re.search(rf'name="{name}"\s+value="([^"]*)"', html)
+    return m.group(1) if m else None
+
+
 def test_payment_url_contains_receipt(client, db):
     for i in range(3):
         _dragon(db, f"T{i}", family_id=i, pin=f"RR{i:04d}")
     s = _set(db, name="3 драконов", quantity=3)
-    resp = client.post("/api/payment/create-order", json={"vk_id": 9, "set_id": s.id})
-    url = resp.json()["payment_url"]
-    assert "Receipt=" in url
-    assert "tax" in url and "none" in url
+    order = client.post("/api/payment/create-order", json={"vk_id": 9, "set_id": s.id}).json()
+    html = _pay_html(client, order["order_id"], 9)
+    receipt = _extract_input(html, "Receipt")
+    assert receipt is not None
+    from urllib.parse import unquote_plus
+    receipt_raw = unquote_plus(receipt)
+    assert "tax" in receipt_raw and "none" in receipt_raw
 
 
 def test_payment_receipt_signature_includes_receipt(client, db, monkeypatch):
@@ -307,20 +320,20 @@ def test_payment_receipt_signature_includes_receipt(client, db, monkeypatch):
     for i in range(2):
         _dragon(db, f"S{i}", family_id=i, pin=f"ST{i:04d}")
     s = _set(db, name="2 драконов", quantity=2)
-    resp = client.post("/api/payment/create-order", json={"vk_id": 10, "set_id": s.id})
-    url = resp.json()["payment_url"]
-    from urllib.parse import parse_qs, urlparse, unquote_plus
-    qs = parse_qs(urlparse(url).query)
-    receipt_raw = unquote_plus(qs["Receipt"][0])
-    out_sum = qs["OutSum"][0]
-    inv_id = qs["InvId"][0]
-    login = qs["MerchantLogin"][0]
-    from urllib.parse import quote_plus
-    receipt_encoded = quote_plus(receipt_raw, safe="")
+    order = client.post("/api/payment/create-order", json={"vk_id": 10, "set_id": s.id}).json()
+    html = _pay_html(client, order["order_id"], 10)
+    out_sum = _extract_input(html, "OutSum")
+    inv_id = _extract_input(html, "InvId")
+    login = _extract_input(html, "MerchantLogin")
+    signature = _extract_input(html, "SignatureValue")
+    receipt_encoded = _extract_input(html, "Receipt")
+    from urllib.parse import unquote_plus, quote_plus
+    receipt_raw = unquote_plus(receipt_encoded)
+    receipt_re_encoded = quote_plus(receipt_raw, safe="")
     expected = hashlib.md5(
-        f"{login}:{out_sum}:{inv_id}:{receipt_encoded}:sec1:Shp_vk_id=10".encode("utf-8")
+        f"{login}:{out_sum}:{inv_id}:{receipt_re_encoded}:sec1:Shp_vk_id=10".encode("utf-8")
     ).hexdigest()
-    assert qs["SignatureValue"][0] == expected
+    assert signature == expected
 
 
 def test_robokassa_payment_url_contains_istest_in_test_mode(client, db, monkeypatch):
@@ -328,8 +341,9 @@ def test_robokassa_payment_url_contains_istest_in_test_mode(client, db, monkeypa
     for i in range(3):
         _dragon(db, f"T{i}", family_id=i, pin=f"R{i:04d}")
     s = _set(db, quantity=1)
-    resp = client.post("/api/payment/create-order", json={"vk_id": 7, "set_id": s.id})
-    assert "IsTest=1" in resp.json()["payment_url"]
+    order = client.post("/api/payment/create-order", json={"vk_id": 7, "set_id": s.id}).json()
+    html = _pay_html(client, order["order_id"], 7)
+    assert _extract_input(html, "IsTest") == "1"
 
 
 def test_robokassa_payment_url_no_istest_in_prod_mode(client, db, monkeypatch):
@@ -337,8 +351,9 @@ def test_robokassa_payment_url_no_istest_in_prod_mode(client, db, monkeypatch):
     for i in range(3):
         _dragon(db, f"T{i}", family_id=i, pin=f"S{i:04d}")
     s = _set(db, quantity=1)
-    resp = client.post("/api/payment/create-order", json={"vk_id": 8, "set_id": s.id})
-    assert "IsTest" not in resp.json()["payment_url"]
+    order = client.post("/api/payment/create-order", json={"vk_id": 8, "set_id": s.id}).json()
+    html = _pay_html(client, order["order_id"], 8)
+    assert _extract_input(html, "IsTest") is None
 
 
 # ─── Success / fail pages ───
@@ -602,3 +617,230 @@ def test_cancel_expired_orders_idempotent(client, db):
     assert order.id not in {o.id for o in cancelled}
     db.refresh(order)
     assert order.status == "cancelled"
+
+
+# ─── Selfwork: init signature ───
+
+def test_selfwork_init_signature():
+    from services.selfwork_service import build_init_signature
+    info = [
+        {"name": "Cвитер ручной работы", "quantity": "2", "amount": "100000"},
+        {"name": "Штаны ручной работы", "quantity": "1", "amount": "200000"},
+    ]
+    sig = build_init_signature("97e196c0-a344-4230-a028", "400000", info, "UxYjU5ZDMxOGU1ZmFjYzE3")
+    assert sig == "bb79c263a69ccbd616c11e94c53c47399a32d9a103797839726ba661d374a551"
+
+
+def test_selfwork_order_id_roundtrip():
+    from services.selfwork_service import selfwork_order_id_for, order_id_from_selfwork
+    assert selfwork_order_id_for(123) == "dragons-123"
+    assert order_id_from_selfwork("dragons-123") == 123
+    assert order_id_from_selfwork("xxx-123") is None
+    assert order_id_from_selfwork(None) is None
+
+
+# ─── Selfwork: webhook ───
+
+def _webhook_sig(order_id, amount, api_key):
+    return hashlib.sha256(f"{order_id}{amount}{api_key}".encode("utf-8")).hexdigest()
+
+
+def _make_selfwork_pending_order(client, db, quantity=2):
+    for i in range(quantity + 2):
+        _dragon(db, f"SW{i}", family_id=i % 2, pin=f"SW{i:04d}")
+    s = _set(db, quantity=quantity)
+    monkeypatch_provider(client, "selfwork")
+    order = client.post("/api/payment/create-order", json={"vk_id": 42, "set_id": s.id}).json()
+    return order
+
+
+def monkeypatch_provider(client, provider):
+    client.put("/api/admin/settings", json={
+        "welcome_keyword": "", "suspicious_multiplier": 2,
+        "block_multiplier": 3, "payment_provider": provider,
+    })
+
+
+def test_selfwork_webhook_success(client, db, monkeypatch):
+    monkeypatch.setattr(config, "SELFWORK_API_KEY", "testkey")
+    monkeypatch.setattr(config, "SELFWORK_CALLBACK_IPS", ["178.205.169.35", "81.23.144.157", "testclient"])
+    order = _make_selfwork_pending_order(client, db, quantity=2)
+    sw_id = f"dragons-{order['order_id']}"
+    amount = order["amount_rub"]
+    sig = _webhook_sig(sw_id, amount, "testkey")
+    resp = client.post(
+        "/api/payment/selfwork/webhook",
+        json={"order_id": sw_id, "amount": amount, "status": "succeeded", "signature": sig},
+    )
+    assert resp.status_code == 200
+    assert resp.text == "OK"
+    o = db.query(PaymentOrder).filter(PaymentOrder.id == order["order_id"]).first()
+    db.refresh(o)
+    assert o.status == "success"
+    import json as _json
+    assert len(_json.loads(o.dragon_ids)) == 2
+
+
+def test_selfwork_webhook_signature_mismatch(client, db, monkeypatch):
+    monkeypatch.setattr(config, "SELFWORK_API_KEY", "testkey")
+    monkeypatch.setattr(config, "SELFWORK_CALLBACK_IPS", ["testclient"])
+    order = _make_selfwork_pending_order(client, db, quantity=1)
+    resp = client.post(
+        "/api/payment/selfwork/webhook",
+        json={"order_id": f"dragons-{order['order_id']}", "amount": order["amount_rub"],
+              "status": "succeeded", "signature": "deadbeef"},
+    )
+    assert resp.status_code == 400
+    o = db.query(PaymentOrder).filter(PaymentOrder.id == order["order_id"]).first()
+    db.refresh(o)
+    assert o.status == "pending"
+
+
+def test_selfwork_webhook_bad_ip(client, db, monkeypatch):
+    monkeypatch.setattr(config, "SELFWORK_API_KEY", "testkey")
+    monkeypatch.setattr(config, "SELFWORK_CALLBACK_IPS", ["1.2.3.4"])
+    order = _make_selfwork_pending_order(client, db, quantity=1)
+    sw_id = f"dragons-{order['order_id']}"
+    sig = _webhook_sig(sw_id, order["amount_rub"], "testkey")
+    resp = client.post(
+        "/api/payment/selfwork/webhook",
+        json={"order_id": sw_id, "amount": order["amount_rub"], "status": "succeeded", "signature": sig},
+    )
+    assert resp.status_code == 400
+    assert resp.json()["detail"] == "bad ip"
+
+
+def test_selfwork_webhook_idempotent(client, db, monkeypatch):
+    monkeypatch.setattr(config, "SELFWORK_API_KEY", "testkey")
+    monkeypatch.setattr(config, "SELFWORK_CALLBACK_IPS", ["testclient"])
+    order = _make_selfwork_pending_order(client, db, quantity=2)
+    sw_id = f"dragons-{order['order_id']}"
+    payload = {"order_id": sw_id, "amount": order["amount_rub"], "status": "succeeded",
+               "signature": _webhook_sig(sw_id, order["amount_rub"], "testkey")}
+    r1 = client.post("/api/payment/selfwork/webhook", json=payload)
+    assert r1.status_code == 200
+    o = db.query(PaymentOrder).filter(PaymentOrder.id == order["order_id"]).first()
+    db.refresh(o)
+    first_ids = o.dragon_ids
+    r2 = client.post("/api/payment/selfwork/webhook", json=payload)
+    assert r2.status_code == 200
+    db.refresh(o)
+    assert o.dragon_ids == first_ids
+
+
+def test_selfwork_webhook_amount_mismatch(client, db, monkeypatch):
+    monkeypatch.setattr(config, "SELFWORK_API_KEY", "testkey")
+    monkeypatch.setattr(config, "SELFWORK_CALLBACK_IPS", ["testclient"])
+    order = _make_selfwork_pending_order(client, db, quantity=1)
+    sw_id = f"dragons-{order['order_id']}"
+    wrong_amount = order["amount_rub"] + 99999
+    sig = _webhook_sig(sw_id, wrong_amount, "testkey")
+    resp = client.post(
+        "/api/payment/selfwork/webhook",
+        json={"order_id": sw_id, "amount": wrong_amount, "status": "succeeded", "signature": sig},
+    )
+    assert resp.status_code == 400
+    assert resp.json()["detail"] == "amount mismatch"
+
+
+# ─── Provider switching ───
+
+def test_settings_default_provider_robokassa(client):
+    resp = client.get("/api/admin/settings")
+    assert resp.json()["payment_provider"] == "robokassa"
+
+
+def test_settings_switch_provider(client):
+    resp = client.put("/api/admin/settings", json={
+        "welcome_keyword": "", "suspicious_multiplier": 2,
+        "block_multiplier": 3, "payment_provider": "selfwork",
+    })
+    assert resp.json()["payment_provider"] == "selfwork"
+    assert client.get("/api/admin/settings").json()["payment_provider"] == "selfwork"
+
+
+def test_settings_invalid_provider_falls_back(client):
+    resp = client.put("/api/admin/settings", json={
+        "welcome_keyword": "", "suspicious_multiplier": 2,
+        "block_multiplier": 3, "payment_provider": "yookassa",
+    })
+    assert resp.json()["payment_provider"] == "robokassa"
+
+
+def test_create_order_default_provider_robokassa(client, db):
+    for i in range(3):
+        _dragon(db, f"PR{i}", family_id=i, pin=f"PR{i:04d}")
+    s = _set(db, quantity=1)
+    resp = client.post("/api/payment/create-order", json={"vk_id": 5, "set_id": s.id})
+    data = resp.json()
+    assert data["provider"] == "robokassa"
+    o = db.query(PaymentOrder).filter(PaymentOrder.id == data["order_id"]).first()
+    assert o.provider == "robokassa"
+    assert o.selfwork_order_id is None
+
+
+def test_create_order_selfwork_provider(client, db):
+    for i in range(3):
+        _dragon(db, f"PS{i}", family_id=i, pin=f"PS{i:04d}")
+    s = _set(db, quantity=1)
+    monkeypatch_provider(client, "selfwork")
+    resp = client.post("/api/payment/create-order", json={"vk_id": 6, "set_id": s.id})
+    data = resp.json()
+    assert data["provider"] == "selfwork"
+    assert "/api/payment/pay/" in data["payment_url"]
+    o = db.query(PaymentOrder).filter(PaymentOrder.id == data["order_id"]).first()
+    assert o.provider == "selfwork"
+    assert o.selfwork_order_id == f"dragons-{o.id}"
+
+
+# ─── Selfwork: /pay endpoint branching ───
+
+def test_selfwork_pay_endpoint_returns_html(client, db, monkeypatch):
+    monkeypatch.setattr(config, "SELFWORK_API_KEY", "testkey")
+    for i in range(2):
+        _dragon(db, f"PE{i}", family_id=i, pin=f"PE{i:04d}")
+    s = _set(db, quantity=1)
+    monkeypatch_provider(client, "selfwork")
+    order = client.post("/api/payment/create-order", json={"vk_id": 7, "set_id": s.id}).json()
+
+    from routes import payment as payment_module
+    monkeypatch.setattr(payment_module, "call_init", lambda order_obj, desc: "<html>SELFWORK PAGE</html>")
+    resp = client.get(f"/api/payment/pay/{order['order_id']}?vk_id=7")
+    assert resp.status_code == 200
+    assert "SELFWORK PAGE" in resp.text
+
+
+def test_selfwork_pay_endpoint_init_error(client, db, monkeypatch):
+    monkeypatch.setattr(config, "SELFWORK_API_KEY", "testkey")
+    for i in range(2):
+        _dragon(db, f"PF{i}", family_id=i, pin=f"PF{i:04d}")
+    s = _set(db, quantity=1)
+    monkeypatch_provider(client, "selfwork")
+    order = client.post("/api/payment/create-order", json={"vk_id": 8, "set_id": s.id}).json()
+
+    from routes import payment as payment_module
+    def _boom(order_obj, desc):
+        raise RuntimeError("network down")
+    monkeypatch.setattr(payment_module, "call_init", _boom)
+    resp = client.get(f"/api/payment/pay/{order['order_id']}?vk_id=8")
+    assert resp.status_code == 502
+
+
+def test_payment_return_redirect(client):
+    resp = client.get("/api/payment/return", follow_redirects=False)
+    assert resp.status_code == 302
+    assert resp.headers["location"] == config.VK_GROUP_URL
+
+
+# ─── Admin payment-orders includes provider ───
+
+def test_admin_payment_orders_includes_provider(client, db):
+    for i in range(2):
+        _dragon(db, f"PI{i}", family_id=i, pin=f"PI{i:04d}")
+    s = _set(db, quantity=1)
+    monkeypatch_provider(client, "selfwork")
+    client.post("/api/payment/create-order", json={"vk_id": 11, "set_id": s.id})
+    resp = client.get("/api/admin/payment-orders")
+    item = next(o for o in resp.json()["items"] if o["vk_id"] == 11)
+    assert item["provider"] == "selfwork"
+    assert item["selfwork_order_id"] == f"dragons-{item['id']}"

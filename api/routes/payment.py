@@ -11,6 +11,10 @@ from models import DragonSet, PaymentOrder, User, PaymentLog
 from services.payment_service import (
     is_donor, calc_set_price, count_available, select_dragons,
 )
+from services.selfwork_service import (
+    get_active_provider, selfwork_order_id_for, order_id_from_selfwork,
+    verify_webhook_signature, call_init,
+)
 
 router = APIRouter(prefix="/api/payment", tags=["payment"])
 
@@ -272,12 +276,15 @@ async def create_order(request: Request, db: Session = Depends(get_db)):
         quantity = available
         amount = available * price_per_pin
 
+    provider = get_active_provider(db)
     order = PaymentOrder(
         vk_id=vk_id,
         set_id=set_id,
         amount_rub=amount,
         quantity=quantity,
         price_per_pin=price_per_pin,
+        provider=provider,
+        selfwork_order_id=selfwork_order_id_for(0) if provider == "selfwork" else None,
         status="pending",
         dragon_ids="[]",
         created_at=_now(),
@@ -285,13 +292,17 @@ async def create_order(request: Request, db: Session = Depends(get_db)):
     db.add(order)
     db.commit()
     db.refresh(order)
+    if provider == "selfwork":
+        order.selfwork_order_id = selfwork_order_id_for(order.id)
+        db.commit()
 
-    url = build_payment_url(order, vk_id, f"Набор «{dset.name}»")
+    url = f"{config.SITE_URL}/api/payment/pay/{order.id}?vk_id={vk_id}"
     return {
         "payment_url": url,
         "order_id": order.id,
         "amount_rub": amount,
         "quantity": quantity,
+        "provider": provider,
     }
 
 
@@ -386,7 +397,20 @@ def payment_post_redirect(request: Request, order_id: int, vk_id: int, db: Sessi
     dset = db.query(DragonSet).filter(DragonSet.id == order.set_id).first()
     description = f"Набор «{dset.name}»" if dset else "Набор драконов"
 
+    provider = order.provider or "robokassa"
+    if provider == "selfwork":
+        try:
+            html_body = call_init(order, description)
+        except Exception as e:
+            _log_payment(vk_id, order.id, "selfwork_init_error", "", "", "", False, "", "",
+                         f"order_id={order.id} err={e} (ip={client_ip})", db=db)
+            return HTMLResponse("<h1>Ошибка инициализации оплаты</h1><p>Попробуйте позже.</p>", status_code=502)
+        _log_payment(vk_id, order.id, "selfwork_init_ok", "", "", str(order.amount_rub), False, "", "",
+                     f"order_id={order.id} selfwork_order_id={order.selfwork_order_id} (ip={client_ip})", db=db)
+        return HTMLResponse(html_body)
+
     login = config.ROBOKASSA_MERCHANT_LOGIN
+
     out_sum = f"{order.amount_rub / 100:.2f}"
     inv_id = str(inv_id_for_order(order.id))
     receipt = build_receipt(out_sum, order, description)
@@ -441,3 +465,87 @@ def payment_success(InvId: str = "", Culture: str = "ru"):
 @router.get("/fail")
 def payment_fail(InvId: str = "", Culture: str = "ru"):
     return RedirectResponse(config.VK_GROUP_URL, status_code=302)
+
+
+@router.get("/return")
+def payment_return():
+    return RedirectResponse(config.VK_GROUP_URL, status_code=302)
+
+
+def _client_ip(request: Request) -> str:
+    xff = request.headers.get("x-forwarded-for", "")
+    if xff:
+        return xff.split(",")[0].strip()
+    return request.client.host if request.client else ""
+
+
+@router.post("/selfwork/webhook")
+async def selfwork_webhook(request: Request, db: Session = Depends(get_db)):
+    client_ip = _client_ip(request)
+
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+
+    order_id_raw = body.get("order_id")
+    amount_raw = body.get("amount")
+    status = body.get("status")
+    signature = body.get("signature")
+
+    if not (order_id_raw and amount_raw and signature):
+        _log_payment(0, 0, "selfwork_callback_bad_params", "", str(amount_raw or ""), str(order_id_raw or ""),
+                     False, signature or "", "", f"ip={client_ip} body={body}")
+        raise HTTPException(status_code=400, detail="bad params")
+
+    if client_ip not in config.SELFWORK_CALLBACK_IPS:
+        _log_payment(0, 0, "selfwork_callback_bad_ip", "", str(amount_raw), str(order_id_raw),
+                     False, signature or "", "", f"ip={client_ip}")
+        raise HTTPException(status_code=400, detail="bad ip")
+
+    if not verify_webhook_signature(str(order_id_raw), str(amount_raw), config.SELFWORK_API_KEY, signature):
+        _log_payment(0, 0, "selfwork_callback_bad_sig", "", str(amount_raw), str(order_id_raw),
+                     False, signature or "", "", f"ip={client_ip}")
+        raise HTTPException(status_code=400, detail="bad signature")
+
+    real_order_id = order_id_from_selfwork(str(order_id_raw))
+    if real_order_id is None:
+        _log_payment(0, 0, "selfwork_callback_bad_order_id", "", str(amount_raw), str(order_id_raw),
+                     False, signature or "", "", f"ip={client_ip}")
+        raise HTTPException(status_code=400, detail="bad order_id")
+
+    order = db.query(PaymentOrder).filter(PaymentOrder.id == real_order_id).first()
+    if not order:
+        _log_payment(0, real_order_id, "selfwork_callback_order_not_found", "", str(amount_raw), str(order_id_raw),
+                     False, signature or "", "", f"ip={client_ip}")
+        raise HTTPException(status_code=400, detail="order not found")
+
+    if order.status == "success":
+        return PlainTextResponse("OK")
+
+    if order.status == "cancelled":
+        _log_payment(order.vk_id, order.id, "selfwork_callback_cancelled", "", str(amount_raw), str(order_id_raw),
+                     False, signature or "", "", f"ip={client_ip}")
+        return PlainTextResponse("OK")
+
+    paid = int(amount_raw)
+    if abs(paid - order.amount_rub) > 1:
+        _log_payment(order.vk_id, order.id, "selfwork_callback_amount_mismatch", "", str(amount_raw), str(order_id_raw),
+                     False, signature or "", "",
+                     f"expected={order.amount_rub} got={paid} ip={client_ip}")
+        raise HTTPException(status_code=400, detail="amount mismatch")
+
+    dragons = select_dragons(order.vk_id, order.quantity, db)
+    order.status = "success"
+    order.completed_at = _now()
+    order.dragon_ids = json.dumps([d.id for d in dragons])
+    db.commit()
+
+    order.notified = _send_pins(order.vk_id, dragons, db)
+    db.commit()
+
+    _log_payment(order.vk_id, order.id, "selfwork_callback_success", "", str(amount_raw), str(order_id_raw),
+                 False, signature or "", order.dragon_ids,
+                 f"dragons={order.dragon_ids} status={status} ip={client_ip}", db)
+
+    return PlainTextResponse("OK")

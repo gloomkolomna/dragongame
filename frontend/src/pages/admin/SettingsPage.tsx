@@ -5,6 +5,7 @@ function SettingsPage() {
   const [keyword, setKeyword] = useState('');
   const [suspiciousMult, setSuspiciousMult] = useState(2);
   const [blockMult, setBlockMult] = useState(3);
+  const [provider, setProvider] = useState('robokassa');
   const [load, setLoad] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -16,6 +17,7 @@ function SettingsPage() {
         setKeyword(r.data.welcome_keyword || '');
         setSuspiciousMult(r.data.suspicious_multiplier ?? 2);
         setBlockMult(r.data.block_multiplier ?? 3);
+        setProvider(r.data.payment_provider || 'robokassa');
       })
       .finally(() => setLoad(false));
   }, []);
@@ -27,10 +29,12 @@ function SettingsPage() {
         welcome_keyword: keyword,
         suspicious_multiplier: suspiciousMult,
         block_multiplier: blockMult,
+        payment_provider: provider,
       });
       setKeyword(r.data.welcome_keyword);
       setSuspiciousMult(r.data.suspicious_multiplier);
       setBlockMult(r.data.block_multiplier);
+      setProvider(r.data.payment_provider || 'robokassa');
       setSaved(true);
     } catch (e: any) {
       setError(e?.response?.data?.detail || 'Ошибка');
@@ -92,6 +96,24 @@ function SettingsPage() {
             />
             <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 6 }}>
               Если заявлено стежков больше нормы × N — шаг блокируется и не засчитывается. По умолчанию 3.
+            </div>
+          </div>
+        </div>
+
+        <div className="lair-card" style={{ maxWidth: 420, marginBottom: 16 }}>
+          <div>
+            <label className="lair-label">Способ приёма платежей</label>
+            <select
+              className="lair-input"
+              value={provider}
+              onChange={(e) => { setSaved(false); setProvider(e.target.value); }}
+              style={{ width: '100%', fontSize: 18 }}
+            >
+              <option value="robokassa">Robokassa</option>
+              <option value="selfwork">Selfwork (Сам.Эквайринг)</option>
+            </select>
+            <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 6 }}>
+              Через какого провайдера оформляются новые заказы наборов яиц. Уже созданные заказы остаются на своём провайдере.
             </div>
           </div>
         </div>

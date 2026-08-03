@@ -1,88 +1,13 @@
-"""Buy eggs handler — show packs from DB and generate Robokassa payment links."""
+"""Buy eggs handler — show packs from DB and generate payment links."""
 
-import hashlib
 import json
 from datetime import datetime
-from urllib.parse import urlencode, quote_plus
 
-ROBOKASSA_URL = "https://auth.robokassa.ru/Merchant/Index.aspx"
 OFFERTA_TEXT = "\n\nПеред покупкой ознакомьтесь с условиями оферты: https://belovolovhome.ru/dragons/offerta.docx"
 
 
 def _now():
     return datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
-
-
-def _md5(raw: str) -> str:
-    return hashlib.md5(raw.encode("utf-8")).hexdigest()
-
-
-def _build_receipt(out_sum: str, order, description: str) -> str:
-    total = float(out_sum)
-    name = f"{description or 'Набор драконов'} - {out_sum}"
-    items = [{
-        "name": name,
-        "quantity": 1,
-        "sum": total,
-        "tax": "none",
-    }]
-    return json.dumps({"items": items}, separators=(",", ":"), ensure_ascii=False)
-
-
-def _build_payment_url(order, vk_id: int, description: str) -> str:
-    import config
-    login = config.ROBOKASSA_MERCHANT_LOGIN
-    out_sum = f"{order.amount_rub / 100:.2f}"
-    inv_id = str(order.id + config.ROBOKASSA_INV_ID_OFFSET)
-    receipt = _build_receipt(out_sum, order, description)
-    receipt_encoded = quote_plus(receipt, safe="")
-    password1 = config.robokassa_password1()
-    sig_raw = f"{login}:{out_sum}:{inv_id}:{receipt_encoded}:{password1}:Shp_vk_id={vk_id}"
-    signature = _md5(sig_raw)
-    pass_masked = f"***({len(password1)})" if password1 else "EMPTY"
-    sig_display = f"{login}:{out_sum}:{inv_id}:<receipt>:{pass_masked}:Shp_vk_id={vk_id}"
-    import sys
-    print(
-        f"[Robokassa BOT] {sig_display} sig={signature}",
-        file=sys.stderr, flush=True,
-    )
-    try:
-        from api.models import PaymentLog
-        from api.db import SessionLocal
-        now_str = _now()
-        log = PaymentLog(
-            vk_id=vk_id,
-            order_id=order.id,
-            action="url_created",
-            login=login,
-            out_sum=out_sum,
-            inv_id=inv_id,
-            test_mode=config.robokassa_is_test(),
-            sig=signature,
-            receipt_json=receipt,
-            detail=f"{sig_display}\nreceipt={receipt}",
-            created_at=now_str,
-        )
-        s = SessionLocal()
-        s.add(log)
-        s.commit()
-        s.close()
-    except Exception:
-        pass
-    params = {
-        "MerchantLogin": login,
-        "OutSum": out_sum,
-        "InvId": inv_id,
-        "Description": description,
-        "SignatureValue": signature,
-        "Shp_vk_id": str(vk_id),
-        "Culture": "ru",
-        "Encoding": "utf-8",
-    }
-    if config.robokassa_is_test():
-        params["IsTest"] = "1"
-    query = urlencode(params)
-    return f"{ROBOKASSA_URL}?Receipt={receipt_encoded}&{query}"
 
 
 def _store_payment(user, order_id, db):

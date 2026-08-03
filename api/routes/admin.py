@@ -2852,11 +2852,12 @@ async def adjust_balance(vk_id: int, request: Request, db: Session = Depends(get
 def get_settings(db: Session = Depends(get_db)):
     cfg = db.query(AppSettings).filter(AppSettings.id == 1).first()
     if not cfg:
-        return {"welcome_keyword": "", "suspicious_multiplier": 2, "block_multiplier": 3}
+        return {"welcome_keyword": "", "suspicious_multiplier": 2, "block_multiplier": 3, "payment_provider": "robokassa"}
     return {
         "welcome_keyword": cfg.welcome_keyword or "",
         "suspicious_multiplier": cfg.suspicious_multiplier if cfg.suspicious_multiplier is not None else 2,
         "block_multiplier": cfg.block_multiplier if cfg.block_multiplier is not None else 3,
+        "payment_provider": cfg.payment_provider or "robokassa",
     }
 
 
@@ -2866,11 +2867,15 @@ async def update_settings(request: Request, db: Session = Depends(get_db)):
     keyword = str(b.get("welcome_keyword", "")).strip()
     suspicious = int(b.get("suspicious_multiplier", 2))
     block = int(b.get("block_multiplier", 3))
+    provider = str(b.get("payment_provider", "robokassa")).strip()
+    if provider not in ("robokassa", "selfwork"):
+        provider = "robokassa"
     cfg = db.query(AppSettings).filter(AppSettings.id == 1).first()
     if not cfg:
         cfg = AppSettings(
             id=1, welcome_keyword=keyword,
             suspicious_multiplier=suspicious, block_multiplier=block,
+            payment_provider=provider,
             updated_at=datetime.now().isoformat(),
         )
         db.add(cfg)
@@ -2878,9 +2883,10 @@ async def update_settings(request: Request, db: Session = Depends(get_db)):
         cfg.welcome_keyword = keyword
         cfg.suspicious_multiplier = suspicious
         cfg.block_multiplier = block
+        cfg.payment_provider = provider
         cfg.updated_at = datetime.now().isoformat()
     db.commit()
-    return {"welcome_keyword": keyword, "suspicious_multiplier": suspicious, "block_multiplier": block}
+    return {"welcome_keyword": keyword, "suspicious_multiplier": suspicious, "block_multiplier": block, "payment_provider": provider}
 
 
 # ─── Магазин: цена и наборы (Robokassa) ───
@@ -2998,8 +3004,10 @@ def list_payment_orders(
             "amount_rub": order.amount_rub,
             "quantity": order.quantity,
             "price_per_pin": order.price_per_pin,
+            "provider": order.provider or "robokassa",
             "robokassa_inv_id": order.robokassa_inv_id,
             "robokassa_inv_id_expected": inv_id_for_order(order.id),
+            "selfwork_order_id": order.selfwork_order_id,
             "status": order.status,
             "dragon_ids": json.loads(order.dragon_ids or "[]"),
             "notified": order.notified,

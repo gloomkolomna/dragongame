@@ -55,6 +55,14 @@ ROBOKASSA_INV_ID_OFFSET = _env_int("ROBOKASSA_INV_ID_OFFSET", 100)
 SITE_URL = os.getenv("SITE_URL", "https://belovolovhome.ru/dragons")
 VK_GROUP_URL = os.getenv("VK_GROUP_URL", "https://vk.ru/bestiaryofdragonlegends")
 
+# ── Selfwork (Сам.Эквайринг) ──
+SELFWORK_SHOP_ID = os.getenv("SELFWORK_SHOP_ID", "0210419")
+SELFWORK_API_KEY = os.getenv("SELFWORK_API_KEY", "")
+SELFWORK_INIT_URL = "https://pro.selfwork.ru/merchant/v1/init"
+SELFWORK_STATUS_URL = "https://pro.selfwork.ru/merchant/v1/status"
+SELFWORK_ORIGIN = os.getenv("SELFWORK_ORIGIN", SITE_URL.rstrip("/"))
+SELFWORK_CALLBACK_IPS = ["178.205.169.35", "81.23.144.157"]
+
 
 def robokassa_is_test() -> bool:
     return str(ROBOKASSA_TEST_MODE).strip() == "1"
