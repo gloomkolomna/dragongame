@@ -35,11 +35,15 @@ function UserDragonProgress() {
   const navigate = useNavigate();
   const [steps, setSteps] = useState<StepInfo[]>([]);
   const [dragonName, setDragonName] = useState('');
+  const [isEpic, setIsEpic] = useState(false);
+  const [epicName, setEpicName] = useState('');
   const [total, setTotal] = useState(0);
   const [currentStep, setCurrentStep] = useState(0);
   const [load, setLoad] = useState(true);
   const [updating, setUpdating] = useState(false);
   const [care, setCare] = useState<CareState | null>(null);
+  const [renameValue, setRenameValue] = useState('');
+  const [renameSaving, setRenameSaving] = useState(false);
 
   const fetchData = async () => {
     if (!vkId || !dragonId) return;
@@ -47,6 +51,8 @@ function UserDragonProgress() {
       const r = await client.get(`/admin/users/${vkId}/dragons/${dragonId}/steps`);
       setSteps(r.data.steps);
       setDragonName(r.data.dragon_name);
+      setIsEpic(r.data.is_epic || false);
+      setEpicName(r.data.epic_name || '');
       setTotal(r.data.total);
       setCurrentStep(r.data.current_step);
     } catch (e) {
@@ -132,6 +138,20 @@ function UserDragonProgress() {
     setUpdating(false);
   };
 
+  const renameEpic = async () => {
+    const name = renameValue.trim();
+    if (!name) return;
+    setRenameSaving(true);
+    try {
+      await client.post(`/admin/users/${vkId}/epic/rename`, { name, dragon_id: Number(dragonId) });
+      setRenameValue('');
+      await fetchData();
+    } catch (e: any) {
+      alert(e.response?.data?.detail || 'Ошибка');
+    }
+    setRenameSaving(false);
+  };
+
   const resetToIdle = async () => {
     if (!window.confirm('Сбросить застрявшее состояние игрока в idle? Прогресс и стежки сохранятся.')) return;
     setUpdating(true);
@@ -159,7 +179,7 @@ function UserDragonProgress() {
         <>
           <div className="lair-card" style={{ marginBottom: 16 }}>
             <div style={{ fontSize: 20, color: 'var(--accent-gold-light)', fontWeight: 600, marginBottom: 4 }}>
-              🥚 {dragonName || `Дракон #${dragonId}`}
+              🥚 {epicName ? `«${epicName}» ` : ''}{dragonName || `Дракон #${dragonId}`}
             </div>
             <div style={{ fontSize: 14, color: 'var(--parchment-dim)' }}>
               Шаг: {currentStep || '—'} из {total} &nbsp;|&nbsp; Выполнено: {completed} &nbsp;|&nbsp; {pct}%
@@ -228,6 +248,23 @@ function UserDragonProgress() {
               🐉 Восстановить дракона
             </button>
           </div>
+
+          {isEpic && (
+            <div className="lair-card" style={{ marginTop: 16 }}>
+              <h4 style={{ color: 'var(--gold)', margin: '0 0 8px' }}>🏷 Переименовать эпического дракона</h4>
+              <div style={{ fontSize: 13, color: 'var(--parchment-dim)', marginBottom: 8 }}>
+                Текущее имя: <strong style={{ color: 'var(--accent-gold-light)' }}>{epicName || '(не задано)'}</strong>
+              </div>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <input className="lair-input" type="text" value={renameValue} onChange={(e) => setRenameValue(e.target.value)}
+                       placeholder="Новое имя дракона" style={{ flex: 1, maxWidth: 320 }}
+                       onKeyDown={(e) => { if (e.key === 'Enter') renameEpic(); }} />
+                <button className="lair-btn" onClick={renameEpic} disabled={renameSaving || !renameValue.trim()}>
+                  {renameSaving ? '...' : 'Переименовать'}
+                </button>
+              </div>
+            </div>
+          )}
 
           {care && care.dragon_id === Number(dragonId) && (
             <div className="lair-card" style={{ marginTop: 16 }}>

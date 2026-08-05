@@ -829,6 +829,7 @@ def get_user_steps(vk_id: int, db: Session = Depends(get_db)):
 
 @router.get("/users/{vk_id}/dragons/{dragon_id}/steps")
 def get_user_dragon_steps(vk_id: int, dragon_id: int, db: Session = Depends(get_db)):
+    from services.epic_service import get_epic_name_for
     dragon = db.query(Dragon).filter(Dragon.id == dragon_id).first()
     if not dragon:
         return {"dragon_name": "", "total": 0, "current_step": 0, "steps": []}
@@ -854,7 +855,7 @@ def get_user_dragon_steps(vk_id: int, dragon_id: int, db: Session = Depends(get_
             "completed": progress.completed if progress else False,
             "current": s.step_number == current_step,
         })
-    return {"dragon_name": dragon.name, "total": dragon.steps_count, "current_step": current_step, "steps": result}
+    return {"dragon_name": dragon.name, "total": dragon.steps_count, "current_step": current_step, "steps": result, "is_epic": bool(dragon.is_epic), "epic_name": get_epic_name_for(db, vk_id, dragon_id)}
 
 
 @router.post("/users/{vk_id}/steps/{step_number}/toggle")
@@ -1597,6 +1598,41 @@ def epic_care_restore_pointer(vk_id: int, db: Session = Depends(get_db)):
     name = dragon.name if dragon else None
     _notify_user(vk_id, "🔧 Администратор восстановил связь с твоим эпическим драконом. Напиши «эпический», чтобы продолжить.")
     return {"ok": True, "dragon_id": epic_id, "name": name}
+
+
+@router.post("/users/{vk_id}/epic/rename")
+async def rename_epic_dragon(vk_id: int, request: Request, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.vk_id == vk_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    body = {}
+    try:
+        body = json.loads(await request.body())
+    except Exception:
+        pass
+    new_name = (body.get("name") or "").strip()
+    dragon_id = body.get("dragon_id")
+    if not new_name:
+        raise HTTPException(status_code=400, detail="Имя не может быть пустым")
+    if not dragon_id:
+        from services.epic_service import set_epic_name
+        set_epic_name(db, vk_id, new_name)
+    else:
+        row = db.query(UserProgress).filter(
+            UserProgress.user_id == vk_id,
+            UserProgress.dragon_id == int(dragon_id),
+            UserProgress.step_number == 0,
+        ).first()
+        if row:
+            row.epic_name = new_name
+        else:
+            db.add(UserProgress(
+                user_id=vk_id, dragon_id=int(dragon_id), step_number=0,
+                completed=False, epic_name=new_name,
+            ))
+        db.commit()
+    _notify_user(vk_id, f"🔧 Администратор переименовал твоего эпического дракона в «{new_name}».")
+    return {"ok": True, "name": new_name}
 
 
 @router.post("/users/{vk_id}/reset-to-idle")

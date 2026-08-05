@@ -744,6 +744,55 @@ def test_user_detail_epic_name_empty_when_unnamed(client, db):
     assert data["epic_name"] == ""
 
 
+def test_rename_epic_dragon(client, db):
+    from services import epic_service
+    e1 = Dragon(name="EpicA", rarity=1, steps_count=1, is_active=True, is_epic=True, egg_type="лунное")
+    e2 = Dragon(name="EpicB", rarity=1, steps_count=1, is_active=True, is_epic=True, egg_type="звёздное")
+    db.add_all([e1, e2])
+    db.flush()
+    user = User(vk_id=783, state="idle", epic_unlocked=True, epic_dragon_id=e1.id)
+    db.add(user)
+    db.add(UserDragon(user_id=783, dragon_id=e1.id, completed_at=""))
+    db.add(UserDragon(user_id=783, dragon_id=e2.id, completed_at="2026-01-01T00:00:00"))
+    db.flush()
+    epic_service.set_epic_name(db, 783, "Уголёк")
+    db.add(UserProgress(user_id=783, dragon_id=e2.id, step_number=0, completed=False, epic_name="Искра"))
+    db.commit()
+
+    resp = client.post("/api/admin/users/783/epic/rename", json={"dragon_id": e1.id, "name": "Огонёк"})
+    assert resp.status_code == 200
+    assert resp.json()["name"] == "Огонёк"
+
+    db.expire_all()
+    name1 = epic_service.get_epic_name_for(db, 783, e1.id)
+    name2 = epic_service.get_epic_name_for(db, 783, e2.id)
+    assert name1 == "Огонёк"
+    assert name2 == "Искра"
+
+    data = client.get("/api/admin/users/783").json()
+    names = {d["dragon_id"]: d["epic_name"] for d in data["dragons"]}
+    assert names[e1.id] == "Огонёк"
+    assert names[e2.id] == "Искра"
+
+
+def test_rename_epic_empty_name_rejected(client, db):
+    ed = Dragon(name="EpicR", rarity=1, steps_count=1, is_active=True, is_epic=True, egg_type="лунное")
+    db.add(ed)
+    db.flush()
+    user = User(vk_id=784, state="idle", epic_unlocked=True, epic_dragon_id=ed.id)
+    db.add(user)
+    db.add(UserDragon(user_id=784, dragon_id=ed.id, completed_at=""))
+    db.commit()
+
+    resp = client.post("/api/admin/users/784/epic/rename", json={"dragon_id": ed.id, "name": "   "})
+    assert resp.status_code == 400
+
+
+def test_rename_epic_user_not_found(client):
+    resp = client.post("/api/admin/users/99999/epic/rename", json={"name": "Test"})
+    assert resp.status_code == 404
+
+
 def test_user_detail_includes_own_suspicious(client, db):
     from models import SuspiciousReport
     db.add(User(vk_id=790, state="idle"))
