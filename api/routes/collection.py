@@ -546,11 +546,11 @@ def get_dragon(
     completed_steps = sum(1 for s in steps if s.completed)
     all_completed = completed_steps >= dragon.steps_count
 
-    # Get step definitions from DB
+    # Get step definitions from DB (только шаги яйца, phase=0; шаги легенды phase=1 — отдельно)
     from models import DragonStep
     step_defs = (
         db.query(DragonStep)
-        .filter(DragonStep.dragon_id == dragon_id)
+        .filter(DragonStep.dragon_id == dragon_id, DragonStep.phase == 0)
         .order_by(DragonStep.step_number)
         .all()
     )

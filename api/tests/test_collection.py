@@ -62,3 +62,20 @@ def test_public_pricing_custom_base(client, db):
     assert data["base_price_rub"] == 200
     assert data["sets"][0]["price_rub"] == 200
     assert data["sets"][0]["donor_price_rub"] == 180
+
+
+def test_dragon_steps_exclude_legend_phase(client, db):
+    from models import Dragon, DragonStep, User
+    db.add(User(vk_id=777))
+    db.add(Dragon(id=1, name="Легендарный", rarity=3, egg_type="Золотое", steps_count=2, is_active=True))
+    db.add(DragonStep(dragon_id=1, step_number=1, phase=0, task_description="Яйцо шаг 1"))
+    db.add(DragonStep(dragon_id=1, step_number=2, phase=0, task_description="Яйцо шаг 2"))
+    db.add(DragonStep(dragon_id=1, step_number=1, phase=1, task_description="Легенда шаг 1"))
+    db.commit()
+
+    resp = client.get("/api/dragon/1", params={"vk_id": 777})
+    assert resp.status_code == 200
+    steps = resp.json()["user_progress"]["steps"]
+    tasks = [s["task"] for s in steps]
+    assert tasks == ["Яйцо шаг 1", "Яйцо шаг 2"]
+    assert "Легенда шаг 1" not in tasks
