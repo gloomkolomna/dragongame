@@ -404,10 +404,11 @@ def payment_post_redirect(request: Request, order_id: int, vk_id: int, db: Sessi
         signature = build_payment_signature(
             mnt_id, mnt_trx, amount_str, config.MONETA_INTEGRITY_CODE, test_mode,
         )
+        no_sig = config.MONETA_NO_SIGNATURE_FORM
 
         _log_payment(vk_id, order.id, "moneta_form_created", mnt_id, amount_str, mnt_trx,
                      config.moneta_is_test(), signature, "",
-                     f"POST redirect | mnt_id={mnt_id} mnt_trx={mnt_trx} amount={amount_str} (ip={client_ip})")
+                     f"POST redirect | mnt_id={mnt_id} mnt_trx={mnt_trx} amount={amount_str} no_sig={no_sig} (ip={client_ip})")
 
         fields = [
             ("MNT_ID", mnt_id),
@@ -415,12 +416,13 @@ def payment_post_redirect(request: Request, order_id: int, vk_id: int, db: Sessi
             ("MNT_CURRENCY_CODE", "RUB"),
             ("MNT_AMOUNT", amount_str),
             ("MNT_DESCRIPTION", description),
-            ("MNT_SIGNATURE", signature),
             ("MNT_TEST_MODE", test_mode),
             ("MNT_SUCCESS_URL", f"{config.SITE_URL}/api/payment/success"),
             ("MNT_FAIL_URL", f"{config.SITE_URL}/api/payment/fail"),
             ("MNT_RETURN_URL", f"{config.SITE_URL}/api/payment/return"),
         ]
+        if not no_sig:
+            fields.append(("MNT_SIGNATURE", signature))
 
         inputs = "\n".join(
             f'<input type="hidden" name="{k}" value="{v}" />'
@@ -522,6 +524,9 @@ async def moneta_callback(request: Request, db: Session = Depends(get_db)):
         params.update({k: v for k, v in form.items()})
     except Exception:
         pass
+
+    _log_payment(0, 0, "moneta_callback_raw", "", params.get("MNT_AMOUNT", ""), params.get("MNT_TRANSACTION_ID", ""),
+                 False, params.get("MNT_SIGNATURE", ""), "", f"ip={client_ip} params={params}")
 
     mnt_transaction_id = params.get("MNT_TRANSACTION_ID")
     mnt_amount = params.get("MNT_AMOUNT")

@@ -60,6 +60,7 @@ VK_GROUP_URL = os.getenv("VK_GROUP_URL", "https://vk.ru/bestiaryofdragonlegends"
 MONETA_MNT_ID = os.getenv("MONETA_MNT_ID", "")
 MONETA_INTEGRITY_CODE = os.getenv("MONETA_INTEGRITY_CODE", "")
 MONETA_TEST_MODE = os.getenv("MONETA_TEST_MODE", "1")
+MONETA_NO_SIGNATURE_FORM = os.getenv("MONETA_NO_SIGNATURE_FORM", "").strip().lower() in ("1", "true", "yes")
 
 
 def moneta_is_test() -> bool:
