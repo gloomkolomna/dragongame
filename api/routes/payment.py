@@ -532,12 +532,19 @@ async def moneta_callback(request: Request, db: Session = Depends(get_db)):
     mnt_amount = params.get("MNT_AMOUNT")
     signature = params.get("MNT_SIGNATURE")
 
-    if not (mnt_transaction_id and mnt_amount and signature):
+    no_sig_cb = config.MONETA_NO_SIGNATURE_CALLBACK
+
+    if not (mnt_transaction_id and mnt_amount and (signature or no_sig_cb)):
         _log_payment(0, 0, "moneta_callback_bad_params", "", mnt_amount or "", mnt_transaction_id or "",
                      False, signature or "", "", f"ip={client_ip} params={params}")
         raise HTTPException(status_code=400, detail="bad params")
 
-    if not verify_callback_signature(params, config.MONETA_INTEGRITY_CODE):
+    if no_sig_cb:
+        if client_ip not in config.MONETA_CALLBACK_IPS:
+            _log_payment(0, 0, "moneta_callback_bad_ip", "", mnt_amount, mnt_transaction_id,
+                         False, signature or "", "", f"ip={client_ip} allowed={config.MONETA_CALLBACK_IPS}")
+            raise HTTPException(status_code=400, detail="bad ip")
+    elif not verify_callback_signature(params, config.MONETA_INTEGRITY_CODE):
         _log_payment(0, 0, "moneta_callback_bad_sig", "", mnt_amount, mnt_transaction_id,
                      False, signature or "", "", f"ip={client_ip} params={params}")
         raise HTTPException(status_code=400, detail="bad signature")

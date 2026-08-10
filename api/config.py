@@ -61,6 +61,8 @@ MONETA_MNT_ID = os.getenv("MONETA_MNT_ID", "")
 MONETA_INTEGRITY_CODE = os.getenv("MONETA_INTEGRITY_CODE", "")
 MONETA_TEST_MODE = os.getenv("MONETA_TEST_MODE", "1")
 MONETA_NO_SIGNATURE_FORM = os.getenv("MONETA_NO_SIGNATURE_FORM", "").strip().lower() in ("1", "true", "yes")
+MONETA_NO_SIGNATURE_CALLBACK = os.getenv("MONETA_NO_SIGNATURE_CALLBACK", "").strip().lower() in ("1", "true", "yes")
+MONETA_CALLBACK_IPS = [ip.strip() for ip in os.getenv("MONETA_CALLBACK_IPS", "193.176.92.70").split(",") if ip.strip()]
 
 
 def moneta_is_test() -> bool:
