@@ -191,6 +191,7 @@ def main():
         return
 
     vk_session = vk_api.VkApi(token=config.VK_GROUP_TOKEN, api_version="5.199")
+    vk_session.http.timeout = 30
     vk = vk_session.get_api()
     longpoll = VkBotLongPoll(vk_session, group_id=config.VK_GROUP_ID)
 
@@ -312,7 +313,7 @@ def main():
 
             cmd = extract_cmd(text, payload_str)
 
-            if user.state == IDLE and text and not is_intro_chapter(user.state):
+            if user.state == IDLE and text and not cmd and not is_intro_chapter(user.state):
                 from models import UserDragon, AppSettings
                 has_any = db.query(UserDragon).filter(UserDragon.user_id == user_id).first() is not None
                 if not has_any:
