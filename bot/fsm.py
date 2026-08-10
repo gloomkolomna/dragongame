@@ -12,6 +12,7 @@ AWAIT_EPIC_EGG_INTRO = "await_epic_egg_intro"
 AWAIT_LEGENDS = "await_legends"
 AWAIT_EPICS = "await_epics"
 AWAIT_RULES = "await_rules"
+AWAIT_RECEIPT_EMAIL = "await_receipt_email"
 
 
 def grow_state(step: int, suffix: str = "") -> str:

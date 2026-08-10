@@ -17,12 +17,12 @@ sys.path.insert(0, os.path.join(_root, "api"))
 
 import config
 from db import SessionLocal
-from bot.fsm import IDLE, AWAIT_PIN, AWAIT_PIN_LIST, AWAIT_GARDEN, AWAIT_LEGENDS, AWAIT_EPICS, AWAIT_RULES, is_growing, is_waiting_text, grow_state, step_from_state, is_legend, is_legend_waiting, is_epic_egg, is_epic_egg_waiting, is_epic_care, is_epic_care_waiting, is_epic_care_sub, is_epic_care_sub_waiting, AWAIT_EPIC_NAME, AWAIT_EPIC_RESTART, AWAIT_EPIC_EGG_INTRO, is_intro_chapter, intro_chapter_from_state
+from bot.fsm import IDLE, AWAIT_PIN, AWAIT_PIN_LIST, AWAIT_GARDEN, AWAIT_LEGENDS, AWAIT_EPICS, AWAIT_RULES, is_growing, is_waiting_text, grow_state, step_from_state, is_legend, is_legend_waiting, is_epic_egg, is_epic_egg_waiting, is_epic_care, is_epic_care_waiting, is_epic_care_sub, is_epic_care_sub_waiting, AWAIT_EPIC_NAME, AWAIT_EPIC_RESTART, AWAIT_EPIC_EGG_INTRO, is_intro_chapter, intro_chapter_from_state, AWAIT_RECEIPT_EMAIL
 from bot.handlers.commands import handle_start, handle_help, handle_garden, switch_dragon, cancel_garden, handle_switch_to, handle_balance, handle_legends, handle_legends_pick, cancel_legends, user_has_legendary
 from bot.handlers.pin import handle_pin_command, handle_pin_entry, handle_my_pins, handle_activate_all, handle_activate_by_number, cancel_pin_list
 from bot.handlers.grow import handle_grow_message, handle_grow_command, handle_norm_command, handle_x2_command, handle_back_command
 from bot.handlers.shop import handle_shop_command, handle_buy, handle_inventory
-from bot.handlers.buy_eggs import handle_buy_eggs, handle_buy_set, handle_partial_confirm, handle_open_payment, handle_cancel_payment
+from bot.handlers.buy_eggs import handle_buy_eggs, handle_buy_set, handle_partial_confirm, handle_open_payment, handle_cancel_payment, handle_receipt_email
 from bot.handlers.legend import handle_legend_start, handle_legend_mode, handle_legend_message, handle_legend_next
 from bot.handlers.epic import handle_epic_command, handle_epic_egg_mode, handle_epic_egg_message, handle_epic_name, handle_epics, handle_epics_pick, cancel_epics, user_has_epic
 from bot.handlers.rules import handle_rules, handle_rules_section, handle_rules_pick, cancel_rules
@@ -293,14 +293,14 @@ def main():
                     keyboard = get_keyboard(user.state, user, db)
                 if keyboard:
                     try:
-                        if not skip_auto_buttons and (user.state not in (AWAIT_LEGENDS, AWAIT_EPIC_NAME)
+                        if not skip_auto_buttons and (user.state not in (AWAIT_LEGENDS, AWAIT_EPIC_NAME, AWAIT_RECEIPT_EMAIL)
                                 and not is_legend(user.state)
                                 and user_has_legendary(db, user.vk_id)):
                             keyboard = keyboard_with_legends(keyboard)
                     except Exception:
                         pass
                     try:
-                        if not skip_auto_buttons and (user.state not in (AWAIT_EPICS, AWAIT_EPIC_NAME, AWAIT_EPIC_EGG_INTRO)
+                        if not skip_auto_buttons and (user.state not in (AWAIT_EPICS, AWAIT_EPIC_NAME, AWAIT_EPIC_EGG_INTRO, AWAIT_RECEIPT_EMAIL)
                                 and user_has_epic(db, user.vk_id)):
                             keyboard = keyboard_with_epics(keyboard)
                     except Exception:
@@ -334,6 +334,24 @@ def main():
                     user_id=user.vk_id,
                     db=db,
                 )
+
+            if user.state == AWAIT_RECEIPT_EMAIL:
+                if cmd in ("garden", "help", "rules", "start"):
+                    if cmd == "garden":
+                        handle_garden(user, db, send_message)
+                    elif cmd == "help":
+                        handle_help(send_message)
+                    elif cmd == "rules":
+                        handle_rules(user, db, send_message)
+                    elif cmd == "start":
+                        handle_start(user, db, send_message, upload_image)
+                    continue
+                if cmd == "cancel_payment":
+                    handle_cancel_payment(user, db, send_message)
+                    continue
+                if text:
+                    handle_receipt_email(user, text, db, send_message)
+                continue
 
             if user.state == AWAIT_EPIC_NAME:
                 if cmd in ("garden", "help", "rules", "start"):

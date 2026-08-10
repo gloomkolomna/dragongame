@@ -1,6 +1,6 @@
 from datetime import datetime
 from models import User, DragonSet, PaymentOrder, Dragon, PricingConfig, AppSettings
-from bot.handlers.buy_eggs import handle_buy_eggs, handle_buy_set, handle_partial_confirm
+from bot.handlers.buy_eggs import handle_buy_eggs, handle_buy_set, handle_partial_confirm, handle_receipt_email, handle_cancel_payment
 
 
 def _make_user(db, vk_id=1, state="idle", state_data="{}"):
@@ -69,7 +69,8 @@ def test_buy_eggs_shows_donor_discount(db, monkeypatch):
     assert "дона" in joined.lower()
 
 
-def test_buy_set_creates_order(db):
+def test_buy_set_asks_email(db):
+    from bot.fsm import AWAIT_RECEIPT_EMAIL
     u = _make_user(db)
     s = _make_set(db, name="Стартовый", quantity=3)
 
@@ -79,24 +80,46 @@ def test_buy_set_creates_order(db):
     db.commit()
 
     msgs = []
-    kbs = []
+    handle_buy_set(u, s.id, db, lambda m, **k: msgs.append(m))
+    assert any("email" in m.lower() for m in msgs)
+    assert u.state == AWAIT_RECEIPT_EMAIL
+    order = db.query(PaymentOrder).filter(PaymentOrder.vk_id == u.vk_id).first()
+    assert order is None
 
+
+def test_buy_set_creates_order_after_email(db):
+    from bot.fsm import AWAIT_RECEIPT_EMAIL, IDLE
+    u = _make_user(db)
+    s = _make_set(db, name="Стартовый", quantity=3)
+
+    db.add(PricingConfig(id=1, base_price_per_dragon=10000))
+    for i in range(1, 6):
+        db.add(Dragon(name=f"D{i}", rarity=1, steps_count=1, is_active=True))
+    db.commit()
+
+    handle_buy_set(u, s.id, db, lambda m, **k: None)
+    assert u.state == AWAIT_RECEIPT_EMAIL
+
+    msgs = []
+    kbs = []
     def send(m, keyboard=None, **k):
         msgs.append(m)
         kbs.append(keyboard)
 
-    handle_buy_set(u, s.id, db, send)
+    handle_receipt_email(u, "player@example.com", db, send)
     msg = msgs[0]
     assert "Стартовый" in msg
     assert "3 шт." in msg
-    assert kbs[0] is not None
-    assert "payment" in kbs[0] or "Оплат" in kbs[0] or "auth.robokassa" in kbs[0]
+    assert "player@example.com" in msg
+    assert "payment" in kbs[0] or "Оплат" in kbs[0]
+    assert u.state == IDLE
 
     order = db.query(PaymentOrder).filter(PaymentOrder.vk_id == u.vk_id).first()
     assert order is not None
     assert order.status == "pending"
     assert order.set_id == s.id
     assert order.quantity == 3
+    assert order.receipt_email == "player@example.com"
 
 
 def test_buy_set_pending_order_reuses(db):
@@ -168,7 +191,8 @@ def test_buy_set_partial_offer(db):
     assert sd.get("_partial_set_id") == s.id
 
 
-def test_partial_confirm_creates_order(db):
+def test_partial_confirm_asks_email(db):
+    from bot.fsm import AWAIT_RECEIPT_EMAIL
     import json
     u = _make_user(db, vk_id=5, state_data=json.dumps({
         "_partial_set_id": 1, "_partial_quantity": 2, "_partial_amount": 20000
@@ -178,24 +202,44 @@ def test_partial_confirm_creates_order(db):
     db.commit()
 
     msgs = []
-    kbs = []
+    handle_partial_confirm(u, db, lambda m, **k: msgs.append(m))
+    assert any("email" in m.lower() for m in msgs)
+    assert u.state == AWAIT_RECEIPT_EMAIL
+    order = db.query(PaymentOrder).filter(PaymentOrder.vk_id == u.vk_id).first()
+    assert order is None
 
+
+def test_partial_confirm_creates_order_after_email(db):
+    import json
+    u = _make_user(db, vk_id=5, state_data=json.dumps({
+        "_partial_set_id": 1, "_partial_quantity": 2, "_partial_amount": 20000
+    }))
+    s = _make_set(db, name="Стартовый", quantity=5)
+    s.id = 1
+    db.commit()
+
+    handle_partial_confirm(u, db, lambda m, **k: None)
+
+    msgs = []
+    kbs = []
     def send(m, keyboard=None, **k):
         msgs.append(m)
         kbs.append(keyboard)
 
-    handle_partial_confirm(u, db, send)
+    handle_receipt_email(u, "partial@example.com", db, send)
     msg = msgs[0]
-    assert "частичный" in msg.lower()
+    assert "Стартовый" in msg
+    assert "2 шт." in msg
     assert kbs[0] is not None
 
     order = db.query(PaymentOrder).filter(PaymentOrder.vk_id == u.vk_id).first()
     assert order is not None
     assert order.quantity == 2
     assert order.amount_rub == 20000
+    assert order.receipt_email == "partial@example.com"
 
     sd = json.loads(u.state_data or "{}")
-    assert "_partial_set_id" not in sd
+    assert "_pending_buy_set_id" not in sd
 
 
 def test_partial_confirm_no_data(db):
@@ -343,7 +387,50 @@ def test_buy_set_allowed_for_tester(db):
     msgs = []
     handle_buy_set(u, s.id, db, lambda m, **k: msgs.append(m))
     assert "Стартовый" in msgs[0]
+    assert "email" in msgs[0].lower()
 
+    handle_receipt_email(u, "tester@example.com", db, lambda m, **k: None)
     order = db.query(PaymentOrder).filter(PaymentOrder.vk_id == u.vk_id).first()
     assert order is not None
     assert order.status == "pending"
+
+
+# ─── Receipt email validation ───
+
+def test_receipt_email_invalid_reprompts(db):
+    from bot.fsm import AWAIT_RECEIPT_EMAIL
+    u = _make_user(db)
+    s = _make_set(db, name="Стартовый", quantity=3)
+    db.add(PricingConfig(id=1, base_price_per_dragon=10000))
+    for i in range(1, 6):
+        db.add(Dragon(name=f"D{i}", rarity=1, steps_count=1, is_active=True))
+    db.commit()
+
+    handle_buy_set(u, s.id, db, lambda m, **k: None)
+    assert u.state == AWAIT_RECEIPT_EMAIL
+
+    msgs = []
+    handle_receipt_email(u, "not-an-email", db, lambda m, **k: msgs.append(m))
+    assert "не email" in msgs[0].lower() or "ещё раз" in msgs[0].lower()
+    assert u.state == AWAIT_RECEIPT_EMAIL
+    order = db.query(PaymentOrder).filter(PaymentOrder.vk_id == u.vk_id).first()
+    assert order is None
+
+
+def test_receipt_email_no_data_returns_idle(db):
+    from bot.fsm import AWAIT_RECEIPT_EMAIL, IDLE
+    u = _make_user(db, state=AWAIT_RECEIPT_EMAIL, state_data="{}")
+    msgs = []
+    handle_receipt_email(u, "good@example.com", db, lambda m, **k: msgs.append(m))
+    assert u.state == IDLE
+    assert "не удалось" in msgs[0].lower()
+
+
+def test_cancel_payment_from_email_state_resets(db):
+    from bot.fsm import AWAIT_RECEIPT_EMAIL, IDLE
+    import json
+    u = _make_user(db, state=AWAIT_RECEIPT_EMAIL, state_data=json.dumps({"_pending_buy_set_id": 1}))
+    msgs = []
+    handle_cancel_payment(u, db, lambda m, **k: msgs.append(m))
+    assert u.state == IDLE
+    assert "отменён" in msgs[0].lower() or "отмен" in msgs[0].lower()

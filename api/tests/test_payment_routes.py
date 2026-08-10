@@ -727,6 +727,58 @@ def test_moneta_payment_form_prod_mode(client, db, monkeypatch):
     assert _extract_input(html, "MNT_TEST_MODE") == "0"
 
 
+def test_moneta_payment_form_contains_inventory(client, db, monkeypatch):
+    monkeypatch.setattr(config, "MONETA_MNT_ID", "54600817")
+    monkeypatch.setattr(config, "MONETA_INTEGRITY_CODE", "QWERTY")
+    monkeypatch.setattr(config, "MONETA_TEST_MODE", "0")
+    order = _make_moneta_pending_order(client, db, quantity=1)
+    html = _pay_html(client, order["order_id"], 42)
+    custom2_raw = _extract_input(html, "MNT_CUSTOM2")
+    assert custom2_raw is not None
+    import html as _html
+    import json as _json
+    inventory = _json.loads(_html.unescape(custom2_raw))
+    assert "items" in inventory
+    item = inventory["items"][0]
+    assert item["p"] == f"{order['amount_rub'] / 100:.2f}"
+    assert item["q"] == "1"
+    assert item["t"] == "1105"
+    assert item["pm"] == "full_payment"
+    assert item["po"] == "commodity"
+
+
+def test_moneta_payment_form_inventory_includes_customer(client, db, monkeypatch):
+    monkeypatch.setattr(config, "MONETA_MNT_ID", "54600817")
+    monkeypatch.setattr(config, "MONETA_INTEGRITY_CODE", "QWERTY")
+    monkeypatch.setattr(config, "MONETA_TEST_MODE", "0")
+    order = _make_moneta_pending_order(client, db, quantity=1)
+    o = db.query(PaymentOrder).filter(PaymentOrder.id == order["order_id"]).first()
+    o.receipt_email = "buyer@example.com"
+    db.commit()
+
+    html = _pay_html(client, order["order_id"], 42)
+    import html as _html
+    import json as _json
+    inventory = _json.loads(_html.unescape(_extract_input(html, "MNT_CUSTOM2")))
+    assert inventory["customer"] == "buyer@example.com"
+
+
+def test_moneta_payment_form_no_customer_without_email(client, db, monkeypatch):
+    monkeypatch.setattr(config, "MONETA_MNT_ID", "54600817")
+    monkeypatch.setattr(config, "MONETA_INTEGRITY_CODE", "QWERTY")
+    monkeypatch.setattr(config, "MONETA_TEST_MODE", "0")
+    order = _make_moneta_pending_order(client, db, quantity=1)
+    o = db.query(PaymentOrder).filter(PaymentOrder.id == order["order_id"]).first()
+    o.receipt_email = None
+    db.commit()
+
+    html = _pay_html(client, order["order_id"], 42)
+    import html as _html
+    import json as _json
+    inventory = _json.loads(_html.unescape(_extract_input(html, "MNT_CUSTOM2")))
+    assert "customer" not in inventory
+
+
 # ─── MONETA: callback (Pay URL) ───
 
 def _callback_sig(mnt_id, mnt_trx, mnt_operation_id, amount, code, test_mode="0"):

@@ -466,3 +466,17 @@ def payment_link_keyboard():
         garden_row(),
         bestiary_link_row(),
     ])
+
+
+def await_receipt_email_keyboard():
+    return _keyboard([
+        [{
+            "action": {
+                "type": "text",
+                "label": "❌ Отменить",
+                "payload": json.dumps({"cmd": "cancel_payment"}, ensure_ascii=False),
+            },
+            "color": "negative",
+        }],
+        garden_row(),
+    ])

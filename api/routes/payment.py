@@ -1,5 +1,6 @@
 import json
 import hashlib
+import html as html_mod
 from datetime import datetime, timedelta, timezone
 from urllib.parse import urlencode, quote_plus
 from fastapi import APIRouter, Depends, Request, HTTPException
@@ -410,6 +411,20 @@ def payment_post_redirect(request: Request, order_id: int, vk_id: int, db: Sessi
                      config.moneta_is_test(), signature, "",
                      f"POST redirect | mnt_id={mnt_id} mnt_trx={mnt_trx} amount={amount_str} no_sig={no_sig} (ip={client_ip})")
 
+        inventory = {
+            "items": [{
+                "n": description,
+                "p": amount_str,
+                "q": "1",
+                "t": "1105",
+                "pm": "full_payment",
+                "po": "commodity",
+            }],
+        }
+        if order.receipt_email:
+            inventory["customer"] = order.receipt_email
+        custom2 = json.dumps(inventory, ensure_ascii=False, separators=(",", ":"))
+
         fields = [
             ("MNT_ID", mnt_id),
             ("MNT_TRANSACTION_ID", mnt_trx),
@@ -417,6 +432,7 @@ def payment_post_redirect(request: Request, order_id: int, vk_id: int, db: Sessi
             ("MNT_AMOUNT", amount_str),
             ("MNT_DESCRIPTION", description),
             ("MNT_TEST_MODE", test_mode),
+            ("MNT_CUSTOM2", custom2),
             ("MNT_SUCCESS_URL", f"{config.SITE_URL}/api/payment/success"),
             ("MNT_FAIL_URL", f"{config.SITE_URL}/api/payment/fail"),
             ("MNT_RETURN_URL", f"{config.SITE_URL}/api/payment/return"),
@@ -425,7 +441,7 @@ def payment_post_redirect(request: Request, order_id: int, vk_id: int, db: Sessi
             fields.append(("MNT_SIGNATURE", signature))
 
         inputs = "\n".join(
-            f'<input type="hidden" name="{k}" value="{v}" />'
+            f'<input type="hidden" name="{k}" value="{html_mod.escape(str(v), quote=True)}" />'
             for k, v in fields
         )
 

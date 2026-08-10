@@ -1,11 +1,17 @@
 """Buy eggs handler — show packs from DB and generate payment links."""
 
 import json
+import re
 from datetime import datetime
 
 OFFERTA_TEXT = "\n\nПеред покупкой ознакомьтесь с условиями оферты: https://belovolovhome.ru/dragons/offerta.docx"
 
 PAYMENTS_UNAVAILABLE = "💳 Оплата временно недоступна — идут технические работы. Зайдите, пожалуйста, позже!"
+
+EMAIL_PROMPT = "📧 Для отправки чека об оплате (по 54-ФЗ) укажите ваш email:"
+EMAIL_INVALID = "Похоже, это не email. Попробуйте ещё раз:"
+
+_EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 
 def _now():
@@ -77,6 +83,86 @@ def _is_order_expired(order):
         return False
 
 
+def _ask_email(user, db, set_id, quantity, amount, price_per_pin):
+    sd = json.loads(user.state_data or "{}")
+    sd["_pending_buy_set_id"] = set_id
+    sd["_pending_quantity"] = quantity
+    sd["_pending_amount"] = amount
+    sd["_pending_price_per_pin"] = price_per_pin
+    user.state_data = json.dumps(sd, ensure_ascii=False)
+    from bot.fsm import AWAIT_RECEIPT_EMAIL
+    user.state = AWAIT_RECEIPT_EMAIL
+    db.commit()
+    from bot.keyboard import await_receipt_email_keyboard
+    send = None
+    return await_receipt_email_keyboard()
+
+
+def _create_pending_order(user, db, set_id, quantity, amount, price_per_pin, email):
+    from models import PaymentOrder
+    from services.payment_service import get_active_provider
+    order = PaymentOrder(
+        vk_id=user.vk_id,
+        set_id=set_id,
+        amount_rub=amount,
+        quantity=quantity,
+        price_per_pin=price_per_pin,
+        provider=get_active_provider(db),
+        receipt_email=email.strip().lower(),
+        status="pending",
+        dragon_ids="[]",
+        created_at=_now(),
+    )
+    db.add(order)
+    db.commit()
+    db.refresh(order)
+    _store_payment(user, order.id, db)
+    return order
+
+
+def handle_receipt_email(user, text, db, send_message):
+    from bot.fsm import IDLE, AWAIT_RECEIPT_EMAIL
+    email = (text or "").strip()
+    if not _EMAIL_RE.match(email):
+        from bot.keyboard import await_receipt_email_keyboard
+        send_message(EMAIL_INVALID, keyboard=await_receipt_email_keyboard())
+        return
+
+    sd = json.loads(user.state_data or "{}")
+    set_id = sd.pop("_pending_buy_set_id", None)
+    quantity = sd.pop("_pending_quantity", None)
+    amount = sd.pop("_pending_amount", None)
+    price_per_pin = sd.pop("_pending_price_per_pin", None)
+    user.state_data = json.dumps(sd, ensure_ascii=False)
+
+    if set_id is None or quantity is None or amount is None:
+        user.state = IDLE
+        db.commit()
+        send_message("❌ Не удалось оформить заказ. Попробуй снова.")
+        return
+
+    order = _create_pending_order(user, db, set_id, quantity, amount, price_per_pin, email)
+    user.state = IDLE
+    db.commit()
+
+    from models import DragonSet
+    dset = db.query(DragonSet).filter(DragonSet.id == set_id).first()
+    set_name = dset.name if dset else "Набор драконов"
+    amount_rub = amount // 100
+
+    from bot.keyboard import payment_link_keyboard
+    send_message(
+        f"🛒 Набор «{set_name}»\n"
+        f"🥚 {quantity} шт.\n"
+        f"💰 {amount_rub} ₽\n\n"
+        f"📧 Чек будет отправлен на {email}\n\n"
+        f"💡 Ссылка на оплату действует 1 час.\n"
+        f"Нажми кнопку ниже, чтобы перейти к оплате:"
+        + OFFERTA_TEXT,
+        keyboard=payment_link_keyboard(),
+    )
+
+
 def handle_buy_set(user, set_id, db, send_message):
     from models import DragonSet, PaymentOrder
     from services.payment_service import is_donor, calc_set_price, count_available, get_active_provider, is_payment_blocked_for
@@ -138,49 +224,31 @@ def handle_buy_set(user, set_id, db, send_message):
         sd["_partial_set_id"] = set_id
         sd["_partial_quantity"] = available
         sd["_partial_amount"] = available * price_per_pin
+        sd["_partial_price_per_pin"] = price_per_pin
         user.state_data = json.dumps(sd, ensure_ascii=False)
         db.commit()
         return
 
-    amount_rub = amount // 100
-    order = PaymentOrder(
-        vk_id=user.vk_id,
-        set_id=set_id,
-        amount_rub=amount,
-        quantity=quantity,
-        price_per_pin=price_per_pin,
-        provider=get_active_provider(db),
-        status="pending",
-        dragon_ids="[]",
-        created_at=_now(),
-    )
-    db.add(order)
-    db.commit()
-    db.refresh(order)
-
-    _store_payment(user, order.id, db)
-    from bot.keyboard import payment_link_keyboard
-
+    kb = _ask_email(user, db, set_id, quantity, amount, price_per_pin)
     donor_text = " (дон-скидка)" if donor else ""
+    amount_rub = amount // 100
     send_message(
         f"🛒 Набор «{dset.name}»\n"
         f"🥚 {quantity} шт.\n"
         f"💰 {amount_rub} ₽{donor_text}\n\n"
-        f"💡 Ссылка на оплату действует 1 час.\n"
-        f"Нажми кнопку ниже, чтобы перейти к оплате:"
-        + OFFERTA_TEXT,
-        keyboard=payment_link_keyboard(),
+        + EMAIL_PROMPT,
+        keyboard=kb,
     )
 
 
 def handle_partial_confirm(user, db, send_message):
-    from models import DragonSet, PaymentOrder
-    from services.payment_service import is_donor, get_active_provider
+    from models import DragonSet
 
     sd = json.loads(user.state_data or "{}")
     set_id = sd.pop("_partial_set_id", None)
     quantity = sd.pop("_partial_quantity", None)
     amount = sd.pop("_partial_amount", None)
+    price_per_pin = sd.pop("_partial_price_per_pin", None) or (amount // quantity if quantity else 0)
     user.state_data = json.dumps(sd, ensure_ascii=False)
 
     if not set_id or not quantity or not amount:
@@ -194,36 +262,14 @@ def handle_partial_confirm(user, db, send_message):
         send_message("❌ Набор не найден.")
         return
 
-    donor = is_donor(user.vk_id, db)
-
-    order = PaymentOrder(
-        vk_id=user.vk_id,
-        set_id=set_id,
-        amount_rub=amount,
-        quantity=quantity,
-        price_per_pin=amount // quantity,
-        provider=get_active_provider(db),
-        status="pending",
-        dragon_ids="[]",
-        created_at=_now(),
-    )
-    db.add(order)
-    db.commit()
-    db.refresh(order)
-
-    _store_payment(user, order.id, db)
-    from bot.keyboard import payment_link_keyboard
-
+    kb = _ask_email(user, db, set_id, quantity, amount, price_per_pin)
     amount_rub = amount // 100
-    donor_text = " (дон-скидка)" if donor else ""
     send_message(
         f"🛒 Набор «{dset.name}» (частичный)\n"
         f"🥚 {quantity} шт.\n"
-        f"💰 {amount_rub} ₽{donor_text}\n\n"
-        f"💡 Ссылка на оплату действует 1 час.\n"
-        f"Нажми кнопку ниже, чтобы перейти к оплате:"
-        + OFFERTA_TEXT,
-        keyboard=payment_link_keyboard(),
+        f"💰 {amount_rub} ₽\n\n"
+        + EMAIL_PROMPT,
+        keyboard=kb,
     )
 
 
@@ -290,29 +336,45 @@ def handle_open_payment(user, db, send_message):
 
 def handle_cancel_payment(user, db, send_message):
     from models import PaymentOrder
+    from bot.fsm import IDLE
 
     sd = json.loads(user.state_data or "{}")
+    has_pending_email = any(k in sd for k in ("_pending_buy_set_id", "_partial_set_id"))
+    for k in ("_pending_buy_set_id", "_pending_quantity", "_pending_amount",
+              "_pending_price_per_pin", "_partial_set_id", "_partial_quantity",
+              "_partial_amount", "_partial_price_per_pin"):
+        sd.pop(k, None)
     order_id = sd.pop("_payment_order_id", None)
+
     if not order_id:
-        send_message("❌ Нет активного заказа для отмены.")
-        user.state_data = json.dumps(sd, ensure_ascii=False)
-        db.commit()
+        if has_pending_email:
+            user.state = IDLE
+            user.state_data = json.dumps(sd, ensure_ascii=False)
+            db.commit()
+            send_message("✅ Ввод email отменён. Если передумаешь — выбери набор заново.")
+        else:
+            send_message("❌ Нет активного заказа для отмены.")
+            user.state_data = json.dumps(sd, ensure_ascii=False)
+            db.commit()
         return
 
     order = db.query(PaymentOrder).filter(PaymentOrder.id == order_id).first()
     if not order:
+        user.state = IDLE
         send_message("❌ Заказ не найден.")
         user.state_data = json.dumps(sd, ensure_ascii=False)
         db.commit()
         return
 
     if order.status != "pending":
+        user.state = IDLE
         send_message(f"❌ Заказ уже {order.status}, отмена невозможна.")
         user.state_data = json.dumps(sd, ensure_ascii=False)
         db.commit()
         return
 
     order.status = "cancelled"
+    user.state = IDLE
     user.state_data = json.dumps(sd, ensure_ascii=False)
     db.commit()
 

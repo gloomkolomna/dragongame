@@ -3051,6 +3051,7 @@ def list_payment_orders(
             "provider": order.provider or "robokassa",
             "robokassa_inv_id": order.robokassa_inv_id,
             "robokassa_inv_id_expected": inv_id_for_order(order.id),
+            "receipt_email": order.receipt_email,
             "status": order.status,
             "dragon_ids": json.loads(order.dragon_ids or "[]"),
             "notified": order.notified,
