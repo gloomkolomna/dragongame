@@ -394,7 +394,7 @@ def payment_post_redirect(request: Request, order_id: int, vk_id: int, db: Sessi
         return HTMLResponse(f"<h1>Заказ уже {order.status}</h1>", status_code=400)
 
     dset = db.query(DragonSet).filter(DragonSet.id == order.set_id).first()
-    description = f"Набор «{dset.name}»" if dset else "Набор драконов"
+    description = f"Набор цифровых товаров «{dset.name}»" if dset else "Набор драконов"
 
     provider = order.provider or "robokassa"
     if provider == "moneta":
