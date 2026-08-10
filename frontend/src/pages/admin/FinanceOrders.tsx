@@ -14,13 +14,16 @@ interface PaymentOrder {
   provider: string;
   robokassa_inv_id: number | null;
   robokassa_inv_id_expected: number;
-  selfwork_order_id: string | null;
   status: string;
   dragon_ids: number[];
   notified: boolean;
   created_at: string;
   completed_at: string | null;
 }
+
+const providerLabel = (p: string) => p === 'moneta' ? 'PayAnyWay' : 'Robokassa';
+const providerColor = (p: string) => p === 'moneta' ? 'var(--success)' : 'var(--parchment-dim)';
+const extId = (o: PaymentOrder) => o.provider === 'moneta' ? String(o.id) : String(o.robokassa_inv_id_expected);
 
 const COLUMNS: Column<PaymentOrder>[] = [
   { key: 'id', label: '№', value: (o) => String(o.id), sortValue: (o) => o.id, width: 40 },
@@ -29,8 +32,8 @@ const COLUMNS: Column<PaymentOrder>[] = [
   { key: 'quantity', label: 'Кол-во', value: (o) => String(o.quantity), sortValue: (o) => o.quantity },
   { key: 'amount', label: 'Сумма', value: (o) => `${(o.amount_rub / 100).toFixed(2)}₽`, sortValue: (o) => o.amount_rub },
   { key: 'price_per_pin', label: 'Цена/PIN', value: (o) => `${(o.price_per_pin / 100).toFixed(2)}₽`, sortValue: (o) => o.price_per_pin },
-  { key: 'provider', label: 'Провайдер', value: (o) => (o.provider || 'robokassa') === 'selfwork' ? 'Selfwork' : 'Robokassa', filter: 'select' },
-  { key: 'ext_id', label: 'ID платежа', value: (o) => (o.provider === 'selfwork' ? (o.selfwork_order_id || '—') : String(o.robokassa_inv_id_expected)), sortValue: (o) => o.provider === 'selfwork' ? (o.selfwork_order_id || '') : o.robokassa_inv_id_expected, width: 90 },
+  { key: 'provider', label: 'Провайдер', value: (o) => providerLabel(o.provider || 'robokassa'), filter: 'select' },
+  { key: 'ext_id', label: 'ID платежа', value: (o) => extId(o), sortValue: (o) => extId(o), width: 90 },
   { key: 'status', label: 'Статус', value: (o) => (o.status === 'success' ? 'Успех' : o.status === 'pending' ? 'Ожидание' : 'Отказ'), filter: 'select' },
   { key: 'notified', label: 'Уведом.', value: (o) => (o.notified ? 'Да' : 'Нет'), filter: 'select' },
   { key: 'created_at', label: 'Создан (МСК)', value: (o) => o.created_at?.slice(0, 16).replace('T', ' ') || '—', sortValue: (o) => o.created_at || '' },
@@ -88,8 +91,8 @@ function FinanceOrders({ hideHeader }: { hideHeader?: boolean }) {
                           <td>{o.quantity}</td>
                           <td style={{ color: 'var(--gold)', fontWeight: 600 }}>{(o.amount_rub / 100).toFixed(2)}₽</td>
                           <td style={{ color: 'var(--parchment-dim)' }}>{(o.price_per_pin / 100).toFixed(2)}₽</td>
-                          <td style={{ fontSize: 13, color: (o.provider || 'robokassa') === 'selfwork' ? 'var(--success)' : 'var(--parchment-dim)' }}>{(o.provider || 'robokassa') === 'selfwork' ? 'Selfwork' : 'Robokassa'}</td>
-                          <td style={{ color: 'var(--parchment-dim)', fontFamily: 'monospace', fontSize: 13 }}>{o.provider === 'selfwork' ? (o.selfwork_order_id || '—') : o.robokassa_inv_id_expected}</td>
+                          <td style={{ fontSize: 13, color: providerColor(o.provider || 'robokassa') }}>{providerLabel(o.provider || 'robokassa')}</td>
+                          <td style={{ color: 'var(--parchment-dim)', fontFamily: 'monospace', fontSize: 13 }}>{extId(o)}</td>
                           <td style={{ color: st.color, fontWeight: 600 }}>{st.text}</td>
                           <td>{o.notified ? '✅' : '❌'}</td>
                           <td style={{ fontSize: 13, color: 'var(--parchment-faded)' }}>{o.created_at?.slice(0, 16).replace('T', ' ') || '—'}</td>

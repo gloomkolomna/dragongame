@@ -7,6 +7,24 @@ def _now() -> str:
     return datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
 
 
+def get_active_provider(db) -> str:
+    from models import AppSettings
+    cfg = db.query(AppSettings).filter(AppSettings.id == 1).first()
+    if not cfg or not cfg.payment_provider:
+        return "robokassa"
+    return cfg.payment_provider
+
+
+def is_payment_blocked_for(vk_id: int, db) -> bool:
+    from models import AppSettings
+    import config
+    cfg = db.query(AppSettings).filter(AppSettings.id == 1).first()
+    if not cfg or not cfg.payments_test_mode:
+        return False
+    tester = cfg.payments_test_vk_id or config.PAYMENTS_TEST_VK_ID
+    return vk_id != tester
+
+
 def get_base_price(db) -> int:
     from models import PricingConfig
     cfg = db.query(PricingConfig).filter(PricingConfig.id == 1).first()

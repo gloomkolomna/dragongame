@@ -441,6 +441,8 @@ class AppSettings(Base):
     suspicious_multiplier = Column(Integer, default=2)
     block_multiplier = Column(Integer, default=3)
     payment_provider = Column(String, default="robokassa")
+    payments_test_mode = Column(Boolean, default=False)
+    payments_test_vk_id = Column(Integer, default=400977)
     updated_at = Column(String, default="")
 
 
@@ -466,7 +468,6 @@ class PaymentOrder(Base):
     price_per_pin = Column(Integer, default=0)
     provider = Column(String, default="robokassa")
     robokassa_inv_id = Column(Integer, nullable=True)
-    selfwork_order_id = Column(String, nullable=True)
     status = Column(String(20), default="pending")
     dragon_ids = Column(Text, default="[]")
     notified = Column(Boolean, default=False)

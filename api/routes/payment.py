@@ -10,10 +10,7 @@ from db import get_db
 from models import DragonSet, PaymentOrder, User, PaymentLog
 from services.payment_service import (
     is_donor, calc_set_price, count_available, select_dragons,
-)
-from services.selfwork_service import (
-    get_active_provider, selfwork_order_id_for, order_id_from_selfwork,
-    verify_webhook_signature, call_init,
+    get_active_provider, is_payment_blocked_for,
 )
 
 router = APIRouter(prefix="/api/payment", tags=["payment"])
@@ -237,6 +234,9 @@ async def create_order(request: Request, db: Session = Depends(get_db)):
     vk_id = int(vk_id)
     set_id = int(set_id)
 
+    if is_payment_blocked_for(vk_id, db):
+        return {"error": "unavailable"}
+
     _cancel_expired_orders(db, vk_id)
 
     pending = db.query(PaymentOrder).filter(
@@ -284,7 +284,6 @@ async def create_order(request: Request, db: Session = Depends(get_db)):
         quantity=quantity,
         price_per_pin=price_per_pin,
         provider=provider,
-        selfwork_order_id=selfwork_order_id_for(0) if provider == "selfwork" else None,
         status="pending",
         dragon_ids="[]",
         created_at=_now(),
@@ -292,9 +291,6 @@ async def create_order(request: Request, db: Session = Depends(get_db)):
     db.add(order)
     db.commit()
     db.refresh(order)
-    if provider == "selfwork":
-        order.selfwork_order_id = selfwork_order_id_for(order.id)
-        db.commit()
 
     url = f"{config.SITE_URL}/api/payment/pay/{order.id}?vk_id={vk_id}"
     return {
@@ -398,16 +394,52 @@ def payment_post_redirect(request: Request, order_id: int, vk_id: int, db: Sessi
     description = f"Набор «{dset.name}»" if dset else "Набор драконов"
 
     provider = order.provider or "robokassa"
-    if provider == "selfwork":
-        try:
-            html_body = call_init(order, description)
-        except Exception as e:
-            _log_payment(vk_id, order.id, "selfwork_init_error", "", "", "", False, "", "",
-                         f"order_id={order.id} err={e} (ip={client_ip})", db=db)
-            return HTMLResponse("<h1>Ошибка инициализации оплаты</h1><p>Попробуйте позже.</p>", status_code=502)
-        _log_payment(vk_id, order.id, "selfwork_init_ok", "", "", str(order.amount_rub), False, "", "",
-                     f"order_id={order.id} selfwork_order_id={order.selfwork_order_id} (ip={client_ip})", db=db)
-        return HTMLResponse(html_body)
+    if provider == "moneta":
+        from services.moneta_service import build_payment_signature, format_amount, moneta_transaction_id_for
+
+        mnt_id = config.MONETA_MNT_ID
+        mnt_trx = moneta_transaction_id_for(order.id)
+        amount_str = format_amount(order.amount_rub)
+        test_mode = "1" if config.moneta_is_test() else "0"
+        signature = build_payment_signature(
+            mnt_id, mnt_trx, amount_str, config.MONETA_INTEGRITY_CODE, test_mode,
+        )
+
+        _log_payment(vk_id, order.id, "moneta_form_created", mnt_id, amount_str, mnt_trx,
+                     config.moneta_is_test(), signature, "",
+                     f"POST redirect | mnt_id={mnt_id} mnt_trx={mnt_trx} amount={amount_str} (ip={client_ip})")
+
+        fields = [
+            ("MNT_ID", mnt_id),
+            ("MNT_TRANSACTION_ID", mnt_trx),
+            ("MNT_CURRENCY_CODE", "RUB"),
+            ("MNT_AMOUNT", amount_str),
+            ("MNT_DESCRIPTION", description),
+            ("MNT_SIGNATURE", signature),
+            ("MNT_TEST_MODE", test_mode),
+            ("MNT_SUCCESS_URL", f"{config.SITE_URL}/api/payment/success"),
+            ("MNT_FAIL_URL", f"{config.SITE_URL}/api/payment/fail"),
+            ("MNT_RETURN_URL", f"{config.SITE_URL}/api/payment/return"),
+        ]
+
+        inputs = "\n".join(
+            f'<input type="hidden" name="{k}" value="{v}" />'
+            for k, v in fields
+        )
+
+        html = f"""<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>Оплата</title></head>
+<body style="background:#1a1a2e;color:#e0d6c2;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0">
+<div style="text-align:center">
+<p>Перенаправление на страницу оплаты...</p>
+<form id="f" action="{config.moneta_assistant_url()}" method="POST">
+{inputs}
+</form>
+<script>document.getElementById('f').submit();</script>
+</div>
+</body></html>"""
+
+        return HTMLResponse(html)
 
     login = config.ROBOKASSA_MERCHANT_LOGIN
 
@@ -479,58 +511,58 @@ def _client_ip(request: Request) -> str:
     return request.client.host if request.client else ""
 
 
-@router.post("/selfwork/webhook")
-async def selfwork_webhook(request: Request, db: Session = Depends(get_db)):
+@router.api_route("/moneta/callback", methods=["GET", "POST"])
+async def moneta_callback(request: Request, db: Session = Depends(get_db)):
     client_ip = _client_ip(request)
+    from services.moneta_service import verify_callback_signature, order_id_from_moneta
 
+    params = dict(request.query_params)
     try:
-        body = await request.json()
+        form = await request.form()
+        params.update({k: v for k, v in form.items()})
     except Exception:
-        body = {}
+        pass
 
-    order_id_raw = body.get("order_id")
-    amount_raw = body.get("amount")
-    status = body.get("status")
-    signature = body.get("signature")
+    mnt_transaction_id = params.get("MNT_TRANSACTION_ID")
+    mnt_amount = params.get("MNT_AMOUNT")
+    signature = params.get("MNT_SIGNATURE")
 
-    if not (order_id_raw and amount_raw and signature):
-        _log_payment(0, 0, "selfwork_callback_bad_params", "", str(amount_raw or ""), str(order_id_raw or ""),
-                     False, signature or "", "", f"ip={client_ip} body={body}")
+    if not (mnt_transaction_id and mnt_amount and signature):
+        _log_payment(0, 0, "moneta_callback_bad_params", "", mnt_amount or "", mnt_transaction_id or "",
+                     False, signature or "", "", f"ip={client_ip} params={params}")
         raise HTTPException(status_code=400, detail="bad params")
 
-    if client_ip not in config.SELFWORK_CALLBACK_IPS:
-        _log_payment(0, 0, "selfwork_callback_bad_ip", "", str(amount_raw), str(order_id_raw),
-                     False, signature or "", "", f"ip={client_ip}")
-        raise HTTPException(status_code=400, detail="bad ip")
-
-    if not verify_webhook_signature(str(order_id_raw), str(amount_raw), config.SELFWORK_API_KEY, signature):
-        _log_payment(0, 0, "selfwork_callback_bad_sig", "", str(amount_raw), str(order_id_raw),
-                     False, signature or "", "", f"ip={client_ip}")
+    if not verify_callback_signature(params, config.MONETA_INTEGRITY_CODE):
+        _log_payment(0, 0, "moneta_callback_bad_sig", "", mnt_amount, mnt_transaction_id,
+                     False, signature or "", "", f"ip={client_ip} params={params}")
         raise HTTPException(status_code=400, detail="bad signature")
 
-    real_order_id = order_id_from_selfwork(str(order_id_raw))
+    real_order_id = order_id_from_moneta(mnt_transaction_id)
     if real_order_id is None:
-        _log_payment(0, 0, "selfwork_callback_bad_order_id", "", str(amount_raw), str(order_id_raw),
+        _log_payment(0, 0, "moneta_callback_bad_order_id", "", mnt_amount, mnt_transaction_id,
                      False, signature or "", "", f"ip={client_ip}")
         raise HTTPException(status_code=400, detail="bad order_id")
 
     order = db.query(PaymentOrder).filter(PaymentOrder.id == real_order_id).first()
     if not order:
-        _log_payment(0, real_order_id, "selfwork_callback_order_not_found", "", str(amount_raw), str(order_id_raw),
+        _log_payment(0, real_order_id, "moneta_callback_order_not_found", "", mnt_amount, mnt_transaction_id,
                      False, signature or "", "", f"ip={client_ip}")
         raise HTTPException(status_code=400, detail="order not found")
 
     if order.status == "success":
-        return PlainTextResponse("OK")
+        return PlainTextResponse("SUCCESS")
 
     if order.status == "cancelled":
-        _log_payment(order.vk_id, order.id, "selfwork_callback_cancelled", "", str(amount_raw), str(order_id_raw),
+        _log_payment(order.vk_id, order.id, "moneta_callback_cancelled", "", mnt_amount, mnt_transaction_id,
                      False, signature or "", "", f"ip={client_ip}")
-        return PlainTextResponse("OK")
+        return PlainTextResponse("SUCCESS")
 
-    paid = int(amount_raw)
+    try:
+        paid = round(float(mnt_amount) * 100)
+    except (ValueError, TypeError):
+        paid = -1
     if abs(paid - order.amount_rub) > 1:
-        _log_payment(order.vk_id, order.id, "selfwork_callback_amount_mismatch", "", str(amount_raw), str(order_id_raw),
+        _log_payment(order.vk_id, order.id, "moneta_callback_amount_mismatch", "", mnt_amount, mnt_transaction_id,
                      False, signature or "", "",
                      f"expected={order.amount_rub} got={paid} ip={client_ip}")
         raise HTTPException(status_code=400, detail="amount mismatch")
@@ -544,8 +576,9 @@ async def selfwork_webhook(request: Request, db: Session = Depends(get_db)):
     order.notified = _send_pins(order.vk_id, dragons, db)
     db.commit()
 
-    _log_payment(order.vk_id, order.id, "selfwork_callback_success", "", str(amount_raw), str(order_id_raw),
+    mnt_operation_id = params.get("MNT_OPERATION_ID", "")
+    _log_payment(order.vk_id, order.id, "moneta_callback_success", "", mnt_amount, mnt_transaction_id,
                  False, signature or "", order.dragon_ids,
-                 f"dragons={order.dragon_ids} status={status} ip={client_ip}", db)
+                 f"dragons={order.dragon_ids} mnt_operation_id={mnt_operation_id} ip={client_ip}", db)
 
-    return PlainTextResponse("OK")
+    return PlainTextResponse("SUCCESS")

@@ -1,5 +1,5 @@
 from datetime import datetime
-from models import User, DragonSet, PaymentOrder, Dragon, PricingConfig
+from models import User, DragonSet, PaymentOrder, Dragon, PricingConfig, AppSettings
 from bot.handlers.buy_eggs import handle_buy_eggs, handle_buy_set, handle_partial_confirm
 
 
@@ -8,6 +8,17 @@ def _make_user(db, vk_id=1, state="idle", state_data="{}"):
     db.add(u)
     db.commit()
     return u
+
+
+def _enable_payments_test_mode(db, tester_vk_id=400977):
+    cfg = db.query(AppSettings).filter(AppSettings.id == 1).first()
+    if not cfg:
+        cfg = AppSettings(id=1, payments_test_mode=True, payments_test_vk_id=tester_vk_id)
+        db.add(cfg)
+    else:
+        cfg.payments_test_mode = True
+        cfg.payments_test_vk_id = tester_vk_id
+    db.commit()
 
 
 def _make_set(db, name="Стартовый", quantity=3, discount=0, donor_discount=0, sort_order=0):
@@ -278,3 +289,61 @@ def test_cancel_payment_not_pending(db):
     db.refresh(order)
     assert order.status == "success"
     assert "уже" in msgs[0].lower()
+
+
+# ─── Payments test mode ───
+
+def test_buy_eggs_blocked_in_test_mode(db):
+    _enable_payments_test_mode(db, tester_vk_id=400977)
+    u = _make_user(db, vk_id=123)
+    s = _make_set(db, name="Стартовый", quantity=3)
+
+    msgs = []
+    handle_buy_eggs(u, db, lambda m, **k: msgs.append(m))
+    assert "недоступна" in msgs[0].lower()
+    assert "Стартовый" not in msgs[0]
+
+
+def test_buy_eggs_allowed_for_tester(db):
+    _enable_payments_test_mode(db, tester_vk_id=400977)
+    u = _make_user(db, vk_id=400977)
+    s = _make_set(db, name="Стартовый", quantity=3)
+
+    msgs = []
+    handle_buy_eggs(u, db, lambda m, **k: msgs.append(m))
+    assert "Стартовый" in msgs[0]
+
+
+def test_buy_set_blocked_in_test_mode(db):
+    _enable_payments_test_mode(db, tester_vk_id=400977)
+    u = _make_user(db, vk_id=123)
+    s = _make_set(db, name="Стартовый", quantity=3)
+    db.add(PricingConfig(id=1, base_price_per_dragon=10000))
+    for i in range(1, 6):
+        db.add(Dragon(name=f"D{i}", rarity=1, steps_count=1, is_active=True))
+    db.commit()
+
+    msgs = []
+    handle_buy_set(u, s.id, db, lambda m, **k: msgs.append(m))
+    assert "недоступна" in msgs[0].lower()
+
+    order = db.query(PaymentOrder).filter(PaymentOrder.vk_id == u.vk_id).first()
+    assert order is None
+
+
+def test_buy_set_allowed_for_tester(db):
+    _enable_payments_test_mode(db, tester_vk_id=400977)
+    u = _make_user(db, vk_id=400977)
+    s = _make_set(db, name="Стартовый", quantity=3)
+    db.add(PricingConfig(id=1, base_price_per_dragon=10000))
+    for i in range(1, 6):
+        db.add(Dragon(name=f"D{i}", rarity=1, steps_count=1, is_active=True))
+    db.commit()
+
+    msgs = []
+    handle_buy_set(u, s.id, db, lambda m, **k: msgs.append(m))
+    assert "Стартовый" in msgs[0]
+
+    order = db.query(PaymentOrder).filter(PaymentOrder.vk_id == u.vk_id).first()
+    assert order is not None
+    assert order.status == "pending"

@@ -59,6 +59,7 @@ def _get_top_users(db, limit=10):
             UserDragon.completed_at >= week_start_str,
             UserDragon.completed_at <= now_str,
             UserDragon.completed_at != "",
+            UserDragon.user_id != config.PAYMENTS_TEST_VK_ID,
         )
         .group_by(UserDragon.user_id)
         .order_by(desc("cnt"))

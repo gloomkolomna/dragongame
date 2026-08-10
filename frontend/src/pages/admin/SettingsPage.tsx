@@ -6,6 +6,8 @@ function SettingsPage() {
   const [suspiciousMult, setSuspiciousMult] = useState(2);
   const [blockMult, setBlockMult] = useState(3);
   const [provider, setProvider] = useState('robokassa');
+  const [testMode, setTestMode] = useState(false);
+  const [testVkId, setTestVkId] = useState(400977);
   const [load, setLoad] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -18,6 +20,8 @@ function SettingsPage() {
         setSuspiciousMult(r.data.suspicious_multiplier ?? 2);
         setBlockMult(r.data.block_multiplier ?? 3);
         setProvider(r.data.payment_provider || 'robokassa');
+        setTestMode(r.data.payments_test_mode ?? false);
+        setTestVkId(r.data.payments_test_vk_id ?? 400977);
       })
       .finally(() => setLoad(false));
   }, []);
@@ -30,11 +34,15 @@ function SettingsPage() {
         suspicious_multiplier: suspiciousMult,
         block_multiplier: blockMult,
         payment_provider: provider,
+        payments_test_mode: testMode,
+        payments_test_vk_id: testVkId,
       });
       setKeyword(r.data.welcome_keyword);
       setSuspiciousMult(r.data.suspicious_multiplier);
       setBlockMult(r.data.block_multiplier);
       setProvider(r.data.payment_provider || 'robokassa');
+      setTestMode(r.data.payments_test_mode ?? false);
+      setTestVkId(r.data.payments_test_vk_id ?? 400977);
       setSaved(true);
     } catch (e: any) {
       setError(e?.response?.data?.detail || 'Ошибка');
@@ -110,10 +118,41 @@ function SettingsPage() {
               style={{ width: '100%', fontSize: 18 }}
             >
               <option value="robokassa">Robokassa</option>
-              <option value="selfwork">Selfwork (Сам.Эквайринг)</option>
+              <option value="moneta">PayAnyWay (MONETA.Assistant)</option>
             </select>
             <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 6 }}>
               Через какого провайдера оформляются новые заказы наборов яиц. Уже созданные заказы остаются на своём провайдере.
+            </div>
+          </div>
+        </div>
+
+        <div className="lair-card" style={{ maxWidth: 420, marginBottom: 16 }}>
+          <div style={{ marginBottom: 16 }}>
+            <label className="lair-label" style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+              <input
+                type="checkbox"
+                checked={testMode}
+                onChange={(e) => { setSaved(false); setTestMode(e.target.checked); }}
+                style={{ width: 18, height: 18 }}
+              />
+              🔧 Режим тестирования платежей
+            </label>
+            <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 6 }}>
+              Включено: оплата доступна только указанному VK ID. Остальные игроки видят сообщение «оплата временно недоступна».
+            </div>
+          </div>
+          <div>
+            <label className="lair-label">VK ID тестера</label>
+            <input
+              className="lair-input"
+              type="text"
+              inputMode="numeric"
+              value={testVkId}
+              onChange={(e) => { setSaved(false); setTestVkId(Number(e.target.value.replace(/\D/g, '')) || 0); }}
+              style={{ width: '100%', fontSize: 18, fontFamily: 'var(--font-mono)' }}
+            />
+            <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 6 }}>
+              Пользователь с этим ID сможет оформлять и оплачивать заказы даже в режиме тестирования.
             </div>
           </div>
         </div>

@@ -33,6 +33,7 @@ VK_APP_SECRET = os.getenv("VK_APP_SECRET", "")
 VK_GROUP_TOKEN = os.getenv("VK_GROUP_TOKEN", "")
 VK_GROUP_ID = _env_int("VK_GROUP_ID", 0)
 ADMIN_VK_ID = _env_int("ADMIN_VK_ID", 0)
+PAYMENTS_TEST_VK_ID = _env_int("PAYMENTS_TEST_VK_ID", 400977)
 
 # ── Анти-чит ──
 ANTI_CHEAT_MULTIPLIER = _env_int("ANTI_CHEAT_MULTIPLIER", 5)
@@ -55,13 +56,20 @@ ROBOKASSA_INV_ID_OFFSET = _env_int("ROBOKASSA_INV_ID_OFFSET", 100)
 SITE_URL = os.getenv("SITE_URL", "https://belovolovhome.ru/dragons")
 VK_GROUP_URL = os.getenv("VK_GROUP_URL", "https://vk.ru/bestiaryofdragonlegends")
 
-# ── Selfwork (Сам.Эквайринг) ──
-SELFWORK_SHOP_ID = os.getenv("SELFWORK_SHOP_ID", "0210419")
-SELFWORK_API_KEY = os.getenv("SELFWORK_API_KEY", "")
-SELFWORK_INIT_URL = "https://pro.selfwork.ru/merchant/v1/init"
-SELFWORK_STATUS_URL = "https://pro.selfwork.ru/merchant/v1/status"
-SELFWORK_ORIGIN = os.getenv("SELFWORK_ORIGIN", SITE_URL.rstrip("/"))
-SELFWORK_CALLBACK_IPS = ["178.205.169.35", "81.23.144.157"]
+# ── PayAnyWay (MONETA.Assistant) ──
+MONETA_MNT_ID = os.getenv("MONETA_MNT_ID", "")
+MONETA_INTEGRITY_CODE = os.getenv("MONETA_INTEGRITY_CODE", "")
+MONETA_TEST_MODE = os.getenv("MONETA_TEST_MODE", "1")
+
+
+def moneta_is_test() -> bool:
+    return str(MONETA_TEST_MODE).strip() == "1"
+
+
+def moneta_assistant_url() -> str:
+    if moneta_is_test():
+        return "https://demo.moneta.ru/assistant.htm"
+    return "https://www.payanyway.ru/assistant.htm"
 
 
 def robokassa_is_test() -> bool:

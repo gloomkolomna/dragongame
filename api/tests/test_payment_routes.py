@@ -619,39 +619,56 @@ def test_cancel_expired_orders_idempotent(client, db):
     assert order.status == "cancelled"
 
 
-# ─── Selfwork: init signature ───
+# ─── MONETA: service helpers ───
 
-def test_selfwork_init_signature():
-    from services.selfwork_service import build_init_signature
-    info = [
-        {"name": "Cвитер ручной работы", "quantity": "2", "amount": "100000"},
-        {"name": "Штаны ручной работы", "quantity": "1", "amount": "200000"},
-    ]
-    sig = build_init_signature("97e196c0-a344-4230-a028", "400000", info, "UxYjU5ZDMxOGU1ZmFjYzE3")
-    assert sig == "bb79c263a69ccbd616c11e94c53c47399a32d9a103797839726ba661d374a551"
+def test_moneta_order_id_roundtrip():
+    from services.moneta_service import moneta_transaction_id_for, order_id_from_moneta
+    assert moneta_transaction_id_for(123) == "123"
+    assert order_id_from_moneta("123") == 123
+    assert order_id_from_moneta("abc") is None
+    assert order_id_from_moneta(None) is None
 
 
-def test_selfwork_order_id_roundtrip():
-    from services.selfwork_service import selfwork_order_id_for, order_id_from_selfwork
-    assert selfwork_order_id_for(123) == "dragons-123"
-    assert order_id_from_selfwork("dragons-123") == 123
-    assert order_id_from_selfwork("xxx-123") is None
-    assert order_id_from_selfwork(None) is None
+def test_moneta_format_amount():
+    from services.moneta_service import format_amount
+    assert format_amount(0) == "0.00"
+    assert format_amount(9500) == "95.00"
+    assert format_amount(47500) == "475.00"
+    assert format_amount(10001) == "100.01"
 
 
-# ─── Selfwork: webhook ───
+def test_moneta_payment_form_signature_spec_example():
+    from services.moneta_service import build_payment_signature
+    sig = build_payment_signature("54600817", "FF790ABCD", "120.25", "QWERTY", "0")
+    assert sig == "c8222aef6362c7f1239ccdc729d1a200"
 
-def _webhook_sig(order_id, amount, api_key):
-    return hashlib.sha256(f"{order_id}{amount}{api_key}".encode("utf-8")).hexdigest()
+
+def test_moneta_callback_signature_spec_example():
+    from services.moneta_service import verify_callback_signature
+    params = {
+        "MNT_ID": "54600817",
+        "MNT_TRANSACTION_ID": "FF790ABCD",
+        "MNT_OPERATION_ID": "123456",
+        "MNT_AMOUNT": "120.25",
+        "MNT_CURRENCY_CODE": "RUB",
+        "MNT_TEST_MODE": "0",
+        "MNT_SIGNATURE": "69bdf9bd91820b8f7b4c4b25d3d22dfa",
+    }
+    assert verify_callback_signature(params, "QWERTY") is True
 
 
-def _make_selfwork_pending_order(client, db, quantity=2):
-    for i in range(quantity + 2):
-        _dragon(db, f"SW{i}", family_id=i % 2, pin=f"SW{i:04d}")
-    s = _set(db, quantity=quantity)
-    monkeypatch_provider(client, "selfwork")
-    order = client.post("/api/payment/create-order", json={"vk_id": 42, "set_id": s.id}).json()
-    return order
+def test_moneta_callback_signature_mismatch():
+    from services.moneta_service import verify_callback_signature
+    params = {
+        "MNT_ID": "54600817",
+        "MNT_TRANSACTION_ID": "FF790ABCD",
+        "MNT_OPERATION_ID": "123456",
+        "MNT_AMOUNT": "120.25",
+        "MNT_CURRENCY_CODE": "RUB",
+        "MNT_TEST_MODE": "0",
+        "MNT_SIGNATURE": "deadbeef",
+    }
+    assert verify_callback_signature(params, "QWERTY") is False
 
 
 def monkeypatch_provider(client, provider):
@@ -661,19 +678,79 @@ def monkeypatch_provider(client, provider):
     })
 
 
-def test_selfwork_webhook_success(client, db, monkeypatch):
-    monkeypatch.setattr(config, "SELFWORK_API_KEY", "testkey")
-    monkeypatch.setattr(config, "SELFWORK_CALLBACK_IPS", ["178.205.169.35", "81.23.144.157", "testclient"])
-    order = _make_selfwork_pending_order(client, db, quantity=2)
-    sw_id = f"dragons-{order['order_id']}"
-    amount = order["amount_rub"]
-    sig = _webhook_sig(sw_id, amount, "testkey")
-    resp = client.post(
-        "/api/payment/selfwork/webhook",
-        json={"order_id": sw_id, "amount": amount, "status": "succeeded", "signature": sig},
-    )
+# ─── MONETA: payment form ───
+
+def _make_moneta_pending_order(client, db, quantity=2):
+    for i in range(quantity + 2):
+        _dragon(db, f"MN{i}", family_id=i % 2, pin=f"MN{i:04d}")
+    s = _set(db, quantity=quantity)
+    monkeypatch_provider(client, "moneta")
+    order = client.post("/api/payment/create-order", json={"vk_id": 42, "set_id": s.id}).json()
+    return order
+
+
+def test_moneta_payment_form_contains_signature(client, db, monkeypatch):
+    monkeypatch.setattr(config, "MONETA_MNT_ID", "54600817")
+    monkeypatch.setattr(config, "MONETA_INTEGRITY_CODE", "QWERTY")
+    monkeypatch.setattr(config, "MONETA_TEST_MODE", "0")
+    order = _make_moneta_pending_order(client, db, quantity=2)
+    html = _pay_html(client, order["order_id"], 42)
+    mnt_id = _extract_input(html, "MNT_ID")
+    mnt_trx = _extract_input(html, "MNT_TRANSACTION_ID")
+    mnt_amount = _extract_input(html, "MNT_AMOUNT")
+    signature = _extract_input(html, "MNT_SIGNATURE")
+    assert mnt_id == "54600817"
+    assert mnt_trx == str(order["order_id"])
+    assert mnt_amount == f"{order['amount_rub'] / 100:.2f}"
+    from services.moneta_service import build_payment_signature
+    expected = build_payment_signature(mnt_id, mnt_trx, mnt_amount, "QWERTY", "0")
+    assert signature == expected
+
+
+def test_moneta_payment_form_test_mode(client, db, monkeypatch):
+    monkeypatch.setattr(config, "MONETA_MNT_ID", "54600817")
+    monkeypatch.setattr(config, "MONETA_INTEGRITY_CODE", "QWERTY")
+    monkeypatch.setattr(config, "MONETA_TEST_MODE", "1")
+    order = _make_moneta_pending_order(client, db, quantity=1)
+    html = _pay_html(client, order["order_id"], 42)
+    assert "demo.moneta.ru/assistant.htm" in html
+    assert _extract_input(html, "MNT_TEST_MODE") == "1"
+
+
+def test_moneta_payment_form_prod_mode(client, db, monkeypatch):
+    monkeypatch.setattr(config, "MONETA_MNT_ID", "54600817")
+    monkeypatch.setattr(config, "MONETA_INTEGRITY_CODE", "QWERTY")
+    monkeypatch.setattr(config, "MONETA_TEST_MODE", "0")
+    order = _make_moneta_pending_order(client, db, quantity=1)
+    html = _pay_html(client, order["order_id"], 42)
+    assert "payanyway.ru/assistant.htm" in html
+    assert _extract_input(html, "MNT_TEST_MODE") == "0"
+
+
+# ─── MONETA: callback (Pay URL) ───
+
+def _callback_sig(mnt_id, mnt_trx, mnt_operation_id, amount, code, test_mode="0"):
+    return hashlib.md5(
+        f"{mnt_id}{mnt_trx}{mnt_operation_id}{amount}RUB{test_mode}{code}".encode("utf-8")
+    ).hexdigest()
+
+
+def test_moneta_callback_success(client, db, monkeypatch):
+    monkeypatch.setattr(config, "MONETA_INTEGRITY_CODE", "QWERTY")
+    order = _make_moneta_pending_order(client, db, quantity=2)
+    mnt_trx = str(order["order_id"])
+    amount = f"{order['amount_rub'] / 100:.2f}"
+    sig = _callback_sig("", mnt_trx, "555000", amount, "QWERTY")
+    resp = client.post("/api/payment/moneta/callback", data={
+        "MNT_TRANSACTION_ID": mnt_trx,
+        "MNT_OPERATION_ID": "555000",
+        "MNT_AMOUNT": amount,
+        "MNT_CURRENCY_CODE": "RUB",
+        "MNT_TEST_MODE": "0",
+        "MNT_SIGNATURE": sig,
+    })
     assert resp.status_code == 200
-    assert resp.text == "OK"
+    assert resp.text == "SUCCESS"
     o = db.query(PaymentOrder).filter(PaymentOrder.id == order["order_id"]).first()
     db.refresh(o)
     assert o.status == "success"
@@ -681,64 +758,88 @@ def test_selfwork_webhook_success(client, db, monkeypatch):
     assert len(_json.loads(o.dragon_ids)) == 2
 
 
-def test_selfwork_webhook_signature_mismatch(client, db, monkeypatch):
-    monkeypatch.setattr(config, "SELFWORK_API_KEY", "testkey")
-    monkeypatch.setattr(config, "SELFWORK_CALLBACK_IPS", ["testclient"])
-    order = _make_selfwork_pending_order(client, db, quantity=1)
-    resp = client.post(
-        "/api/payment/selfwork/webhook",
-        json={"order_id": f"dragons-{order['order_id']}", "amount": order["amount_rub"],
-              "status": "succeeded", "signature": "deadbeef"},
+def test_moneta_callback_get_method(client, db, monkeypatch):
+    monkeypatch.setattr(config, "MONETA_INTEGRITY_CODE", "QWERTY")
+    order = _make_moneta_pending_order(client, db, quantity=2)
+    mnt_trx = str(order["order_id"])
+    amount = f"{order['amount_rub'] / 100:.2f}"
+    sig = _callback_sig("", mnt_trx, "555001", amount, "QWERTY")
+    from urllib.parse import urlencode
+    resp = client.get(
+        "/api/payment/moneta/callback?" + urlencode({
+            "MNT_TRANSACTION_ID": mnt_trx,
+            "MNT_OPERATION_ID": "555001",
+            "MNT_AMOUNT": amount,
+            "MNT_CURRENCY_CODE": "RUB",
+            "MNT_TEST_MODE": "0",
+            "MNT_SIGNATURE": sig,
+        })
     )
+    assert resp.status_code == 200
+    assert resp.text == "SUCCESS"
+    o = db.query(PaymentOrder).filter(PaymentOrder.id == order["order_id"]).first()
+    db.refresh(o)
+    assert o.status == "success"
+
+
+def test_moneta_callback_idempotent(client, db, monkeypatch):
+    monkeypatch.setattr(config, "MONETA_INTEGRITY_CODE", "QWERTY")
+    order = _make_moneta_pending_order(client, db, quantity=2)
+    mnt_trx = str(order["order_id"])
+    amount = f"{order['amount_rub'] / 100:.2f}"
+    sig = _callback_sig("", mnt_trx, "555002", amount, "QWERTY")
+    payload = {
+        "MNT_TRANSACTION_ID": mnt_trx,
+        "MNT_OPERATION_ID": "555002",
+        "MNT_AMOUNT": amount,
+        "MNT_CURRENCY_CODE": "RUB",
+        "MNT_TEST_MODE": "0",
+        "MNT_SIGNATURE": sig,
+    }
+    r1 = client.post("/api/payment/moneta/callback", data=payload)
+    assert r1.status_code == 200
+    o = db.query(PaymentOrder).filter(PaymentOrder.id == order["order_id"]).first()
+    db.refresh(o)
+    first_ids = o.dragon_ids
+    r2 = client.post("/api/payment/moneta/callback", data=payload)
+    assert r2.status_code == 200
+    db.refresh(o)
+    assert o.dragon_ids == first_ids
+
+
+def test_moneta_callback_bad_signature(client, db, monkeypatch):
+    monkeypatch.setattr(config, "MONETA_INTEGRITY_CODE", "QWERTY")
+    order = _make_moneta_pending_order(client, db, quantity=1)
+    mnt_trx = str(order["order_id"])
+    amount = f"{order['amount_rub'] / 100:.2f}"
+    resp = client.post("/api/payment/moneta/callback", data={
+        "MNT_TRANSACTION_ID": mnt_trx,
+        "MNT_OPERATION_ID": "555003",
+        "MNT_AMOUNT": amount,
+        "MNT_CURRENCY_CODE": "RUB",
+        "MNT_TEST_MODE": "0",
+        "MNT_SIGNATURE": "deadbeef",
+    })
     assert resp.status_code == 400
     o = db.query(PaymentOrder).filter(PaymentOrder.id == order["order_id"]).first()
     db.refresh(o)
     assert o.status == "pending"
 
 
-def test_selfwork_webhook_bad_ip(client, db, monkeypatch):
-    monkeypatch.setattr(config, "SELFWORK_API_KEY", "testkey")
-    monkeypatch.setattr(config, "SELFWORK_CALLBACK_IPS", ["1.2.3.4"])
-    order = _make_selfwork_pending_order(client, db, quantity=1)
-    sw_id = f"dragons-{order['order_id']}"
-    sig = _webhook_sig(sw_id, order["amount_rub"], "testkey")
-    resp = client.post(
-        "/api/payment/selfwork/webhook",
-        json={"order_id": sw_id, "amount": order["amount_rub"], "status": "succeeded", "signature": sig},
-    )
-    assert resp.status_code == 400
-    assert resp.json()["detail"] == "bad ip"
-
-
-def test_selfwork_webhook_idempotent(client, db, monkeypatch):
-    monkeypatch.setattr(config, "SELFWORK_API_KEY", "testkey")
-    monkeypatch.setattr(config, "SELFWORK_CALLBACK_IPS", ["testclient"])
-    order = _make_selfwork_pending_order(client, db, quantity=2)
-    sw_id = f"dragons-{order['order_id']}"
-    payload = {"order_id": sw_id, "amount": order["amount_rub"], "status": "succeeded",
-               "signature": _webhook_sig(sw_id, order["amount_rub"], "testkey")}
-    r1 = client.post("/api/payment/selfwork/webhook", json=payload)
-    assert r1.status_code == 200
-    o = db.query(PaymentOrder).filter(PaymentOrder.id == order["order_id"]).first()
-    db.refresh(o)
-    first_ids = o.dragon_ids
-    r2 = client.post("/api/payment/selfwork/webhook", json=payload)
-    assert r2.status_code == 200
-    db.refresh(o)
-    assert o.dragon_ids == first_ids
-
-
-def test_selfwork_webhook_amount_mismatch(client, db, monkeypatch):
-    monkeypatch.setattr(config, "SELFWORK_API_KEY", "testkey")
-    monkeypatch.setattr(config, "SELFWORK_CALLBACK_IPS", ["testclient"])
-    order = _make_selfwork_pending_order(client, db, quantity=1)
-    sw_id = f"dragons-{order['order_id']}"
-    wrong_amount = order["amount_rub"] + 99999
-    sig = _webhook_sig(sw_id, wrong_amount, "testkey")
-    resp = client.post(
-        "/api/payment/selfwork/webhook",
-        json={"order_id": sw_id, "amount": wrong_amount, "status": "succeeded", "signature": sig},
-    )
+def test_moneta_callback_amount_mismatch(client, db, monkeypatch):
+    monkeypatch.setattr(config, "MONETA_INTEGRITY_CODE", "QWERTY")
+    order = _make_moneta_pending_order(client, db, quantity=1)
+    mnt_trx = str(order["order_id"])
+    wrong_amount = f"{(order['amount_rub'] + 99999) / 100:.2f}"
+    sig = _callback_sig("", mnt_trx, "555004", wrong_amount, "QWERTY")
+    resp = client.post("/api/payment/moneta/callback", data={
+        "MNT_TRANSACTION_ID": mnt_trx,
+        "MNT_OPERATION_ID": "555004",
+        "MNT_AMOUNT": wrong_amount,
+        "MNT_CURRENCY_CODE": "RUB",
+        "MNT_TEST_MODE": "0",
+        "MNT_SIGNATURE": sig,
+    })
     assert resp.status_code == 400
     assert resp.json()["detail"] == "amount mismatch"
 
@@ -753,16 +854,24 @@ def test_settings_default_provider_robokassa(client):
 def test_settings_switch_provider(client):
     resp = client.put("/api/admin/settings", json={
         "welcome_keyword": "", "suspicious_multiplier": 2,
-        "block_multiplier": 3, "payment_provider": "selfwork",
+        "block_multiplier": 3, "payment_provider": "moneta",
     })
-    assert resp.json()["payment_provider"] == "selfwork"
-    assert client.get("/api/admin/settings").json()["payment_provider"] == "selfwork"
+    assert resp.json()["payment_provider"] == "moneta"
+    assert client.get("/api/admin/settings").json()["payment_provider"] == "moneta"
 
 
 def test_settings_invalid_provider_falls_back(client):
     resp = client.put("/api/admin/settings", json={
         "welcome_keyword": "", "suspicious_multiplier": 2,
         "block_multiplier": 3, "payment_provider": "yookassa",
+    })
+    assert resp.json()["payment_provider"] == "robokassa"
+
+
+def test_settings_selfwork_rejected(client):
+    resp = client.put("/api/admin/settings", json={
+        "welcome_keyword": "", "suspicious_multiplier": 2,
+        "block_multiplier": 3, "payment_provider": "selfwork",
     })
     assert resp.json()["payment_provider"] == "robokassa"
 
@@ -776,54 +885,19 @@ def test_create_order_default_provider_robokassa(client, db):
     assert data["provider"] == "robokassa"
     o = db.query(PaymentOrder).filter(PaymentOrder.id == data["order_id"]).first()
     assert o.provider == "robokassa"
-    assert o.selfwork_order_id is None
 
 
-def test_create_order_selfwork_provider(client, db):
+def test_create_order_moneta_provider(client, db):
     for i in range(3):
         _dragon(db, f"PS{i}", family_id=i, pin=f"PS{i:04d}")
     s = _set(db, quantity=1)
-    monkeypatch_provider(client, "selfwork")
+    monkeypatch_provider(client, "moneta")
     resp = client.post("/api/payment/create-order", json={"vk_id": 6, "set_id": s.id})
     data = resp.json()
-    assert data["provider"] == "selfwork"
+    assert data["provider"] == "moneta"
     assert "/api/payment/pay/" in data["payment_url"]
     o = db.query(PaymentOrder).filter(PaymentOrder.id == data["order_id"]).first()
-    assert o.provider == "selfwork"
-    assert o.selfwork_order_id == f"dragons-{o.id}"
-
-
-# ─── Selfwork: /pay endpoint branching ───
-
-def test_selfwork_pay_endpoint_returns_html(client, db, monkeypatch):
-    monkeypatch.setattr(config, "SELFWORK_API_KEY", "testkey")
-    for i in range(2):
-        _dragon(db, f"PE{i}", family_id=i, pin=f"PE{i:04d}")
-    s = _set(db, quantity=1)
-    monkeypatch_provider(client, "selfwork")
-    order = client.post("/api/payment/create-order", json={"vk_id": 7, "set_id": s.id}).json()
-
-    from routes import payment as payment_module
-    monkeypatch.setattr(payment_module, "call_init", lambda order_obj, desc: "<html>SELFWORK PAGE</html>")
-    resp = client.get(f"/api/payment/pay/{order['order_id']}?vk_id=7")
-    assert resp.status_code == 200
-    assert "SELFWORK PAGE" in resp.text
-
-
-def test_selfwork_pay_endpoint_init_error(client, db, monkeypatch):
-    monkeypatch.setattr(config, "SELFWORK_API_KEY", "testkey")
-    for i in range(2):
-        _dragon(db, f"PF{i}", family_id=i, pin=f"PF{i:04d}")
-    s = _set(db, quantity=1)
-    monkeypatch_provider(client, "selfwork")
-    order = client.post("/api/payment/create-order", json={"vk_id": 8, "set_id": s.id}).json()
-
-    from routes import payment as payment_module
-    def _boom(order_obj, desc):
-        raise RuntimeError("network down")
-    monkeypatch.setattr(payment_module, "call_init", _boom)
-    resp = client.get(f"/api/payment/pay/{order['order_id']}?vk_id=8")
-    assert resp.status_code == 502
+    assert o.provider == "moneta"
 
 
 def test_payment_return_redirect(client):
@@ -838,9 +912,71 @@ def test_admin_payment_orders_includes_provider(client, db):
     for i in range(2):
         _dragon(db, f"PI{i}", family_id=i, pin=f"PI{i:04d}")
     s = _set(db, quantity=1)
-    monkeypatch_provider(client, "selfwork")
+    monkeypatch_provider(client, "moneta")
     client.post("/api/payment/create-order", json={"vk_id": 11, "set_id": s.id})
     resp = client.get("/api/admin/payment-orders")
     item = next(o for o in resp.json()["items"] if o["vk_id"] == 11)
-    assert item["provider"] == "selfwork"
-    assert item["selfwork_order_id"] == f"dragons-{item['id']}"
+    assert item["provider"] == "moneta"
+
+
+# ─── Payments test mode ───
+
+def _enable_payments_test_mode(client, tester_vk_id=400977):
+    client.put("/api/admin/settings", json={
+        "welcome_keyword": "", "suspicious_multiplier": 2,
+        "block_multiplier": 3, "payment_provider": "robokassa",
+        "payments_test_mode": True, "payments_test_vk_id": tester_vk_id,
+    })
+
+
+def test_settings_payments_test_mode_roundtrip(client):
+    resp = client.put("/api/admin/settings", json={
+        "welcome_keyword": "", "suspicious_multiplier": 2,
+        "block_multiplier": 3, "payment_provider": "robokassa",
+        "payments_test_mode": True, "payments_test_vk_id": 42,
+    })
+    assert resp.json()["payments_test_mode"] is True
+    assert resp.json()["payments_test_vk_id"] == 42
+    got = client.get("/api/admin/settings").json()
+    assert got["payments_test_mode"] is True
+    assert got["payments_test_vk_id"] == 42
+
+
+def test_settings_payments_test_mode_defaults(client):
+    got = client.get("/api/admin/settings").json()
+    assert got["payments_test_mode"] is False
+    assert got["payments_test_vk_id"] == config.PAYMENTS_TEST_VK_ID
+
+
+def test_create_order_blocked_in_test_mode(client, db):
+    _enable_payments_test_mode(client, tester_vk_id=400977)
+    for i in range(3):
+        _dragon(db, f"BT{i}", family_id=i, pin=f"BT{i:04d}")
+    s = _set(db, quantity=1)
+    resp = client.post("/api/payment/create-order", json={"vk_id": 123, "set_id": s.id})
+    assert resp.status_code == 200
+    assert resp.json()["error"] == "unavailable"
+    from models import PaymentOrder
+    order = db.query(PaymentOrder).filter(PaymentOrder.vk_id == 123).first()
+    assert order is None
+
+
+def test_create_order_allowed_for_tester(client, db):
+    _enable_payments_test_mode(client, tester_vk_id=400977)
+    for i in range(3):
+        _dragon(db, f"AT{i}", family_id=i, pin=f"AT{i:04d}")
+    s = _set(db, quantity=1)
+    resp = client.post("/api/payment/create-order", json={"vk_id": 400977, "set_id": s.id})
+    assert resp.status_code == 200
+    data = resp.json()
+    assert "payment_url" in data
+    assert data["provider"] == "robokassa"
+
+
+def test_create_order_allowed_when_test_mode_off(client, db):
+    for i in range(3):
+        _dragon(db, f"OF{i}", family_id=i, pin=f"OF{i:04d}")
+    s = _set(db, quantity=1)
+    resp = client.post("/api/payment/create-order", json={"vk_id": 123, "set_id": s.id})
+    assert resp.status_code == 200
+    assert "payment_url" in resp.json()

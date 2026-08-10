@@ -5,6 +5,8 @@ from datetime import datetime
 
 OFFERTA_TEXT = "\n\nПеред покупкой ознакомьтесь с условиями оферты: https://belovolovhome.ru/dragons/offerta.docx"
 
+PAYMENTS_UNAVAILABLE = "💳 Оплата временно недоступна — идут технические работы. Зайдите, пожалуйста, позже!"
+
 
 def _now():
     return datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
@@ -19,7 +21,11 @@ def _store_payment(user, order_id, db):
 
 def handle_buy_eggs(user, db, send_message):
     from models import DragonSet
-    from services.payment_service import is_donor, calc_set_price
+    from services.payment_service import is_donor, calc_set_price, is_payment_blocked_for
+
+    if is_payment_blocked_for(user.vk_id, db):
+        send_message(PAYMENTS_UNAVAILABLE)
+        return
 
     sets = (
         db.query(DragonSet)
@@ -73,13 +79,17 @@ def _is_order_expired(order):
 
 def handle_buy_set(user, set_id, db, send_message):
     from models import DragonSet, PaymentOrder
-    from services.payment_service import is_donor, calc_set_price, count_available
+    from services.payment_service import is_donor, calc_set_price, count_available, get_active_provider, is_payment_blocked_for
 
     dset = db.query(DragonSet).filter(
         DragonSet.id == set_id, DragonSet.is_active == True
     ).first()
     if not dset:
         send_message("❌ Набор не найден или уже недоступен.")
+        return
+
+    if is_payment_blocked_for(user.vk_id, db):
+        send_message(PAYMENTS_UNAVAILABLE)
         return
 
     pending = db.query(PaymentOrder).filter(
@@ -139,6 +149,7 @@ def handle_buy_set(user, set_id, db, send_message):
         amount_rub=amount,
         quantity=quantity,
         price_per_pin=price_per_pin,
+        provider=get_active_provider(db),
         status="pending",
         dragon_ids="[]",
         created_at=_now(),
@@ -164,7 +175,7 @@ def handle_buy_set(user, set_id, db, send_message):
 
 def handle_partial_confirm(user, db, send_message):
     from models import DragonSet, PaymentOrder
-    from services.payment_service import is_donor
+    from services.payment_service import is_donor, get_active_provider
 
     sd = json.loads(user.state_data or "{}")
     set_id = sd.pop("_partial_set_id", None)
@@ -191,6 +202,7 @@ def handle_partial_confirm(user, db, send_message):
         amount_rub=amount,
         quantity=quantity,
         price_per_pin=amount // quantity,
+        provider=get_active_provider(db),
         status="pending",
         dragon_ids="[]",
         created_at=_now(),
