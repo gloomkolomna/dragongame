@@ -281,7 +281,7 @@ def main():
         try:
             user = get_or_create_user(db, user_id)
 
-            def send_message(message, keyboard=None, attachment=""):
+            def send_message(message, keyboard=None, attachment="", skip_auto_buttons=False):
                 if not message and not attachment:
                     return
                 kwargs = {
@@ -293,14 +293,14 @@ def main():
                     keyboard = get_keyboard(user.state, user, db)
                 if keyboard:
                     try:
-                        if (user.state not in (AWAIT_LEGENDS, AWAIT_EPIC_NAME)
+                        if not skip_auto_buttons and (user.state not in (AWAIT_LEGENDS, AWAIT_EPIC_NAME)
                                 and not is_legend(user.state)
                                 and user_has_legendary(db, user.vk_id)):
                             keyboard = keyboard_with_legends(keyboard)
                     except Exception:
                         pass
                     try:
-                        if (user.state not in (AWAIT_EPICS, AWAIT_EPIC_NAME, AWAIT_EPIC_EGG_INTRO)
+                        if not skip_auto_buttons and (user.state not in (AWAIT_EPICS, AWAIT_EPIC_NAME, AWAIT_EPIC_EGG_INTRO)
                                 and user_has_epic(db, user.vk_id)):
                             keyboard = keyboard_with_epics(keyboard)
                     except Exception:

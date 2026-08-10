@@ -260,7 +260,7 @@ def handle_open_payment(user, db, send_message):
     import config as _cfg
     url = f"{_cfg.SITE_URL}/api/payment/pay/{order.id}?vk_id={user.vk_id}"
 
-    from bot.keyboard import garden_row, bestiary_link_row, _keyboard
+    from bot.keyboard import garden_row, _keyboard
     payment_kb = _keyboard([
         [{
             "action": {
@@ -278,13 +278,13 @@ def handle_open_payment(user, db, send_message):
             "color": "negative",
         }],
         garden_row(),
-        bestiary_link_row(),
     ])
     send_message(
         f"💳 Ссылка для оплаты набора «{set_name}»:\n{url}\n\n"
         f"💡 Ссылка на оплату действует 1 час."
         + OFFERTA_TEXT,
         keyboard=payment_kb,
+        skip_auto_buttons=True,
     )
 
 
