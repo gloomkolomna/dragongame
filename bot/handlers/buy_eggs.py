@@ -336,26 +336,28 @@ def handle_open_payment(user, db, send_message):
 
 def handle_cancel_payment(user, db, send_message):
     from models import PaymentOrder
-    from bot.fsm import IDLE
+    from bot.fsm import IDLE, AWAIT_RECEIPT_EMAIL
 
     sd = json.loads(user.state_data or "{}")
     has_pending_email = any(k in sd for k in ("_pending_buy_set_id", "_partial_set_id"))
-    for k in ("_pending_buy_set_id", "_pending_quantity", "_pending_amount",
-              "_pending_price_per_pin", "_partial_set_id", "_partial_quantity",
-              "_partial_amount", "_partial_price_per_pin"):
-        sd.pop(k, None)
+
+    if user.state == AWAIT_RECEIPT_EMAIL or has_pending_email:
+        for k in ("_pending_buy_set_id", "_pending_quantity", "_pending_amount",
+                  "_pending_price_per_pin", "_partial_set_id", "_partial_quantity",
+                  "_partial_amount", "_partial_price_per_pin"):
+            sd.pop(k, None)
+        user.state = IDLE
+        user.state_data = json.dumps(sd, ensure_ascii=False)
+        db.commit()
+        send_message("✅ Ввод email отменён. Если передумаешь — выбери набор заново.")
+        return
+
     order_id = sd.pop("_payment_order_id", None)
 
     if not order_id:
-        if has_pending_email:
-            user.state = IDLE
-            user.state_data = json.dumps(sd, ensure_ascii=False)
-            db.commit()
-            send_message("✅ Ввод email отменён. Если передумаешь — выбери набор заново.")
-        else:
-            send_message("❌ Нет активного заказа для отмены.")
-            user.state_data = json.dumps(sd, ensure_ascii=False)
-            db.commit()
+        send_message("❌ Нет активного заказа для отмены.")
+        user.state_data = json.dumps(sd, ensure_ascii=False)
+        db.commit()
         return
 
     order = db.query(PaymentOrder).filter(PaymentOrder.id == order_id).first()

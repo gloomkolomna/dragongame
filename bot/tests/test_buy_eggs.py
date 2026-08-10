@@ -434,3 +434,24 @@ def test_cancel_payment_from_email_state_resets(db):
     handle_cancel_payment(u, db, lambda m, **k: msgs.append(m))
     assert u.state == IDLE
     assert "отменён" in msgs[0].lower() or "отмен" in msgs[0].lower()
+
+
+def test_cancel_email_step_ignores_old_success_order(db):
+    from bot.fsm import AWAIT_RECEIPT_EMAIL, IDLE
+    import json
+    s = _make_set(db, name="Стартовый", quantity=3)
+    old_order = PaymentOrder(
+        id=777, vk_id=99, set_id=s.id, amount_rub=30000, quantity=3,
+        price_per_pin=10000, status="success", dragon_ids="[]",
+        created_at=datetime.now().strftime("%Y-%m-%dT%H:%M:%S"),
+    )
+    db.add(old_order)
+    db.commit()
+    u = _make_user(db, vk_id=99, state=AWAIT_RECEIPT_EMAIL,
+                   state_data=json.dumps({"_pending_buy_set_id": s.id, "_payment_order_id": 777}))
+    msgs = []
+    handle_cancel_payment(u, db, lambda m, **k: msgs.append(m))
+    assert u.state == IDLE
+    assert "email" in msgs[0].lower()
+    db.refresh(old_order)
+    assert old_order.status == "success"
