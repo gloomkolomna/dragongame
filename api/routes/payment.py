@@ -157,7 +157,7 @@ def verify_result_signature(out_sum: str, inv_id: str, signature: str, vk_id: st
     return expected.lower() == (signature or "").lower()
 
 
-def _send_pins(vk_id: int, dragons: list, db=None) -> bool:
+def _send_pins(vk_id: int, dragons: list, db=None, receipt_email: str = None) -> bool:
     from routes.admin import _notify_user
     from models import DragonReservation
 
@@ -198,6 +198,8 @@ def _send_pins(vk_id: int, dragons: list, db=None) -> bool:
         "🎉 Покупка прошла успешно!\n\n"
         "Твои PIN-коды:\n" + "\n".join(lines)
     )
+    if receipt_email:
+        message += f"\n\n📧 Чек об оплате отправлен на {receipt_email}"
     try:
         import random
         if not config.VK_GROUP_TOKEN:
@@ -362,7 +364,7 @@ async def payment_result(request: Request, db: Session = Depends(get_db)):
     order.dragon_ids = json.dumps([d.id for d in dragons])
     db.commit()
 
-    order.notified = _send_pins(order.vk_id, dragons, db)
+    order.notified = _send_pins(order.vk_id, dragons, db, receipt_email=order.receipt_email)
     db.commit()
 
     _log_payment(order.vk_id, order.id, "callback_success", "", out_sum, inv_id_raw,
@@ -601,7 +603,7 @@ async def moneta_callback(request: Request, db: Session = Depends(get_db)):
     order.dragon_ids = json.dumps([d.id for d in dragons])
     db.commit()
 
-    order.notified = _send_pins(order.vk_id, dragons, db)
+    order.notified = _send_pins(order.vk_id, dragons, db, receipt_email=order.receipt_email)
     db.commit()
 
     mnt_operation_id = params.get("MNT_OPERATION_ID", "")
