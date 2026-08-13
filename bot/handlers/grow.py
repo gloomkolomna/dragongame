@@ -3,11 +3,13 @@
 import json
 import os
 import re
+import traceback
 from bot.fsm import IDLE, grow_state, step_from_state, is_waiting_text, state_mode
 from bot.services.grow_service import (
     get_dragon_step, get_total_steps, complete_step, complete_dragon,
     get_timeout_remaining, set_step_timeout, get_step_timeout, rarity_name, rarity_stars,
     credit_stitches, is_suspicious, is_blocked, create_suspicious_report, notify_admin,
+    log_to_db,
 )
 from bot.keyboard import step_buttons_keyboard, growing_keyboard, waiting_keyboard
 
@@ -345,7 +347,17 @@ def _handle_crosses_check(user, text, attachments, db, send_message, upload_imag
                         db.add(ErrorLog(source="bot", error_type="UPLOAD", message=f"{msg} (file={t_filepath})", user_id=user.vk_id, traceback_text=tb, created_at=now_msk_iso()))
                         db.commit()
                     t_attach = upload_image(t_filepath, log_error=log_err_t, peer_id=user.vk_id)
-            send_message(t_msg, attachment=t_attach)
+            try:
+                send_message(t_msg, attachment=t_attach)
+            except Exception as e:
+                log_to_db(
+                    source="bot",
+                    error_type="TREASURE_NOTIFY",
+                    message=f"treasure notify failed for user {user.vk_id}: {e}",
+                    traceback_text=traceback.format_exc(),
+                    user_id=user.vk_id,
+                    db=db,
+                )
 
         for ft in (family_treasures or []):
             ft_msg = f"💎 В твоей пещере появилось новое сокровище!\nПосмотри его в мини-приложении Мой Бестиарий.\n\nСокровище семьи: {ft.name}"
@@ -356,13 +368,33 @@ def _handle_crosses_check(user, text, attachments, db, send_message, upload_imag
                 ft_filepath = os.path.join(_IMAGES, os.path.basename(ft.image_path))
                 if os.path.isfile(ft_filepath):
                     ft_attach = upload_image(ft_filepath, log_error=lambda msg, tb="": None, peer_id=user.vk_id)
-            send_message(ft_msg, attachment=ft_attach)
+            try:
+                send_message(ft_msg, attachment=ft_attach)
+            except Exception as e:
+                log_to_db(
+                    source="bot",
+                    error_type="FAMILY_TREASURE_NOTIFY",
+                    message=f"family treasure notify failed for user {user.vk_id}: {e}",
+                    traceback_text=traceback.format_exc(),
+                    user_id=user.vk_id,
+                    db=db,
+                )
 
         from services.epic_service import maybe_spawn_first_epic
         epic = maybe_spawn_first_epic(db, user.vk_id)
         if epic:
             from bot.handlers.epic import send_epic_spawn_notice
-            send_epic_spawn_notice(epic, user, db, send_message, upload_image)
+            try:
+                send_epic_spawn_notice(epic, user, db, send_message, upload_image)
+            except Exception as e:
+                log_to_db(
+                    source="bot",
+                    error_type="EPIC_SPAWN_NOTIFY",
+                    message=f"epic spawn notify failed for user {user.vk_id}: {e}",
+                    traceback_text=traceback.format_exc(),
+                    user_id=user.vk_id,
+                    db=db,
+                )
     else:
         step_hours, step_minutes = get_step_timeout(db, dragon_id, step)
         total_timeout_min = step_hours * 60 + step_minutes

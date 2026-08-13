@@ -309,7 +309,19 @@ def main():
                     kwargs["keyboard"] = keyboard
                 if attachment:
                     kwargs["attachment"] = attachment
-                vk.messages.send(**kwargs)
+                backoff = [0, 1, 3]
+                last_err = None
+                for attempt in range(3):
+                    try:
+                        if attempt > 0:
+                            time.sleep(backoff[attempt])
+                        kwargs["random_id"] = random.randint(1, 2**31 - 1)
+                        vk.messages.send(**kwargs)
+                        break
+                    except Exception as send_err:
+                        last_err = send_err
+                else:
+                    raise last_err
 
             cmd = extract_cmd(text, payload_str)
 

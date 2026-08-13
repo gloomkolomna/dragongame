@@ -391,6 +391,22 @@ def test_grow_message_rare_final_no_treasure_only_savings(db):
     assert u.stitches_balance == 1500
 
 
+def test_grow_message_rare_final_treasure_notify_failure_logged(db):
+    from models import ErrorLog, UserTreasure
+    d, u = _setup_final_rare(db)
+
+    def send(msg, **kw):
+        if "пещере появилось новое сокровище" in msg:
+            raise RuntimeError("VK flood control")
+
+    handle_grow_message(u, "вышито 1500", _photos(), db, send)
+
+    log = db.query(ErrorLog).filter(ErrorLog.error_type == "TREASURE_NOTIFY").first()
+    assert log is not None
+    assert "VK flood control" in log.message
+    assert db.query(UserTreasure).filter(UserTreasure.user_id == u.vk_id).count() == 1
+
+
 def test_grow_message_legendary_final_mentions_library(db):
     d = Dragon(name="Legend", rarity=3, steps_count=1, is_active=True, legend_image_path="dragons/cov.png")
     db.add(d)
