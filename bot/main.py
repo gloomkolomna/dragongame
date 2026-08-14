@@ -185,7 +185,6 @@ def extract_cmd(text: str, payload_str: str) -> str | None:
 def main():
     if not config.VK_GROUP_TOKEN or not config.VK_GROUP_ID:
         print("VK_GROUP_TOKEN and VK_GROUP_ID not set in .env — bot sleeping.")
-        import time
         while True:
             time.sleep(60)
         return
@@ -230,7 +229,6 @@ def main():
     print("Weekly post scheduler started")
 
     def upload_image(filepath: str, log_error=None, peer_id=0) -> str:
-        import time
         last_error = None
         last_tb = ""
         backoff = [0, 3, 7]
