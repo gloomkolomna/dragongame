@@ -29,6 +29,16 @@ async def log_failed_requests(request: Request, call_next):
             raw = await request.body()
             if raw:
                 request_body = raw.decode("utf-8", errors="replace")
+                replayed = False
+
+                async def receive():
+                    nonlocal replayed
+                    if not replayed:
+                        replayed = True
+                        return {"type": "http.request", "body": raw, "more_body": False}
+                    return {"type": "http.disconnect"}
+
+                request._receive = receive
         except Exception:
             pass
 
