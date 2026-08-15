@@ -294,3 +294,51 @@ def test_sync_logs_no_config(db, monkeypatch):
     _sync_logs(db)
 
     assert db.query(DonorEventLog).count() == 0
+
+
+def test_sync_user_returns_true_for_donor(db, monkeypatch):
+    config.DONUT_API_URL = "http://donut"
+    config.DONUT_API_KEY = "key"
+
+    import httpx
+    monkeypatch.setattr(httpx, "get", lambda *a, **k: FakeResponse(200, {"is_don": True, "don_since": "2026-01-01"}))
+
+    from bot.services.donor_sync import sync_user
+    assert sync_user(db, 111) is True
+
+
+def test_sync_user_returns_false_for_non_donor(db, monkeypatch):
+    config.DONUT_API_URL = "http://donut"
+    config.DONUT_API_KEY = "key"
+
+    import httpx
+    monkeypatch.setattr(httpx, "get", lambda *a, **k: FakeResponse(200, {"is_don": False, "don_since": None}))
+
+    from bot.services.donor_sync import sync_user
+    assert sync_user(db, 111) is False
+
+
+def test_sync_user_returns_none_without_config(db, monkeypatch):
+    config.DONUT_API_URL = ""
+    config.DONUT_API_KEY = ""
+
+    import httpx
+
+    def boom(*a, **k):
+        raise AssertionError("should not be called")
+
+    monkeypatch.setattr(httpx, "get", boom)
+
+    from bot.services.donor_sync import sync_user
+    assert sync_user(db, 111) is None
+
+
+def test_sync_user_returns_none_on_http_error(db, monkeypatch):
+    config.DONUT_API_URL = "http://donut"
+    config.DONUT_API_KEY = "key"
+
+    import httpx
+    monkeypatch.setattr(httpx, "get", lambda *a, **k: FakeResponse(500, {}))
+
+    from bot.services.donor_sync import sync_user
+    assert sync_user(db, 111) is None

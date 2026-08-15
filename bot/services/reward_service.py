@@ -93,6 +93,10 @@ def _process_rewards(db, vk, logger):
             if cfg.user_type == "donor":
                 if not is_donor(user.vk_id, db):
                     continue
+                from bot.services.donor_sync import sync_user
+                live_is_don = sync_user(db, user.vk_id, logger)
+                if live_is_don is False:
+                    continue
                 donor_row = db.query(DonorCache).filter(DonorCache.vk_id == user.vk_id).first()
                 if not donor_row or not donor_row.don_since:
                     continue

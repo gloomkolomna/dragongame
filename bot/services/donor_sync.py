@@ -50,7 +50,7 @@ def sync_user(db, vk_id, logger=None):
     from models import DonorCache
 
     if not config.DONUT_API_URL or not config.DONUT_API_KEY:
-        return
+        return None
 
     import httpx
     from datetime import datetime
@@ -64,12 +64,12 @@ def sync_user(db, vk_id, logger=None):
             timeout=10,
         )
         if resp.status_code != 200:
-            return
+            return None
         data = resp.json()
     except Exception as e:
         if logger:
             logger.error(f"donor sync failed for {vk_id}: {e}")
-        return
+        return None
 
     is_don = bool(data.get("is_don", False))
     don_since = data.get("don_since")
@@ -90,6 +90,7 @@ def sync_user(db, vk_id, logger=None):
         donor.updated_at = now
         donor.last_synced_at = now
     db.commit()
+    return is_don
 
 
 def _logs_url():
