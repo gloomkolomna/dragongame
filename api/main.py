@@ -3,6 +3,8 @@ import time
 import json
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.exception_handlers import http_exception_handler
+from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.base import BaseHTTPMiddleware
 from fastapi.responses import FileResponse, HTMLResponse
 from contextlib import asynccontextmanager
@@ -30,6 +32,15 @@ app.add_middleware(
 )
 
 app.add_middleware(BaseHTTPMiddleware, dispatch=log_failed_requests)
+
+
+@app.exception_handler(StarletteHTTPException)
+async def capture_http_exception(request: Request, exc: StarletteHTTPException):
+    try:
+        request.scope.setdefault("state", {})["http_error_detail"] = exc.detail
+    except Exception:
+        pass
+    return await http_exception_handler(request, exc)
 
 from routes.auth import router as auth_router
 from routes.admin import router as admin_router

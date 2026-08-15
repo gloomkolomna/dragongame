@@ -17,6 +17,9 @@ interface ApiRequestItem {
   path: string;
   status_code: number;
   client_ip: string;
+  query_params: string;
+  request_body: string;
+  response_detail: string;
   created_at: string;
 }
 
@@ -56,6 +59,7 @@ function LogsList() {
   const [tab, setTab] = useState<Tab>('db');
   const [load, setLoad] = useState(true);
   const [expanded, setExpanded] = useState<number | null>(null);
+  const [reqExpanded, setReqExpanded] = useState<number | null>(null);
   const [filter, setFilter] = useState('');
   const [sortKey, setSortKey] = useState('');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
@@ -127,6 +131,7 @@ function LogsList() {
   const switchTab = (t: Tab) => {
     setTab(t);
     setExpanded(null);
+    setReqExpanded(null);
     setPayExpanded(null);
     setFilter('');
     if (t === 'api' && apiState.items.length === 0) fetchApiLogs(1);
@@ -169,7 +174,7 @@ function LogsList() {
 
   const filteredReq = useMemo(() => {
     let items = [...reqState.items];
-    if (filter) { const f = filter.toLowerCase(); items = items.filter((r) => r.method.toLowerCase().includes(f) || r.path.toLowerCase().includes(f) || String(r.status_code).includes(f) || r.client_ip.includes(f)); }
+    if (filter) { const f = filter.toLowerCase(); items = items.filter((r) => r.method.toLowerCase().includes(f) || r.path.toLowerCase().includes(f) || String(r.status_code).includes(f) || r.client_ip.includes(f) || (r.query_params || '').toLowerCase().includes(f) || (r.response_detail || '').toLowerCase().includes(f)); }
     return sortedFiltered(items);
   }, [reqState.items, filter, sortKey, sortDir]);
 
@@ -339,26 +344,51 @@ function LogsList() {
                   <table className="lair-table">
                     <thead>
                       <tr>
-                        {['id', 'method', 'path', 'status_code', 'client_ip', 'created_at'].map((k) => (
+                        {['id', 'method', 'path', 'status_code', 'client_ip', 'response_detail', 'created_at'].map((k) => (
                           <th key={k} onClick={() => handleSort(k)} style={{ cursor: 'pointer' }}>
-                            {k === 'id' ? 'ID' : k === 'method' ? 'Метод' : k === 'path' ? 'Путь' : k === 'status_code' ? 'Статус' : k === 'client_ip' ? 'IP' : 'Дата'}{sortArrow(k)}
+                            {k === 'id' ? 'ID' : k === 'method' ? 'Метод' : k === 'path' ? 'Путь' : k === 'status_code' ? 'Статус' : k === 'client_ip' ? 'IP' : k === 'response_detail' ? 'Детали' : 'Дата'}{sortArrow(k)}
                           </th>
                         ))}
                       </tr>
                     </thead>
                     <tbody>
                       {filteredReq.map((r) => (
-                        <tr key={r.id}>
-                          <td>{r.id}</td>
-                          <td style={{ fontFamily: 'var(--font-mono)', fontSize: 13 }}>{r.method}</td>
-                          <td style={{ fontFamily: 'var(--font-mono)', fontSize: 13, maxWidth: 400, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.path}</td>
-                          <td style={{ color: statusColor(r.status_code), fontWeight: 700 }}>{r.status_code}</td>
-                          <td style={{ fontSize: 13, color: 'var(--parchment-dim)' }}>{r.client_ip}</td>
-                          <td style={{ fontSize: 13, color: 'var(--parchment-faded)' }}>{formatDate(r.created_at)}</td>
-                        </tr>
+                        <>
+                          <tr key={r.id} className="clickable"
+                              onClick={() => setReqExpanded(reqExpanded === r.id ? null : r.id)}
+                              style={{ cursor: 'pointer' }}>
+                            <td>{r.id}</td>
+                            <td style={{ fontFamily: 'var(--font-mono)', fontSize: 13 }}>{r.method}</td>
+                            <td style={{ fontFamily: 'var(--font-mono)', fontSize: 13, maxWidth: 300, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.path}</td>
+                            <td style={{ color: statusColor(r.status_code), fontWeight: 700 }}>{r.status_code}</td>
+                            <td style={{ fontSize: 13, color: 'var(--parchment-dim)' }}>{r.client_ip}</td>
+                            <td style={{ fontSize: 13, maxWidth: 260, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={r.response_detail}>{r.response_detail || '—'}</td>
+                            <td style={{ fontSize: 13, color: 'var(--parchment-faded)' }}>{formatDate(r.created_at)}</td>
+                          </tr>
+                          {reqExpanded === r.id && (
+                            <tr key={`${r.id}-det`}>
+                              <td colSpan={7} style={{ padding: 12, background: 'rgba(0,0,0,0.3)' }}>
+                                <div style={{ fontSize: 12, color: 'var(--parchment-dim)', marginBottom: 4 }}>Детали ответа:</div>
+                                <pre style={{ margin: '0 0 12px', fontSize: 12, color: 'var(--parchment)', whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>{r.response_detail || '—'}</pre>
+                                {r.query_params && (
+                                  <>
+                                    <div style={{ fontSize: 12, color: 'var(--parchment-dim)', marginBottom: 4 }}>Query params:</div>
+                                    <pre style={{ margin: '0 0 12px', fontSize: 12, color: 'var(--parchment)', whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>{r.query_params}</pre>
+                                  </>
+                                )}
+                                {r.request_body && (
+                                  <>
+                                    <div style={{ fontSize: 12, color: 'var(--parchment-dim)', marginBottom: 4 }}>Тело запроса:</div>
+                                    <pre style={{ margin: 0, fontSize: 12, color: 'var(--parchment)', whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>{r.request_body}</pre>
+                                  </>
+                                )}
+                              </td>
+                            </tr>
+                          )}
+                        </>
                       ))}
                       {filteredReq.length === 0 && (
-                        <tr><td colSpan={6} style={{ textAlign: 'center', padding: 32, color: 'var(--parchment-faded)' }}>Ошибочных запросов нет</td></tr>
+                        <tr><td colSpan={7} style={{ textAlign: 'center', padding: 32, color: 'var(--parchment-faded)' }}>Ошибочных запросов нет</td></tr>
                       )}
                     </tbody>
                   </table>

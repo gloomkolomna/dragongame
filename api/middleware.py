@@ -19,6 +19,19 @@ def _ensure_debug():
 
 async def log_failed_requests(request: Request, call_next):
     _ensure_debug()
+
+    query_params = str(request.url.query)
+
+    request_body = ""
+    content_type = (request.headers.get("content-type") or "").lower()
+    if "json" in content_type or "x-www-form-urlencoded" in content_type or content_type.startswith("text/"):
+        try:
+            raw = await request.body()
+            if raw:
+                request_body = raw.decode("utf-8", errors="replace")
+        except Exception:
+            pass
+
     response = await call_next(request)
     origin = request.headers.get("origin", "")
     referer = request.headers.get("referer", "")
@@ -46,11 +59,22 @@ async def log_failed_requests(request: Request, call_next):
             from db import SessionLocal
             from models import ApiRequestLog
             db = SessionLocal()
+            detail = ""
+            try:
+                detail = (request.scope.get("state") or {}).get("http_error_detail", "")
+                if detail is not None and not isinstance(detail, str):
+                    detail = json.dumps(detail, ensure_ascii=False)
+                detail = detail or ""
+            except Exception:
+                detail = ""
             entry = ApiRequestLog(
                 method=request.method,
                 path=str(request.url.path),
                 status_code=response.status_code,
                 client_ip=request.client.host if request.client else "",
+                query_params=query_params[:2000],
+                request_body=request_body[:2000],
+                response_detail=detail[:1000],
                 created_at=datetime.now(MSK).isoformat(),
             )
             db.add(entry)

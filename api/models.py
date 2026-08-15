@@ -145,6 +145,9 @@ class ApiRequestLog(Base):
     path = Column(String, default="")
     status_code = Column(Integer, default=0)
     client_ip = Column(String, default="")
+    query_params = Column(Text, default="")
+    request_body = Column(Text, default="")
+    response_detail = Column(Text, default="")
     created_at = Column(String, default="")
 
 
