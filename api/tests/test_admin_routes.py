@@ -1333,9 +1333,10 @@ def test_create_random_reservation(client, db):
     resp = client.post("/api/admin/reservations/random", json={"vk_url": "https://vk.ru/id777"})
     assert resp.status_code == 200
     data = resp.json()
-    assert data["vk_user_id"] == 777
-    assert data["dragon_id"] in pool
-    assert data["is_activated"] is False
+    assert isinstance(data, list) and len(data) == 1
+    assert data[0]["vk_user_id"] == 777
+    assert data[0]["dragon_id"] in pool
+    assert data[0]["is_activated"] is False
 
 
 def test_create_random_reservation_excludes_reserved_and_owned(client, db):
@@ -1350,7 +1351,7 @@ def test_create_random_reservation_excludes_reserved_and_owned(client, db):
 
     resp = client.post("/api/admin/reservations/random", json={"vk_url": "https://vk.ru/id888"})
     assert resp.status_code == 200
-    assert resp.json()["dragon_id"] == free
+    assert resp.json()[0]["dragon_id"] == free
 
 
 def test_create_random_reservation_no_available(client, db):
@@ -1360,6 +1361,57 @@ def test_create_random_reservation_no_available(client, db):
 
 def test_create_random_reservation_no_vk(client, db):
     resp = client.post("/api/admin/reservations/random", json={"vk_url": ""})
+    assert resp.status_code == 400
+
+
+def test_create_random_reservation_multiple(client, db):
+    d1 = _make_pin_dragon(db, "MultiA", "11111")
+    d2 = _make_pin_dragon(db, "MultiB", "22222")
+    d3 = _make_pin_dragon(db, "MultiC", "33333")
+    pool = {d1, d2, d3}
+
+    resp = client.post("/api/admin/reservations/random", json={"vk_url": "https://vk.ru/id666", "count": 2})
+    assert resp.status_code == 200
+    data = resp.json()
+    assert isinstance(data, list) and len(data) == 2
+    ids = [item["dragon_id"] for item in data]
+    assert len(set(ids)) == 2
+    assert set(ids).issubset(pool)
+    assert all(item["is_activated"] is False for item in data)
+    assert all(item["vk_user_id"] == 666 for item in data)
+
+
+def test_create_random_reservation_multiple_excludes_owned(client, db):
+    owned = _make_pin_dragon(db, "MultiOwned", "11111")
+    free1 = _make_pin_dragon(db, "MultiFree1", "22222")
+    free2 = _make_pin_dragon(db, "MultiFree2", "33333")
+    db.add(User(vk_id=667, state="idle"))
+    db.add(UserDragon(user_id=667, dragon_id=owned, completed_at="2024-01-01T00:00:00"))
+    db.commit()
+
+    resp = client.post("/api/admin/reservations/random", json={"vk_url": "https://vk.ru/id667", "count": 2})
+    assert resp.status_code == 200
+    ids = [item["dragon_id"] for item in resp.json()]
+    assert owned not in ids
+    assert set(ids) == {free1, free2}
+
+
+def test_create_random_reservation_insufficient_pool(client, db):
+    _make_pin_dragon(db, "Solo", "11111")
+
+    resp = client.post("/api/admin/reservations/random", json={"vk_url": "https://vk.ru/id668", "count": 3})
+    assert resp.status_code == 400
+    detail = resp.json()["detail"]
+    assert detail["message"] == "Недостаточно доступных драконов"
+    assert detail["available"] == 1
+    assert detail["requested"] == 3
+
+
+def test_create_random_reservation_invalid_count(client, db):
+    resp = client.post("/api/admin/reservations/random", json={"vk_url": "https://vk.ru/id669", "count": 0})
+    assert resp.status_code == 400
+
+    resp = client.post("/api/admin/reservations/random", json={"vk_url": "https://vk.ru/id669", "count": "abc"})
     assert resp.status_code == 400
 
 

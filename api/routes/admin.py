@@ -3425,33 +3425,52 @@ async def create_random_reservation(request: Request, db: Session = Depends(get_
     b = await _json_body(request)
     vk_url = (b.get("vk_url") or "").strip()
     notes = (b.get("notes") or "").strip()
+    count = b.get("count", 1)
 
     if not vk_url:
         raise HTTPException(status_code=400, detail="VK URL is required")
 
+    try:
+        count = int(count)
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=400, detail="Некорректное количество яиц")
+    if count < 1:
+        raise HTTPException(status_code=400, detail="Количество яиц должно быть не меньше 1")
+
     vk_user_id = _parse_vk_id(vk_url)
     pool = _available_reservation_dragons(db, vk_user_id)
-    if not pool:
-        raise HTTPException(status_code=400, detail="Нет доступных драконов для случайной брони")
+    if len(pool) < count:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "message": "Недостаточно доступных драконов",
+                "available": len(pool),
+                "requested": count,
+            },
+        )
 
-    dragon = random.choice(pool)
+    chosen = random.sample(pool, count)
 
     vk_name = _resolve_vk_name(vk_url)
     now = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
-    reservation = DragonReservation(
-        vk_url=vk_url,
-        vk_user_id=vk_user_id,
-        vk_name=vk_name,
-        dragon_id=dragon.id,
-        is_activated=False,
-        notes=notes,
-        created_at=now,
-        updated_at=now,
-    )
-    db.add(reservation)
+    created = []
+    for dragon in chosen:
+        reservation = DragonReservation(
+            vk_url=vk_url,
+            vk_user_id=vk_user_id,
+            vk_name=vk_name,
+            dragon_id=dragon.id,
+            is_activated=False,
+            notes=notes,
+            created_at=now,
+            updated_at=now,
+        )
+        db.add(reservation)
+        created.append(reservation)
     db.commit()
-    db.refresh(reservation)
-    return _reservation_dict(db, reservation)
+    for r in created:
+        db.refresh(r)
+    return [_reservation_dict(db, r) for r in created]
 
 
 @router.put("/reservations/{reservation_id}")

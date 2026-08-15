@@ -41,8 +41,9 @@ function ReservationsList() {
 
   const [form, setForm] = useState({ vk_url: '', dragon_id: 0, notes: '' });
   const [showForm, setShowForm] = useState(false);
-  const [randomForm, setRandomForm] = useState({ vk_url: '', notes: '' });
+  const [randomForm, setRandomForm] = useState({ vk_url: '', notes: '', count: 1 });
   const [showRandomForm, setShowRandomForm] = useState(false);
+  const [modal, setModal] = useState<{ message: string; available?: number } | null>(null);
 
   const navigate = useNavigate();
 
@@ -92,11 +93,16 @@ function ReservationsList() {
     try {
       await client.post('/admin/reservations/random', randomForm);
       setShowRandomForm(false);
-      setRandomForm({ vk_url: '', notes: '' });
+      setRandomForm({ vk_url: '', notes: '', count: 1 });
       fetchReservations();
       fetchDragons();
     } catch (e: any) {
-      setError(e?.response?.data?.detail || 'Ошибка');
+      const detail = e?.response?.data?.detail;
+      if (detail && typeof detail === 'object' && detail.message) {
+        setModal({ message: detail.message, available: detail.available });
+      } else {
+        setError(detail || 'Ошибка');
+      }
     } finally {
       setSaving(false);
     }
@@ -233,11 +239,16 @@ function ReservationsList() {
         {showRandomForm && (
           <div className="lair-card" style={{ marginBottom: 24 }}>
             <h3 style={{ margin: '0 0 16px', color: 'var(--gold)', fontFamily: 'var(--font-title)' }}>🎲 Случайная бронь</h3>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 12, marginBottom: 16, alignItems: 'end' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 120px auto', gap: 12, marginBottom: 16, alignItems: 'end' }}>
               <div>
                 <label className="lair-label">Ссылка VK</label>
                 <input className="lair-input" type="text" value={randomForm.vk_url} placeholder="https://vk.ru/id123456"
                   onChange={(e) => setRandomForm({ ...randomForm, vk_url: e.target.value })} />
+              </div>
+              <div>
+                <label className="lair-label">Кол-во яиц</label>
+                <input className="lair-input" type="number" min={1} value={randomForm.count}
+                  onChange={(e) => setRandomForm({ ...randomForm, count: parseInt(e.target.value) || 1 })} />
               </div>
               <div>
                 <button className="lair-btn" disabled={saving} onClick={handleCreateRandom}>
@@ -362,6 +373,22 @@ function ReservationsList() {
           </div>
         )}
       </div>
+
+      {modal && (
+        <div onClick={() => setModal(null)}
+             style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div onClick={(e) => e.stopPropagation()}
+               style={{ background: 'var(--surface)', borderRadius: 8, padding: '24px 28px', maxWidth: 420, width: '90%', boxShadow: '0 0 60px rgba(212,116,160,0.3)' }}>
+            <div style={{ fontSize: 18, fontWeight: 700, color: '#d474a0', marginBottom: 12 }}>⚠️ {modal.message}</div>
+            {typeof modal.available === 'number' && (
+              <div style={{ fontSize: 14, color: 'var(--parchment)', marginBottom: 20 }}>
+                Доступно для случайной брони: <b>{modal.available}</b>
+              </div>
+            )}
+            <button className="lair-btn" onClick={() => setModal(null)} style={{ width: '100%' }}>Понятно</button>
+          </div>
+        </div>
+      )}
     </>
   );
 }
