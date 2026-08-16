@@ -60,6 +60,16 @@ def test_max_ten_rows():
         assert len(rows) <= 10, f"{name} has too many rows ({len(rows)})"
 
 
+def test_rules_menu_keyboard_within_limit():
+    from bot.handlers.rules import RULES_SECTIONS, SECTIONS_MENU_VIEW
+    assert len(RULES_SECTIONS) >= 9
+    kb = keyboard.rules_menu_keyboard(SECTIONS_MENU_VIEW)
+    rows = json.loads(kb)["buttons"]
+    assert len(rows) <= 10, f"rules menu has too many rows ({len(rows)})"
+    total = sum(len(r) for r in rows)
+    assert total <= 40, f"rules menu has too many buttons ({total})"
+
+
 def test_shop_with_legends_and_epics_stays_within_limit():
     from types import SimpleNamespace
     items = [SimpleNamespace(id=i, name=f"Item{i}", cost_stitches=100) for i in range(5)]

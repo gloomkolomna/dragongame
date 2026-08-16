@@ -407,15 +407,21 @@ def empty_keyboard():
 
 def rules_menu_keyboard(sections):
     buttons = []
+    pair = []
     for key, title in sections:
-        buttons.append([{
+        pair.append({
             "action": {
                 "type": "text",
                 "label": title[:40],
                 "payload": json.dumps({"cmd": "rules_section", "section": key}, ensure_ascii=False),
             },
             "color": "secondary",
-        }])
+        })
+        if len(pair) == 2:
+            buttons.append(pair)
+            pair = []
+    if pair:
+        buttons.append(pair)
     buttons.append(row(("◀ Закрыть правила", "rules_close")))
     buttons.append(bestiary_link_row())
     return _keyboard(buttons)
