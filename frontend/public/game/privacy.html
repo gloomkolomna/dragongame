@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<meta name="description" content="Полный гайд по игре «Бестиарий драконьих легенд» — все механики: выращивание, редкости, легендарные и эпические драконы, магазин, сокровища, честная игра." />
-<title>📜 Гайд по игре — Бестиарий драконьих легенд</title>
+<meta name="description" content="Политика обработки персональных данных — Бестиарий драконьих легенд. Какие данные собираются и какие не собираются, цели и правовые основания обработки." />
+<title>🔒 Политика обработки персональных данных — Бестиарий драконьих легенд</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@400;700;900&family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=Lora:wght@400;500;600&display=swap" />
@@ -164,16 +164,16 @@ footer {
 
 <header>
   <div class="wrap">
-    <div class="crest">📜</div>
-    <h1>Гайд по игре</h1>
-    <p class="subtitle">Бестиарий драконьих легенд</p>
+    <div class="crest">🔒</div>
+    <h1>Политика обработки персональных данных</h1>
+    <p class="subtitle">Бестиарий драконьих легенд · Самозанятый (НПД)</p>
   </div>
 </header>
 
 <div class="wrap">
   <a class="back-link" href="index.html">← Назад к описанию</a>
-  <div class="loading" id="loading">Загрузка гайда…</div>
-  <div id="guide-error" class="err-msg" style="display:none"></div>
+  <div class="loading" id="loading">Загрузка документа…</div>
+  <div id="doc-error" class="err-msg" style="display:none"></div>
   <div id="toc"></div>
   <article id="content" class="md" style="display:none"></article>
   <a class="back-link" href="index.html">← Назад к описанию</a>
@@ -181,7 +181,7 @@ footer {
 
 <footer>
   <div class="wrap">
-    © 2026 Бестиарий драконьих легенд · Беловолов Е. Г.
+    © 2026 Бестиарий драконьих легенд · Беловолов Е. Г. · Самозанятый (НПД)
   </div>
 </footer>
 
@@ -320,10 +320,10 @@ footer {
 
   var loadingEl = document.getElementById('loading');
   var contentEl = document.getElementById('content');
-  var errEl = document.getElementById('guide-error');
+  var errEl = document.getElementById('doc-error');
   var tocEl = document.getElementById('toc');
 
-  fetch('guide.md')
+  fetch('privacy.md')
     .then(function(r) {
       if (!r.ok) throw new Error('HTTP ' + r.status);
       return r.text();
@@ -338,7 +338,7 @@ footer {
     .catch(function(e) {
       loadingEl.style.display = 'none';
       errEl.style.display = 'block';
-      errEl.textContent = 'Не удалось загрузить гайд. Попробуйте обновить страницу.';
+      errEl.textContent = 'Не удалось загрузить документ. Попробуйте обновить страницу.';
     });
 })();
 </script>
