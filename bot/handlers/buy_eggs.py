@@ -4,7 +4,7 @@ import json
 import re
 from datetime import datetime
 
-OFFERTA_TEXT = "\n\nПеред покупкой ознакомьтесь с условиями оферты: https://belovolovhome.ru/dragons/offerta.docx"
+OFFERTA_TEXT = "\n\nПеред покупкой ознакомьтесь с условиями оферты: https://belovolovhome.ru/dragons/offerta.docx\nПолитика обработки персональных данных: https://belovolovhome.ru/dragons/game/privacy.html"
 
 PAYMENTS_UNAVAILABLE = "💳 Оплата временно недоступна — идут технические работы. Зайдите, пожалуйста, позже!"
 
