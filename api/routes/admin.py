@@ -740,18 +740,31 @@ def _upsert_donor_rows(db: Session, results: dict[int, dict]):
         for d in db.query(DonorCache).filter(DonorCache.vk_id.in_(list(results.keys()))).all()
     }
     for vk_id, info in results.items():
+        don_since = info.get("don_since")
         row = existing.get(vk_id)
         if row:
             row.is_don = info["is_don"]
             row.updated_at = now
             row.last_synced_at = now
-            if info.get("don_since") is not None:
-                row.don_since = info["don_since"]
+            if don_since is not None:
+                row.don_since = don_since
+                if info["is_don"]:
+                    if not row.first_don_since:
+                        row.first_don_since = don_since
+                    else:
+                        try:
+                            existing_dt = datetime.fromisoformat(row.first_don_since)
+                            new_dt = datetime.fromisoformat(don_since)
+                            if new_dt < existing_dt:
+                                row.first_don_since = don_since
+                        except (ValueError, TypeError):
+                            pass
         else:
             db.add(DonorCache(
                 vk_id=vk_id,
                 is_don=info["is_don"],
-                don_since=info.get("don_since"),
+                don_since=don_since,
+                first_don_since=don_since if info["is_don"] else None,
                 updated_at=now,
                 last_synced_at=now,
             ))

@@ -80,6 +80,7 @@ def sync_user(db, vk_id, logger=None):
             vk_id=vk_id,
             is_don=is_don,
             don_since=don_since,
+            first_don_since=don_since if is_don else None,
             updated_at=now,
             last_synced_at=now,
         )
@@ -87,6 +88,17 @@ def sync_user(db, vk_id, logger=None):
     else:
         donor.is_don = is_don
         donor.don_since = don_since
+        if is_don and don_since:
+            if not donor.first_don_since:
+                donor.first_don_since = don_since
+            else:
+                try:
+                    existing = datetime.fromisoformat(donor.first_don_since)
+                    new = datetime.fromisoformat(don_since)
+                    if new < existing:
+                        donor.first_don_since = don_since
+                except (ValueError, TypeError):
+                    pass
         donor.updated_at = now
         donor.last_synced_at = now
     db.commit()

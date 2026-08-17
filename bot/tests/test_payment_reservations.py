@@ -255,9 +255,9 @@ def test_long_term_donor_gets_reward(db):
     db.add(cfg)
     db.commit()
 
-    user = User(vk_id=1000, state="idle", registered_at=now.strftime("%Y-%m-%dT%H:%M:%S"))
+    user = User(vk_id=1000, state="idle", registered_at=(now - timedelta(days=20)).strftime("%Y-%m-%dT%H:%M:%S"))
     db.add(user)
-    donor = DonorCache(vk_id=1000, is_don=True, don_since=don_since,
+    donor = DonorCache(vk_id=1000, is_don=True, don_since=don_since, first_don_since=don_since,
                        updated_at=now.strftime("%Y-%m-%dT%H:%M:%S"), last_synced_at=now.strftime("%Y-%m-%dT%H:%M:%S"))
     db.add(donor)
     db.commit()
@@ -337,9 +337,9 @@ def test_donor_gets_reward_when_live_check_true(db, monkeypatch):
     db.add(cfg)
     db.commit()
 
-    user = User(vk_id=1002, state="idle", registered_at=now.strftime("%Y-%m-%dT%H:%M:%S"))
+    user = User(vk_id=1002, state="idle", registered_at=(now - timedelta(days=20)).strftime("%Y-%m-%dT%H:%M:%S"))
     db.add(user)
-    donor = DonorCache(vk_id=1002, is_don=True, don_since=don_since,
+    donor = DonorCache(vk_id=1002, is_don=True, don_since=don_since, first_don_since=don_since,
                        updated_at=now.strftime("%Y-%m-%dT%H:%M:%S"), last_synced_at=now.strftime("%Y-%m-%dT%H:%M:%S"))
     db.add(donor)
     db.commit()

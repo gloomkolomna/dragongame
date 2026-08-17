@@ -342,3 +342,80 @@ def test_sync_user_returns_none_on_http_error(db, monkeypatch):
 
     from bot.services.donor_sync import sync_user
     assert sync_user(db, 111) is None
+
+
+def test_first_sync_sets_first_don_since(db, monkeypatch):
+    config.DONUT_API_URL = "http://donut"
+    config.DONUT_API_KEY = "key"
+
+    import httpx
+    monkeypatch.setattr(httpx, "get", lambda *a, **k: FakeResponse(200, {"is_don": True, "don_since": "2026-01-01T10:00:00"}))
+
+    from bot.services.donor_sync import sync_user
+    sync_user(db, 111)
+
+    donor = db.query(DonorCache).filter(DonorCache.vk_id == 111).first()
+    assert donor.first_don_since == "2026-01-01T10:00:00"
+
+
+def test_prolong_does_not_overwrite_first_don_since(db, monkeypatch):
+    config.DONUT_API_URL = "http://donut"
+    config.DONUT_API_KEY = "key"
+    db.add(DonorCache(vk_id=111, is_don=True, don_since="2026-01-01T10:00:00", first_don_since="2026-01-01T10:00:00"))
+    db.commit()
+
+    import httpx
+    monkeypatch.setattr(httpx, "get", lambda *a, **k: FakeResponse(200, {"is_don": True, "don_since": "2026-08-01T10:00:00"}))
+
+    from bot.services.donor_sync import sync_user
+    sync_user(db, 111)
+
+    donor = db.query(DonorCache).filter(DonorCache.vk_id == 111).first()
+    assert donor.don_since == "2026-08-01T10:00:00"
+    assert donor.first_don_since == "2026-01-01T10:00:00"
+
+
+def test_earlier_don_since_updates_first(db, monkeypatch):
+    config.DONUT_API_URL = "http://donut"
+    config.DONUT_API_KEY = "key"
+    db.add(DonorCache(vk_id=111, is_don=True, don_since="2026-05-01T10:00:00", first_don_since="2026-05-01T10:00:00"))
+    db.commit()
+
+    import httpx
+    monkeypatch.setattr(httpx, "get", lambda *a, **k: FakeResponse(200, {"is_don": True, "don_since": "2026-02-01T10:00:00"}))
+
+    from bot.services.donor_sync import sync_user
+    sync_user(db, 111)
+
+    donor = db.query(DonorCache).filter(DonorCache.vk_id == 111).first()
+    assert donor.first_don_since == "2026-02-01T10:00:00"
+
+
+def test_non_donor_sync_keeps_first_don_since(db, monkeypatch):
+    config.DONUT_API_URL = "http://donut"
+    config.DONUT_API_KEY = "key"
+    db.add(DonorCache(vk_id=111, is_don=False, don_since=None, first_don_since="2026-01-01T10:00:00"))
+    db.commit()
+
+    import httpx
+    monkeypatch.setattr(httpx, "get", lambda *a, **k: FakeResponse(200, {"is_don": False, "don_since": None}))
+
+    from bot.services.donor_sync import sync_user
+    sync_user(db, 111)
+
+    donor = db.query(DonorCache).filter(DonorCache.vk_id == 111).first()
+    assert donor.first_don_since == "2026-01-01T10:00:00"
+
+
+def test_new_non_donor_row_has_no_first_don_since(db, monkeypatch):
+    config.DONUT_API_URL = "http://donut"
+    config.DONUT_API_KEY = "key"
+
+    import httpx
+    monkeypatch.setattr(httpx, "get", lambda *a, **k: FakeResponse(200, {"is_don": False, "don_since": None}))
+
+    from bot.services.donor_sync import sync_user
+    sync_user(db, 111)
+
+    donor = db.query(DonorCache).filter(DonorCache.vk_id == 111).first()
+    assert donor.first_don_since is None

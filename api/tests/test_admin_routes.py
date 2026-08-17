@@ -1972,3 +1972,21 @@ def test_list_bot_logs_file_missing(client):
     data = resp.json()
     assert data["lines"] == []
     assert data["available"] is False
+
+
+def test_upsert_donor_rows_keeps_first_don_since(db):
+    from routes import admin
+    db.add(DonorCache(vk_id=501, is_don=True, don_since="2026-01-01T10:00:00", first_don_since="2026-01-01T10:00:00"))
+    db.commit()
+
+    admin._upsert_donor_rows(db, {
+        501: {"is_don": True, "don_since": "2026-08-01T10:00:00"},
+        502: {"is_don": True, "don_since": "2026-07-01T10:00:00"},
+    })
+
+    d1 = db.query(DonorCache).filter(DonorCache.vk_id == 501).first()
+    assert d1.don_since == "2026-08-01T10:00:00"
+    assert d1.first_don_since == "2026-01-01T10:00:00"
+
+    d2 = db.query(DonorCache).filter(DonorCache.vk_id == 502).first()
+    assert d2.first_don_since == "2026-07-01T10:00:00"

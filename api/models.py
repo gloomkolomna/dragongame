@@ -502,6 +502,7 @@ class DonorCache(Base):
     vk_id = Column(Integer, primary_key=True)
     is_don = Column(Boolean, default=False)
     don_since = Column(String, nullable=True)
+    first_don_since = Column(String, nullable=True)
     updated_at = Column(String, default="")
     last_synced_at = Column(String, default="")
 

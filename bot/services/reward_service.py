@@ -89,7 +89,6 @@ def _process_rewards(db, vk, logger):
         all_users = db.query(User).all()
 
         for user in all_users:
-            don_since_dt = None
             if cfg.user_type == "donor":
                 if not is_donor(user.vk_id, db):
                     continue
@@ -98,17 +97,25 @@ def _process_rewards(db, vk, logger):
                 if live_is_don is False:
                     continue
                 donor_row = db.query(DonorCache).filter(DonorCache.vk_id == user.vk_id).first()
-                if not donor_row or not donor_row.don_since:
+                if not donor_row or not donor_row.first_don_since:
                     continue
                 try:
-                    don_since_dt = datetime.fromisoformat(donor_row.don_since)
+                    anchor_dt = datetime.fromisoformat(donor_row.first_don_since)
+                    if anchor_dt.tzinfo is not None:
+                        anchor_dt = anchor_dt.replace(tzinfo=None)
+                    if user.registered_at:
+                        reg_dt = datetime.fromisoformat(user.registered_at)
+                        if reg_dt.tzinfo is not None:
+                            reg_dt = reg_dt.replace(tzinfo=None)
+                        if reg_dt > anchor_dt:
+                            anchor_dt = reg_dt
                 except (ValueError, TypeError):
                     continue
-                if now - don_since_dt < timedelta(days=cfg.period_days):
+                if now - anchor_dt < timedelta(days=cfg.period_days):
                     continue
-                days_since_don = (now - don_since_dt).days
-                period_number = days_since_don // cfg.period_days
-                period_start = don_since_dt + timedelta(days=period_number * cfg.period_days)
+                days_since_anchor = (now - anchor_dt).days
+                period_number = days_since_anchor // cfg.period_days
+                period_start = anchor_dt + timedelta(days=period_number * cfg.period_days)
                 wall_pins = db.query(UserRewardPin).filter(
                     UserRewardPin.user_id == user.vk_id,
                     UserRewardPin.issued_at >= (now - timedelta(days=cfg.period_days)).strftime("%Y-%m-%dT%H:%M:%S"),
