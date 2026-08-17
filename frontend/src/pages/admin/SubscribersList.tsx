@@ -10,12 +10,14 @@ interface SubItem {
   first_name: string;
   last_name: string;
   kind: string;
+  is_donor: boolean;
 }
 
 interface AbsentData {
   subscribers_total: number;
   not_written_total: number;
   no_dragons_total: number;
+  donors_total: number;
   items: SubItem[];
 }
 
@@ -24,10 +26,13 @@ const KIND_LABELS: Record<string, string> = {
   no_dragons: 'База: 0 драконов',
 };
 
+const DONOR_LABEL = '⭐ ДОН';
+
 const COLUMNS: Column<SubItem>[] = [
   { key: 'kind', label: 'Статус', value: (r) => KIND_LABELS[r.kind] || r.kind, filter: 'select', options: ['Не писали боту', 'База: 0 драконов'] },
   { key: 'name', label: 'ФИО', value: (r) => [r.first_name, r.last_name].filter(Boolean).join(' '), filter: 'text' },
   { key: 'vk_id', label: 'VK ID', value: (r) => String(r.vk_id), sortValue: (r) => r.vk_id, filter: 'text' },
+  { key: 'donor', label: 'Донат', value: (r) => (r.is_donor ? DONOR_LABEL : '—'), filter: 'select', options: [DONOR_LABEL, '—'] },
   { key: 'chat', label: 'Чат' },
 ];
 
@@ -58,7 +63,7 @@ function SubscribersList() {
           </button>
           {data && !load && (
             <span style={{ color: 'var(--parchment-faded)', fontSize: 14 }}>
-              Подписчиков: {data.subscribers_total} · Не писали боту: {data.not_written_total} · В базе без драконов: {data.no_dragons_total}
+              Подписчиков: {data.subscribers_total} · Не писали боту: {data.not_written_total} · В базе без драконов: {data.no_dragons_total} · Донов в списке: {data.donors_total}
             </span>
           )}
         </div>
@@ -89,6 +94,17 @@ function SubscribersList() {
                         </td>
                         <td>{r.vk_id}</td>
                         <td>
+                          {r.is_donor ? (
+                            <span style={{
+                              padding: '1px 7px', borderRadius: 10,
+                              background: '#e8a33d', color: '#1a1206', fontSize: 12, fontWeight: 700,
+                              whiteSpace: 'nowrap',
+                            }} title="Дон VK Donut">
+                              {DONOR_LABEL}
+                            </span>
+                          ) : '—'}
+                        </td>
+                        <td>
                           <a href={`https://vk.ru/gim${GROUP_ID}?sel=${r.vk_id}`} target="_blank" rel="noreferrer" className="lair-btn lair-btn-sm lair-btn-outline">
                             💬 Чат
                           </a>
@@ -96,7 +112,7 @@ function SubscribersList() {
                       </tr>
                     ))}
                     {t.rows.length === 0 && (
-                      <tr><td colSpan={4} style={{ textAlign: 'center', padding: 32, color: 'var(--parchment-faded)' }}>Все подписчики играют 🎉</td></tr>
+                      <tr><td colSpan={5} style={{ textAlign: 'center', padding: 32, color: 'var(--parchment-faded)' }}>Все подписчики играют 🎉</td></tr>
                     )}
                   </tbody>
                 </table>

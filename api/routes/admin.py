@@ -714,6 +714,9 @@ def subscribers_absent(db: Session = Depends(get_db)):
 
     member_map = {m["vk_id"]: m for m in members}
     user_ids = {row[0] for row in db.query(User.vk_id).all()}
+    don_ids = {
+        row[0] for row in db.query(DonorCache.vk_id).filter(DonorCache.is_don == True).all()
+    }
     zero_dragon_ids = [
         row[0] for row in db.query(User.vk_id)
         .outerjoin(UserDragon, UserDragon.user_id == User.vk_id)
@@ -732,6 +735,7 @@ def subscribers_absent(db: Session = Depends(get_db)):
             "first_name": src.get("first_name", ""),
             "last_name": src.get("last_name", ""),
             "kind": "no_dragons",
+            "is_donor": uid in don_ids,
         })
     for m in members:
         if m["vk_id"] not in user_ids:
@@ -740,12 +744,14 @@ def subscribers_absent(db: Session = Depends(get_db)):
                 "first_name": m["first_name"],
                 "last_name": m["last_name"],
                 "kind": "not_written",
+                "is_donor": m["vk_id"] in don_ids,
             })
     items.sort(key=lambda x: (x["kind"], x["last_name"] or "", x["first_name"] or ""))
     return {
         "subscribers_total": len(members),
         "not_written_total": sum(1 for i in items if i["kind"] == "not_written"),
         "no_dragons_total": sum(1 for i in items if i["kind"] == "no_dragons"),
+        "donors_total": sum(1 for i in items if i["is_donor"]),
         "items": items,
     }
 

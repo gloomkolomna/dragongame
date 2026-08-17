@@ -1,6 +1,6 @@
 import json
 from datetime import datetime, timedelta
-from models import Dragon, DragonStep, User, UserDragon, UserProgress, ErrorLog
+from models import Dragon, DragonStep, User, UserDragon, UserProgress, ErrorLog, DonorCache
 
 
 def _create_dragon(client, name="TestDragon"):
@@ -1775,6 +1775,8 @@ def test_subscribers_absent_splits_kinds(client, db, monkeypatch):
     db.add(User(vk_id=102, state="idle"))
     db.add(User(vk_id=103, state="idle"))
     db.add(User(vk_id=104, state="idle"))
+    db.add(DonorCache(vk_id=101, is_don=True))
+    db.add(DonorCache(vk_id=104, is_don=False))
     db.commit()
 
     resp = client.get("/api/admin/subscribers/absent")
@@ -1783,6 +1785,7 @@ def test_subscribers_absent_splits_kinds(client, db, monkeypatch):
     assert data["subscribers_total"] == 3
     assert data["not_written_total"] == 1
     assert data["no_dragons_total"] == 3
+    assert data["donors_total"] == 1
     kinds = {i["vk_id"]: i["kind"] for i in data["items"]}
     assert kinds == {
         101: "not_written",
@@ -1793,6 +1796,9 @@ def test_subscribers_absent_splits_kinds(client, db, monkeypatch):
     by_id = {i["vk_id"]: i for i in data["items"]}
     assert by_id[102]["first_name"] == "Борис"
     assert by_id[104]["first_name"] == "Гриша"
+    assert by_id[101]["is_donor"] is True
+    assert by_id[102]["is_donor"] is False
+    assert by_id[104]["is_donor"] is False
 
 
 def test_subscribers_absent_excludes_players_with_dragons(client, db, monkeypatch):
@@ -1835,7 +1841,7 @@ def test_subscribers_absent_empty_group(client, db, monkeypatch):
     resp = client.get("/api/admin/subscribers/absent")
     assert resp.status_code == 200
     data = resp.json()
-    assert data == {"subscribers_total": 0, "not_written_total": 0, "no_dragons_total": 0, "items": []}
+    assert data == {"subscribers_total": 0, "not_written_total": 0, "no_dragons_total": 0, "donors_total": 0, "items": []}
 
 
 def test_subscribers_absent_no_token(client, monkeypatch):
