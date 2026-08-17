@@ -651,6 +651,105 @@ def _resolve_vk_names(vk_ids: list[int]) -> dict[int, dict]:
     return resolved
 
 
+def _log_group_members_error(exc: Exception):
+    try:
+        from db import SessionLocal
+        import traceback
+        _db = SessionLocal()
+        try:
+            _db.add(ErrorLog(
+                source="api",
+                error_type="GROUP_MEMBERS",
+                message=f"VK groups.getMembers упал: {exc}",
+                traceback_text=traceback.format_exc(),
+                created_at=datetime.now().strftime("%Y-%m-%dT%H:%M:%S"),
+            ))
+            _db.commit()
+        finally:
+            _db.close()
+    except Exception:
+        pass
+
+
+def _fetch_group_members() -> list[dict]:
+    import vk_api
+    import config
+    vk = vk_api.VkApi(token=config.VK_GROUP_TOKEN, api_version="5.199").get_api()
+    members: list[dict] = []
+    offset = 0
+    for _ in range(100):
+        resp = vk.groups.getMembers(
+            group_id=config.VK_GROUP_ID,
+            offset=offset,
+            count=1000,
+            sort="id_asc",
+            fields="domain",
+        )
+        items = resp.get("items", [])
+        for u in items:
+            if isinstance(u, dict):
+                members.append({
+                    "vk_id": u["id"],
+                    "first_name": u.get("first_name", ""),
+                    "last_name": u.get("last_name", ""),
+                })
+            else:
+                members.append({"vk_id": int(u), "first_name": "", "last_name": ""})
+        offset += len(items)
+        if not items or offset >= int(resp.get("count", 0)):
+            break
+    return members
+
+
+@router.get("/subscribers/absent")
+def subscribers_absent(db: Session = Depends(get_db)):
+    import config
+    if not config.VK_GROUP_TOKEN or not config.VK_GROUP_ID:
+        raise HTTPException(500, "VK_GROUP_TOKEN или VK_GROUP_ID не настроены")
+    try:
+        members = _fetch_group_members()
+    except Exception as e:
+        _log_group_members_error(e)
+        raise HTTPException(502, f"Ошибка VK при получении подписчиков: {e}")
+
+    member_map = {m["vk_id"]: m for m in members}
+    user_ids = {row[0] for row in db.query(User.vk_id).all()}
+    zero_dragon_ids = [
+        row[0] for row in db.query(User.vk_id)
+        .outerjoin(UserDragon, UserDragon.user_id == User.vk_id)
+        .filter(UserDragon.id.is_(None))
+        .all()
+    ]
+
+    need_names = [uid for uid in zero_dragon_ids if uid not in member_map]
+    names = _resolve_vk_names(need_names) if need_names else {}
+
+    items = []
+    for uid in zero_dragon_ids:
+        src = member_map.get(uid) or names.get(uid) or {}
+        items.append({
+            "vk_id": uid,
+            "first_name": src.get("first_name", ""),
+            "last_name": src.get("last_name", ""),
+            "kind": "no_dragons",
+        })
+    for m in members:
+        if m["vk_id"] not in user_ids:
+            items.append({
+                "vk_id": m["vk_id"],
+                "first_name": m["first_name"],
+                "last_name": m["last_name"],
+                "kind": "not_written",
+            })
+    items.sort(key=lambda x: (x["kind"], x["last_name"] or "", x["first_name"] or ""))
+    return {
+        "subscribers_total": len(members),
+        "not_written_total": sum(1 for i in items if i["kind"] == "not_written"),
+        "no_dragons_total": sum(1 for i in items if i["kind"] == "no_dragons"),
+        "items": items,
+    }
+
+
 @router.get("/users")
 def list_users(db: Session = Depends(get_db)):
     from sqlalchemy import func

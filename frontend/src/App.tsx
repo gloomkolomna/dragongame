@@ -40,6 +40,7 @@ import UsersList from './pages/admin/UsersList';
 import UserDragonProgress from './pages/admin/UserDragonProgress';
 import LogsList from './pages/admin/LogsList';
 import SuspiciousList from './pages/admin/SuspiciousList';
+import SubscribersList from './pages/admin/SubscribersList';
 import IntroChaptersList from './pages/admin/IntroChaptersList';
 import RewardConfigs from './pages/admin/RewardConfigs';
 import ReservationsList from './pages/admin/ReservationsList';
@@ -159,6 +160,7 @@ function App() {
           <Route path="users" element={<UsersList />} />
           <Route path="users/:vkId/dragons/:dragonId/progress" element={<UserDragonProgress />} />
           <Route path="suspicious" element={<SuspiciousList />} />
+          <Route path="subscribers" element={<SubscribersList />} />
           <Route path="intro" element={<IntroChaptersList />} />
           <Route path="logs" element={<LogsList />} />
           <Route path="rewards" element={<RewardConfigs />} />

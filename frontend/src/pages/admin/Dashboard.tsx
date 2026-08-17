@@ -164,6 +164,17 @@ function Dashboard() {
             <div className="lair-stat-value" style={{ color: '#d474a0' }}>{stats?.suspicious_total ?? '—'}</div>
             <div className="lair-stat-label">⚠ Подозрительные отчёты →</div>
           </motion.div>
+          <motion.div
+            className="lair-stat-card"
+            onClick={() => navigate('/admin/subscribers')}
+            initial={{ opacity: 0, y: 20, rotateX: 10 }}
+            animate={{ opacity: 1, y: 0, rotateX: 0 }}
+            transition={{ delay: (cards.length + 1) * 0.06, duration: 0.5, ease: 'easeOut' }}
+            style={{ cursor: 'pointer', borderLeft: '3px solid var(--gold)' }}
+          >
+            <div className="lair-stat-value" style={{ fontSize: 26 }}>Запросить</div>
+            <div className="lair-stat-label">👥 Подписчики группы →</div>
+          </motion.div>
         </div>
 
         <h3 style={{ color: 'var(--gold)', margin: '28px 0 14px', fontSize: 17 }}>Состояние сервисов</h3>

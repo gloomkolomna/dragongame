@@ -1758,6 +1758,108 @@ def test_resolve_vk_names_no_token():
     assert result == {}
 
 
+def test_subscribers_absent_splits_kinds(client, db, monkeypatch):
+    from routes import admin
+    import config
+    monkeypatch.setattr(config, "VK_GROUP_TOKEN", "fake_token")
+    monkeypatch.setattr(config, "VK_GROUP_ID", 123)
+    monkeypatch.setattr(admin, "_fetch_group_members", lambda: [
+        {"vk_id": 101, "first_name": "Анна", "last_name": "Иванова"},
+        {"vk_id": 102, "first_name": "Борис", "last_name": "Петров"},
+        {"vk_id": 103, "first_name": "Вера", "last_name": "Сидорова"},
+    ])
+    monkeypatch.setattr(admin, "_resolve_vk_names", lambda ids: {
+        104: {"first_name": "Гриша", "last_name": "Козлов"},
+    })
+
+    db.add(User(vk_id=102, state="idle"))
+    db.add(User(vk_id=103, state="idle"))
+    db.add(User(vk_id=104, state="idle"))
+    db.commit()
+
+    resp = client.get("/api/admin/subscribers/absent")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["subscribers_total"] == 3
+    assert data["not_written_total"] == 1
+    assert data["no_dragons_total"] == 3
+    kinds = {i["vk_id"]: i["kind"] for i in data["items"]}
+    assert kinds == {
+        101: "not_written",
+        102: "no_dragons",
+        103: "no_dragons",
+        104: "no_dragons",
+    }
+    by_id = {i["vk_id"]: i for i in data["items"]}
+    assert by_id[102]["first_name"] == "Борис"
+    assert by_id[104]["first_name"] == "Гриша"
+
+
+def test_subscribers_absent_excludes_players_with_dragons(client, db, monkeypatch):
+    from routes import admin
+    import config
+    monkeypatch.setattr(config, "VK_GROUP_TOKEN", "fake_token")
+    monkeypatch.setattr(config, "VK_GROUP_ID", 123)
+    monkeypatch.setattr(admin, "_fetch_group_members", lambda: [
+        {"vk_id": 201, "first_name": "А", "last_name": "А"},
+        {"vk_id": 202, "first_name": "Б", "last_name": "Б"},
+    ])
+    monkeypatch.setattr(admin, "_resolve_vk_names", lambda ids: {})
+
+    db.add(User(vk_id=201, state="idle"))
+    db.add(User(vk_id=202, state="idle"))
+    dragon = Dragon(name="D", rarity=1, egg_type="blue", steps_count=1)
+    db.add(dragon)
+    db.commit()
+    db.add(UserDragon(user_id=201, dragon_id=dragon.id, completed_at=""))
+    db.add(UserDragon(user_id=202, dragon_id=dragon.id, completed_at="2026-01-01T00:00:00"))
+    db.commit()
+
+    resp = client.get("/api/admin/subscribers/absent")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["items"] == []
+    assert data["subscribers_total"] == 2
+    assert data["not_written_total"] == 0
+    assert data["no_dragons_total"] == 0
+
+
+def test_subscribers_absent_empty_group(client, db, monkeypatch):
+    from routes import admin
+    import config
+    monkeypatch.setattr(config, "VK_GROUP_TOKEN", "fake_token")
+    monkeypatch.setattr(config, "VK_GROUP_ID", 123)
+    monkeypatch.setattr(admin, "_fetch_group_members", lambda: [])
+    monkeypatch.setattr(admin, "_resolve_vk_names", lambda ids: {})
+
+    resp = client.get("/api/admin/subscribers/absent")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data == {"subscribers_total": 0, "not_written_total": 0, "no_dragons_total": 0, "items": []}
+
+
+def test_subscribers_absent_no_token(client, monkeypatch):
+    import config
+    monkeypatch.setattr(config, "VK_GROUP_TOKEN", "")
+    resp = client.get("/api/admin/subscribers/absent")
+    assert resp.status_code == 500
+
+
+def test_subscribers_absent_vk_error_logged(client, db, monkeypatch):
+    from routes import admin
+    import config
+    monkeypatch.setattr(config, "VK_GROUP_TOKEN", "fake_token")
+    monkeypatch.setattr(config, "VK_GROUP_ID", 123)
+
+    def _boom():
+        raise RuntimeError("VK is down")
+
+    monkeypatch.setattr(admin, "_fetch_group_members", _boom)
+    resp = client.get("/api/admin/subscribers/absent")
+    assert resp.status_code == 502
+    assert db.query(ErrorLog).filter(ErrorLog.error_type == "GROUP_MEMBERS").count() == 1
+
+
 def test_resolve_vk_names_batches_over_100():
     """VK отдаёт не более 100 за вызов. При 150 юзерах функция бьёт на 2 чанка
     и собирает все имена. Регрессия бага «VK вернул 100 из 138»."""
