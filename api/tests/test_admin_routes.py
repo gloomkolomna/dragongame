@@ -1764,18 +1764,20 @@ def test_subscribers_absent_splits_kinds(client, db, monkeypatch):
     monkeypatch.setattr(config, "VK_GROUP_TOKEN", "fake_token")
     monkeypatch.setattr(config, "VK_GROUP_ID", 123)
     monkeypatch.setattr(admin, "_fetch_group_members", lambda: [
-        {"vk_id": 101, "first_name": "Анна", "last_name": "Иванова"},
-        {"vk_id": 102, "first_name": "Борис", "last_name": "Петров"},
-        {"vk_id": 103, "first_name": "Вера", "last_name": "Сидорова"},
+        {"vk_id": 101, "first_name": "Анна", "last_name": "Иванова", "is_closed": True},
+        {"vk_id": 102, "first_name": "Борис", "last_name": "Петров", "is_closed": False},
+        {"vk_id": 103, "first_name": "Вера", "last_name": "Сидорова", "is_closed": False},
     ])
     monkeypatch.setattr(admin, "_resolve_vk_names", lambda ids: {
         104: {"first_name": "Гриша", "last_name": "Козлов"},
+    })
+    monkeypatch.setattr(admin, "_check_donors_live", lambda ids: {
+        101: {"is_don": True, "don_since": None},
     })
 
     db.add(User(vk_id=102, state="idle"))
     db.add(User(vk_id=103, state="idle"))
     db.add(User(vk_id=104, state="idle"))
-    db.add(DonorCache(vk_id=101, is_don=True))
     db.add(DonorCache(vk_id=104, is_don=False))
     db.commit()
 
@@ -1786,6 +1788,7 @@ def test_subscribers_absent_splits_kinds(client, db, monkeypatch):
     assert data["not_written_total"] == 1
     assert data["no_dragons_total"] == 3
     assert data["donors_total"] == 1
+    assert data["closed_total"] == 1
     kinds = {i["vk_id"]: i["kind"] for i in data["items"]}
     assert kinds == {
         101: "not_written",
@@ -1799,6 +1802,11 @@ def test_subscribers_absent_splits_kinds(client, db, monkeypatch):
     assert by_id[101]["is_donor"] is True
     assert by_id[102]["is_donor"] is False
     assert by_id[104]["is_donor"] is False
+    assert by_id[101]["is_closed"] is True
+    assert by_id[102]["is_closed"] is False
+    assert by_id[104]["is_closed"] is False
+    cached = db.query(DonorCache).filter(DonorCache.vk_id == 101).first()
+    assert cached is not None and cached.is_don is True
 
 
 def test_subscribers_absent_excludes_players_with_dragons(client, db, monkeypatch):
@@ -1841,7 +1849,29 @@ def test_subscribers_absent_empty_group(client, db, monkeypatch):
     resp = client.get("/api/admin/subscribers/absent")
     assert resp.status_code == 200
     data = resp.json()
-    assert data == {"subscribers_total": 0, "not_written_total": 0, "no_dragons_total": 0, "donors_total": 0, "items": []}
+    assert data == {"subscribers_total": 0, "not_written_total": 0, "no_dragons_total": 0, "donors_total": 0, "closed_total": 0, "items": []}
+
+
+def test_subscribers_absent_live_error_falls_back_to_cache(client, db, monkeypatch):
+    from routes import admin
+    import config
+    monkeypatch.setattr(config, "VK_GROUP_TOKEN", "fake_token")
+    monkeypatch.setattr(config, "VK_GROUP_ID", 123)
+    monkeypatch.setattr(admin, "_fetch_group_members", lambda: [
+        {"vk_id": 301, "first_name": "А", "last_name": "А", "is_closed": False},
+    ])
+    monkeypatch.setattr(admin, "_resolve_vk_names", lambda ids: {})
+    monkeypatch.setattr(admin, "_check_donors_live", lambda ids: {})
+
+    db.add(DonorCache(vk_id=301, is_don=True))
+    db.commit()
+
+    resp = client.get("/api/admin/subscribers/absent")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["donors_total"] == 1
+    assert data["items"][0]["vk_id"] == 301
+    assert data["items"][0]["is_donor"] is True
 
 
 def test_subscribers_absent_no_token(client, monkeypatch):

@@ -683,7 +683,7 @@ def _fetch_group_members() -> list[dict]:
             offset=offset,
             count=1000,
             sort="id_asc",
-            fields="domain",
+            fields="domain,is_closed",
         )
         items = resp.get("items", [])
         for u in items:
@@ -692,13 +692,70 @@ def _fetch_group_members() -> list[dict]:
                     "vk_id": u["id"],
                     "first_name": u.get("first_name", ""),
                     "last_name": u.get("last_name", ""),
+                    "is_closed": bool(u.get("is_closed", False)),
                 })
             else:
-                members.append({"vk_id": int(u), "first_name": "", "last_name": ""})
+                members.append({"vk_id": int(u), "first_name": "", "last_name": "", "is_closed": False})
         offset += len(items)
         if not items or offset >= int(resp.get("count", 0)):
             break
     return members
+
+
+def _check_donors_live(vk_ids: list[int]) -> dict[int, dict]:
+    import config
+    if not config.DONUT_API_URL or not config.DONUT_API_KEY or not vk_ids:
+        return {}
+    import httpx
+    from concurrent.futures import ThreadPoolExecutor
+
+    def _one(vk_id: int):
+        try:
+            resp = httpx.get(
+                f"{config.DONUT_API_URL}/{vk_id}",
+                headers={"X-API-Key": config.DONUT_API_KEY},
+                timeout=5,
+            )
+            if resp.status_code != 200:
+                return None
+            data = resp.json()
+            return {"is_don": bool(data.get("is_don", False)), "don_since": data.get("don_since")}
+        except Exception:
+            return None
+
+    results: dict[int, dict] = {}
+    with ThreadPoolExecutor(max_workers=10) as pool:
+        for vk_id, res in zip(vk_ids, pool.map(_one, vk_ids)):
+            if res is not None:
+                results[vk_id] = res
+    return results
+
+
+def _upsert_donor_rows(db: Session, results: dict[int, dict]):
+    if not results:
+        return
+    now = datetime.now().isoformat()
+    existing = {
+        d.vk_id: d
+        for d in db.query(DonorCache).filter(DonorCache.vk_id.in_(list(results.keys()))).all()
+    }
+    for vk_id, info in results.items():
+        row = existing.get(vk_id)
+        if row:
+            row.is_don = info["is_don"]
+            row.updated_at = now
+            row.last_synced_at = now
+            if info.get("don_since") is not None:
+                row.don_since = info["don_since"]
+        else:
+            db.add(DonorCache(
+                vk_id=vk_id,
+                is_don=info["is_don"],
+                don_since=info.get("don_since"),
+                updated_at=now,
+                last_synced_at=now,
+            ))
+    db.commit()
 
 
 @router.get("/subscribers/absent")
@@ -714,9 +771,12 @@ def subscribers_absent(db: Session = Depends(get_db)):
 
     member_map = {m["vk_id"]: m for m in members}
     user_ids = {row[0] for row in db.query(User.vk_id).all()}
+    not_written_members = [m for m in members if m["vk_id"] not in user_ids]
     don_ids = {
         row[0] for row in db.query(DonorCache.vk_id).filter(DonorCache.is_don == True).all()
     }
+    live_donors = _check_donors_live([m["vk_id"] for m in not_written_members][:500])
+    _upsert_donor_rows(db, live_donors)
     zero_dragon_ids = [
         row[0] for row in db.query(User.vk_id)
         .outerjoin(UserDragon, UserDragon.user_id == User.vk_id)
@@ -736,22 +796,25 @@ def subscribers_absent(db: Session = Depends(get_db)):
             "last_name": src.get("last_name", ""),
             "kind": "no_dragons",
             "is_donor": uid in don_ids,
+            "is_closed": bool(member_map[uid].get("is_closed", False)) if uid in member_map else False,
         })
-    for m in members:
-        if m["vk_id"] not in user_ids:
-            items.append({
-                "vk_id": m["vk_id"],
-                "first_name": m["first_name"],
-                "last_name": m["last_name"],
-                "kind": "not_written",
-                "is_donor": m["vk_id"] in don_ids,
-            })
+    for m in not_written_members:
+        live = live_donors.get(m["vk_id"])
+        items.append({
+            "vk_id": m["vk_id"],
+            "first_name": m["first_name"],
+            "last_name": m["last_name"],
+            "kind": "not_written",
+            "is_donor": live["is_don"] if live is not None else m["vk_id"] in don_ids,
+            "is_closed": bool(m.get("is_closed", False)),
+        })
     items.sort(key=lambda x: (x["kind"], x["last_name"] or "", x["first_name"] or ""))
     return {
         "subscribers_total": len(members),
         "not_written_total": sum(1 for i in items if i["kind"] == "not_written"),
         "no_dragons_total": sum(1 for i in items if i["kind"] == "no_dragons"),
         "donors_total": sum(1 for i in items if i["is_donor"]),
+        "closed_total": sum(1 for i in items if i["is_closed"]),
         "items": items,
     }
 

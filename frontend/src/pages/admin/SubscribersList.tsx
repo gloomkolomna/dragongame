@@ -11,6 +11,7 @@ interface SubItem {
   last_name: string;
   kind: string;
   is_donor: boolean;
+  is_closed: boolean;
 }
 
 interface AbsentData {
@@ -18,6 +19,7 @@ interface AbsentData {
   not_written_total: number;
   no_dragons_total: number;
   donors_total: number;
+  closed_total: number;
   items: SubItem[];
 }
 
@@ -27,11 +29,13 @@ const KIND_LABELS: Record<string, string> = {
 };
 
 const DONOR_LABEL = '⭐ ДОН';
+const CLOSED_LABEL = '🔒 Закрытый';
 
 const COLUMNS: Column<SubItem>[] = [
   { key: 'kind', label: 'Статус', value: (r) => KIND_LABELS[r.kind] || r.kind, filter: 'select', options: ['Не писали боту', 'База: 0 драконов'] },
   { key: 'name', label: 'ФИО', value: (r) => [r.first_name, r.last_name].filter(Boolean).join(' '), filter: 'text' },
   { key: 'vk_id', label: 'VK ID', value: (r) => String(r.vk_id), sortValue: (r) => r.vk_id, filter: 'text' },
+  { key: 'closed', label: 'Профиль', value: (r) => (r.is_closed ? CLOSED_LABEL : 'Открытый'), filter: 'select', options: [CLOSED_LABEL, 'Открытый'] },
   { key: 'donor', label: 'Донат', value: (r) => (r.is_donor ? DONOR_LABEL : '—'), filter: 'select', options: [DONOR_LABEL, '—'] },
   { key: 'chat', label: 'Чат' },
 ];
@@ -63,7 +67,7 @@ function SubscribersList() {
           </button>
           {data && !load && (
             <span style={{ color: 'var(--parchment-faded)', fontSize: 14 }}>
-              Подписчиков: {data.subscribers_total} · Не писали боту: {data.not_written_total} · В базе без драконов: {data.no_dragons_total} · Донов в списке: {data.donors_total}
+              Подписчиков: {data.subscribers_total} · Не писали боту: {data.not_written_total} · В базе без драконов: {data.no_dragons_total} · Донов в списке: {data.donors_total} · Закрытых профилей: {data.closed_total}
             </span>
           )}
         </div>
@@ -93,6 +97,9 @@ function SubscribersList() {
                           </a>
                         </td>
                         <td>{r.vk_id}</td>
+                        <td title={r.is_closed ? 'Закрытый профиль — не виден в поиске участников VK' : ''}>
+                          {r.is_closed ? '🔒' : '—'}
+                        </td>
                         <td>
                           {r.is_donor ? (
                             <span style={{
@@ -112,7 +119,7 @@ function SubscribersList() {
                       </tr>
                     ))}
                     {t.rows.length === 0 && (
-                      <tr><td colSpan={5} style={{ textAlign: 'center', padding: 32, color: 'var(--parchment-faded)' }}>Все подписчики играют 🎉</td></tr>
+                      <tr><td colSpan={6} style={{ textAlign: 'center', padding: 32, color: 'var(--parchment-faded)' }}>Все подписчики играют 🎉</td></tr>
                     )}
                   </tbody>
                 </table>
