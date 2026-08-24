@@ -23,7 +23,7 @@ from models import (
     IntroChapter, RewardConfig, UserRewardPin,
     DragonReservation, AppSettings,
 )
-from config import API_ERROR_LOG, BOT_ERROR_LOG, DONOR_SYNC_INTERVAL_HOURS, DEBUG_LOG_PATH, DEBUG_LOG_REQUESTS, PAYMENTS_TEST_VK_ID
+from config import API_ERROR_LOG, BOT_ERROR_LOG, DONOR_SYNC_INTERVAL_HOURS, DEBUG_LOG_PATH, DEBUG_LOG_REQUESTS
 from services.dragon_service import (
     get_dragons, get_dragon, create_dragon, update_dragon, delete_dragon, sync_steps_count,
 )
@@ -3069,14 +3069,11 @@ async def adjust_balance(vk_id: int, request: Request, db: Session = Depends(get
 def get_settings(db: Session = Depends(get_db)):
     cfg = db.query(AppSettings).filter(AppSettings.id == 1).first()
     if not cfg:
-        return {"welcome_keyword": "", "suspicious_multiplier": 2, "block_multiplier": 3, "payment_provider": "robokassa", "payments_test_mode": False, "payments_test_vk_id": PAYMENTS_TEST_VK_ID}
+        return {"welcome_keyword": "", "suspicious_multiplier": 2, "block_multiplier": 3}
     return {
         "welcome_keyword": cfg.welcome_keyword or "",
         "suspicious_multiplier": cfg.suspicious_multiplier if cfg.suspicious_multiplier is not None else 2,
         "block_multiplier": cfg.block_multiplier if cfg.block_multiplier is not None else 3,
-        "payment_provider": cfg.payment_provider or "robokassa",
-        "payments_test_mode": bool(cfg.payments_test_mode),
-        "payments_test_vk_id": cfg.payments_test_vk_id if cfg.payments_test_vk_id is not None else PAYMENTS_TEST_VK_ID,
     }
 
 
@@ -3086,19 +3083,11 @@ async def update_settings(request: Request, db: Session = Depends(get_db)):
     keyword = str(b.get("welcome_keyword", "")).strip()
     suspicious = int(b.get("suspicious_multiplier", 2))
     block = int(b.get("block_multiplier", 3))
-    provider = str(b.get("payment_provider", "robokassa")).strip()
-    if provider not in ("robokassa", "moneta"):
-        provider = "robokassa"
-    test_mode = bool(b.get("payments_test_mode", False))
-    test_vk_id = int(b.get("payments_test_vk_id") or PAYMENTS_TEST_VK_ID)
     cfg = db.query(AppSettings).filter(AppSettings.id == 1).first()
     if not cfg:
         cfg = AppSettings(
             id=1, welcome_keyword=keyword,
             suspicious_multiplier=suspicious, block_multiplier=block,
-            payment_provider=provider,
-            payments_test_mode=test_mode,
-            payments_test_vk_id=test_vk_id,
             updated_at=datetime.now().isoformat(),
         )
         db.add(cfg)
@@ -3106,12 +3095,9 @@ async def update_settings(request: Request, db: Session = Depends(get_db)):
         cfg.welcome_keyword = keyword
         cfg.suspicious_multiplier = suspicious
         cfg.block_multiplier = block
-        cfg.payment_provider = provider
-        cfg.payments_test_mode = test_mode
-        cfg.payments_test_vk_id = test_vk_id
         cfg.updated_at = datetime.now().isoformat()
     db.commit()
-    return {"welcome_keyword": keyword, "suspicious_multiplier": suspicious, "block_multiplier": block, "payment_provider": provider, "payments_test_mode": test_mode, "payments_test_vk_id": test_vk_id}
+    return {"welcome_keyword": keyword, "suspicious_multiplier": suspicious, "block_multiplier": block}
 
 
 # ─── Магазин: цена и наборы (Robokassa) ───
@@ -3208,7 +3194,7 @@ def delete_set(set_id: int, db: Session = Depends(get_db)):
 def list_payment_orders(
     page: int = Query(1, ge=1),
     per_page: int = Query(50, ge=1, le=200),
-    status: Optional[str] = Query(None, regex="^(pending|success|fail|cancelled)?$"),
+    status: Optional[str] = Query(None, regex="^(pending|success|fail|failed|cancelled)?$"),
     db: Session = Depends(get_db),
 ):
     q = db.query(PaymentOrder).outerjoin(
@@ -3220,7 +3206,6 @@ def list_payment_orders(
     items = q.order_by(PaymentOrder.id.desc()).offset((page - 1) * per_page).limit(per_page).all()
     result = []
     for order, set_name in items:
-        from routes.payment import inv_id_for_order
         d = {
             "id": order.id,
             "vk_id": order.vk_id,
@@ -3229,9 +3214,7 @@ def list_payment_orders(
             "amount_rub": order.amount_rub,
             "quantity": order.quantity,
             "price_per_pin": order.price_per_pin,
-            "provider": order.provider or "robokassa",
-            "robokassa_inv_id": order.robokassa_inv_id,
-            "robokassa_inv_id_expected": inv_id_for_order(order.id),
+            "gateway_txn_id": order.gateway_txn_id,
             "receipt_email": order.receipt_email,
             "status": order.status,
             "dragon_ids": json.loads(order.dragon_ids or "[]"),
@@ -3252,16 +3235,14 @@ def cancel_payment_order(order_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=400, detail="Only pending orders can be cancelled")
     order.status = "fail"
     order.completed_at = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
-    import config
-    from routes.payment import inv_id_for_order
     log = PaymentLog(
         vk_id=order.vk_id,
         order_id=order.id,
         action="cancelled",
         login="",
         out_sum=str(order.amount_rub / 100),
-        inv_id=str(inv_id_for_order(order.id)),
-        test_mode=config.robokassa_is_test(),
+        inv_id=order.gateway_txn_id or "",
+        test_mode=False,
         sig="",
         receipt_json="",
         detail="admin cancelled",

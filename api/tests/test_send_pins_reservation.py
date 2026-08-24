@@ -42,7 +42,7 @@ def test_send_pins_creates_reservation_when_other_user_has_inactive(db, monkeypa
         DragonReservation.is_activated == False,
     ).first()
     assert buyer_res is not None
-    assert buyer_res.notes == "Покупка через Robokassa"
+    assert buyer_res.notes == "Покупка (онлайн-оплата)"
 
     db.refresh(other_res)
     assert other_res.vk_user_id == 999

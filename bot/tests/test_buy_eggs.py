@@ -1,6 +1,6 @@
 from datetime import datetime
-from models import User, DragonSet, PaymentOrder, Dragon, PricingConfig, AppSettings
-from bot.handlers.buy_eggs import handle_buy_eggs, handle_buy_set, handle_partial_confirm, handle_receipt_email, handle_cancel_payment
+from models import User, DragonSet, PaymentOrder, Dragon, PricingConfig
+from bot.handlers.buy_eggs import handle_buy_eggs, handle_buy_set, handle_partial_confirm, handle_receipt_email, handle_cancel_payment, handle_open_payment
 
 
 def _make_user(db, vk_id=1, state="idle", state_data="{}"):
@@ -8,17 +8,6 @@ def _make_user(db, vk_id=1, state="idle", state_data="{}"):
     db.add(u)
     db.commit()
     return u
-
-
-def _enable_payments_test_mode(db, tester_vk_id=400977):
-    cfg = db.query(AppSettings).filter(AppSettings.id == 1).first()
-    if not cfg:
-        cfg = AppSettings(id=1, payments_test_mode=True, payments_test_vk_id=tester_vk_id)
-        db.add(cfg)
-    else:
-        cfg.payments_test_mode = True
-        cfg.payments_test_vk_id = tester_vk_id
-    db.commit()
 
 
 def _make_set(db, name="Стартовый", quantity=3, discount=0, donor_discount=0, sort_order=0):
@@ -335,64 +324,152 @@ def test_cancel_payment_not_pending(db):
     assert "уже" in msgs[0].lower()
 
 
-# ─── Payments test mode ───
+# ─── Pay Gateway ───
 
-def test_buy_eggs_blocked_in_test_mode(db):
-    _enable_payments_test_mode(db, tester_vk_id=400977)
-    u = _make_user(db, vk_id=123)
-    s = _make_set(db, name="Стартовый", quantity=3)
+def _gateway(monkeypatch, info=None, raises=None):
+    import config
+    monkeypatch.setattr(config, "USE_PAY_GATEWAY", True)
+    from services import pay_gateway_client
+    calls = []
 
-    msgs = []
-    handle_buy_eggs(u, db, lambda m, **k: msgs.append(m))
-    assert "недоступна" in msgs[0].lower()
-    assert "Стартовый" not in msgs[0]
+    def fake_create_order(**kwargs):
+        calls.append(kwargs)
+        if raises is not None:
+            raise raises
+        return info or {
+            "transaction_id": "20260824-000001",
+            "payment_url": "https://belovolovhome.ru/pay/20260824-000001",
+        }
 
-
-def test_buy_eggs_allowed_for_tester(db):
-    _enable_payments_test_mode(db, tester_vk_id=400977)
-    u = _make_user(db, vk_id=400977)
-    s = _make_set(db, name="Стартовый", quantity=3)
-
-    msgs = []
-    handle_buy_eggs(u, db, lambda m, **k: msgs.append(m))
-    assert "Стартовый" in msgs[0]
+    monkeypatch.setattr(pay_gateway_client, "create_order", fake_create_order)
+    return calls
 
 
-def test_buy_set_blocked_in_test_mode(db):
-    _enable_payments_test_mode(db, tester_vk_id=400977)
-    u = _make_user(db, vk_id=123)
-    s = _make_set(db, name="Стартовый", quantity=3)
+def _make_buy_context(db, quantity=3):
+    u = _make_user(db)
+    s = _make_set(db, name="Стартовый", quantity=quantity)
     db.add(PricingConfig(id=1, base_price_per_dragon=10000))
-    for i in range(1, 6):
+    for i in range(1, quantity + 3):
         db.add(Dragon(name=f"D{i}", rarity=1, steps_count=1, is_active=True))
     db.commit()
+    return u, s
 
+
+def test_buy_set_gateway_creates_gateway_order(db, monkeypatch):
+    import json
+    u, s = _make_buy_context(db)
+    calls = _gateway(monkeypatch)
+
+    handle_buy_set(u, s.id, db, lambda m, **k: None)
     msgs = []
-    handle_buy_set(u, s.id, db, lambda m, **k: msgs.append(m))
-    assert "недоступна" in msgs[0].lower()
+    handle_receipt_email(u, "buyer@example.com", db, lambda m, **k: msgs.append(m))
 
-    order = db.query(PaymentOrder).filter(PaymentOrder.vk_id == u.vk_id).first()
-    assert order is None
-
-
-def test_buy_set_allowed_for_tester(db):
-    _enable_payments_test_mode(db, tester_vk_id=400977)
-    u = _make_user(db, vk_id=400977)
-    s = _make_set(db, name="Стартовый", quantity=3)
-    db.add(PricingConfig(id=1, base_price_per_dragon=10000))
-    for i in range(1, 6):
-        db.add(Dragon(name=f"D{i}", rarity=1, steps_count=1, is_active=True))
-    db.commit()
-
-    msgs = []
-    handle_buy_set(u, s.id, db, lambda m, **k: msgs.append(m))
-    assert "Стартовый" in msgs[0]
-    assert "email" in msgs[0].lower()
-
-    handle_receipt_email(u, "tester@example.com", db, lambda m, **k: None)
     order = db.query(PaymentOrder).filter(PaymentOrder.vk_id == u.vk_id).first()
     assert order is not None
     assert order.status == "pending"
+    assert order.provider == "gateway"
+    assert order.gateway_txn_id == "20260824-000001"
+    assert calls[0]["vk_id"] == u.vk_id
+    assert calls[0]["amount_kop"] == order.amount_rub
+    assert calls[0]["receipt_email"] == "buyer@example.com"
+    assert "Набор цифровых товаров" in calls[0]["description"]
+    sd = json.loads(u.state_data or "{}")
+    assert sd["_payment_order_id"] == order.id
+    assert sd["_payment_url"] == "https://belovolovhome.ru/pay/20260824-000001"
+    assert "Стартовый" in msgs[0]
+
+
+def test_buy_set_gateway_failure_fails_order(db, monkeypatch):
+    import json
+    from services.pay_gateway_client import PayGatewayError
+    u, s = _make_buy_context(db)
+    _gateway(monkeypatch, raises=PayGatewayError("http 500: boom"))
+
+    handle_buy_set(u, s.id, db, lambda m, **k: None)
+    msgs = []
+    handle_receipt_email(u, "buyer@example.com", db, lambda m, **k: msgs.append(m))
+
+    order = db.query(PaymentOrder).filter(PaymentOrder.vk_id == u.vk_id).first()
+    assert order.status == "failed"
+    assert order.gateway_txn_id is None
+    assert "недоступна" in msgs[0].lower()
+    sd = json.loads(u.state_data or "{}")
+    assert "_payment_order_id" not in sd
+
+
+def test_buy_set_gateway_blocked_fails_order(db, monkeypatch):
+    from services.pay_gateway_client import PayGatewayBlocked
+    u, s = _make_buy_context(db)
+    _gateway(monkeypatch, raises=PayGatewayBlocked("test_blocked"))
+
+    handle_buy_set(u, s.id, db, lambda m, **k: None)
+    msgs = []
+    handle_receipt_email(u, "buyer@example.com", db, lambda m, **k: msgs.append(m))
+
+    order = db.query(PaymentOrder).filter(PaymentOrder.vk_id == u.vk_id).first()
+    assert order.status == "failed"
+    assert "недоступна" in msgs[0].lower()
+
+
+def test_open_payment_gateway_url(db, monkeypatch):
+    u, s = _make_buy_context(db)
+    _gateway(monkeypatch)
+    handle_buy_set(u, s.id, db, lambda m, **k: None)
+    handle_receipt_email(u, "buyer@example.com", db, lambda m, **k: None)
+
+    msgs = []
+    handle_open_payment(u, db, lambda m, **k: msgs.append(m))
+    assert "https://belovolovhome.ru/pay/20260824-000001" in msgs[0]
+
+
+def test_open_payment_gateway_url_fallback_without_stored(db, monkeypatch):
+    import json
+    import config
+    monkeypatch.setattr(config, "PAY_GATEWAY_URL", "https://belovolovhome.ru/pay")
+    u = _make_user(db, state_data=json.dumps({"_payment_order_id": 5}))
+    s = _make_set(db, name="Стартовый", quantity=1)
+    order = PaymentOrder(
+        id=5, vk_id=u.vk_id, set_id=s.id, amount_rub=9500, quantity=1,
+        price_per_pin=9500, status="pending", dragon_ids="[]",
+        gateway_txn_id="20260824-000777", provider="gateway",
+        created_at=datetime.now().strftime("%Y-%m-%dT%H:%M:%S"),
+    )
+    db.add(order)
+    db.commit()
+
+    msgs = []
+    handle_open_payment(u, db, lambda m, **k: msgs.append(m))
+    assert "https://belovolovhome.ru/pay/20260824-000777" in msgs[0]
+
+
+def test_open_payment_old_path_url(db):
+    u, s = _make_buy_context(db)
+    handle_buy_set(u, s.id, db, lambda m, **k: None)
+    handle_receipt_email(u, "buyer@example.com", db, lambda m, **k: None)
+    order = db.query(PaymentOrder).filter(PaymentOrder.vk_id == u.vk_id).first()
+    assert order.provider == "moneta"
+
+    msgs = []
+    handle_open_payment(u, db, lambda m, **k: msgs.append(m))
+    assert f"/api/payment/pay/{order.id}" in msgs[0]
+
+
+def test_open_payment_failed_gateway_order(db):
+    import json
+    u = _make_user(db, state_data=json.dumps({"_payment_order_id": 6}))
+    s = _make_set(db, name="Стартовый", quantity=1)
+    order = PaymentOrder(
+        id=6, vk_id=u.vk_id, set_id=s.id, amount_rub=9500, quantity=1,
+        price_per_pin=9500, status="failed", dragon_ids="[]",
+        gateway_txn_id=None, provider="gateway",
+        created_at=datetime.now().strftime("%Y-%m-%dT%H:%M:%S"),
+    )
+    db.add(order)
+    db.commit()
+
+    msgs = []
+    handle_open_payment(u, db, lambda m, **k: msgs.append(m))
+    assert "failed" in msgs[0]
 
 
 # ─── Receipt email validation ───

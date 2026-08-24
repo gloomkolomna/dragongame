@@ -18,20 +18,20 @@ def _now():
     return datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
 
 
-def _store_payment(user, order_id, db):
+def _store_payment(user, order_id, db, payment_url=None):
     sd = json.loads(user.state_data or "{}")
     sd["_payment_order_id"] = order_id
+    if payment_url:
+        sd["_payment_url"] = payment_url
+    else:
+        sd.pop("_payment_url", None)
     user.state_data = json.dumps(sd, ensure_ascii=False)
     db.commit()
 
 
 def handle_buy_eggs(user, db, send_message):
     from models import DragonSet
-    from services.payment_service import is_donor, calc_set_price, is_payment_blocked_for
-
-    if is_payment_blocked_for(user.vk_id, db):
-        send_message(PAYMENTS_UNAVAILABLE)
-        return
+    from services.payment_service import is_donor, calc_set_price
 
     sets = (
         db.query(DragonSet)
@@ -98,16 +98,45 @@ def _ask_email(user, db, set_id, quantity, amount, price_per_pin):
     return await_receipt_email_keyboard()
 
 
+def _order_provider():
+    import config
+    if config.USE_PAY_GATEWAY:
+        return "gateway"
+    return "moneta"
+
+
+def _register_at_gateway(order, db):
+    from models import DragonSet
+    from services import pay_gateway_client
+
+    dset = db.query(DragonSet).filter(DragonSet.id == order.set_id).first()
+    description = f"Набор цифровых товаров «{dset.name}»" if dset else "Набор драконов"
+    try:
+        info = pay_gateway_client.create_order(
+            vk_id=order.vk_id,
+            amount_kop=order.amount_rub,
+            description=description,
+            receipt_email=order.receipt_email,
+        )
+    except pay_gateway_client.PayGatewayError:
+        order.status = "failed"
+        order.completed_at = _now()
+        db.commit()
+        return None
+    order.gateway_txn_id = info.get("transaction_id")
+    db.commit()
+    return info.get("payment_url")
+
+
 def _create_pending_order(user, db, set_id, quantity, amount, price_per_pin, email):
     from models import PaymentOrder
-    from services.payment_service import get_active_provider
     order = PaymentOrder(
         vk_id=user.vk_id,
         set_id=set_id,
         amount_rub=amount,
         quantity=quantity,
         price_per_pin=price_per_pin,
-        provider=get_active_provider(db),
+        provider=_order_provider(),
         receipt_email=email.strip().lower(),
         status="pending",
         dragon_ids="[]",
@@ -116,7 +145,12 @@ def _create_pending_order(user, db, set_id, quantity, amount, price_per_pin, ema
     db.add(order)
     db.commit()
     db.refresh(order)
-    _store_payment(user, order.id, db)
+    payment_url = None
+    if order.provider == "gateway":
+        payment_url = _register_at_gateway(order, db)
+        if payment_url is None:
+            return order
+    _store_payment(user, order.id, db, payment_url=payment_url)
     return order
 
 
@@ -145,6 +179,10 @@ def handle_receipt_email(user, text, db, send_message):
     user.state = IDLE
     db.commit()
 
+    if order.status == "failed":
+        send_message(PAYMENTS_UNAVAILABLE)
+        return
+
     from models import DragonSet
     dset = db.query(DragonSet).filter(DragonSet.id == set_id).first()
     set_name = dset.name if dset else "Набор драконов"
@@ -165,17 +203,13 @@ def handle_receipt_email(user, text, db, send_message):
 
 def handle_buy_set(user, set_id, db, send_message):
     from models import DragonSet, PaymentOrder
-    from services.payment_service import is_donor, calc_set_price, count_available, get_active_provider, is_payment_blocked_for
+    from services.payment_service import is_donor, calc_set_price, count_available
 
     dset = db.query(DragonSet).filter(
         DragonSet.id == set_id, DragonSet.is_active == True
     ).first()
     if not dset:
         send_message("❌ Набор не найден или уже недоступен.")
-        return
-
-    if is_payment_blocked_for(user.vk_id, db):
-        send_message(PAYMENTS_UNAVAILABLE)
         return
 
     pending = db.query(PaymentOrder).filter(
@@ -304,7 +338,10 @@ def handle_open_payment(user, db, send_message):
     dset = db.query(DragonSet).filter(DragonSet.id == order.set_id).first()
     set_name = dset.name if dset else "?"
     import config as _cfg
-    url = f"{_cfg.SITE_URL}/api/payment/pay/{order.id}?vk_id={user.vk_id}"
+    if order.gateway_txn_id:
+        url = sd.get("_payment_url") or f"{_cfg.PAY_GATEWAY_URL}/{order.gateway_txn_id}"
+    else:
+        url = f"{_cfg.SITE_URL}/api/payment/pay/{order.id}?vk_id={user.vk_id}"
 
     from bot.keyboard import garden_row, _keyboard
     payment_kb = _keyboard([
@@ -353,6 +390,7 @@ def handle_cancel_payment(user, db, send_message):
         return
 
     order_id = sd.pop("_payment_order_id", None)
+    sd.pop("_payment_url", None)
 
     if not order_id:
         send_message("❌ Нет активного заказа для отмены.")

@@ -64,6 +64,16 @@ MONETA_NO_SIGNATURE_FORM = os.getenv("MONETA_NO_SIGNATURE_FORM", "").strip().low
 MONETA_NO_SIGNATURE_CALLBACK = os.getenv("MONETA_NO_SIGNATURE_CALLBACK", "").strip().lower() in ("1", "true", "yes")
 MONETA_CALLBACK_IPS = [ip.strip() for ip in os.getenv("MONETA_CALLBACK_IPS", "193.176.92.70").split(",") if ip.strip()]
 
+# ── Pay Gateway (pay-gateway / proxypay) ──
+PAY_GATEWAY_URL = os.getenv("PAY_GATEWAY_URL", "https://belovolovhome.ru/pay").rstrip("/")
+PAY_GATEWAY_API_KEY = os.getenv("PAY_GATEWAY_API_KEY", "")
+PAY_GATEWAY_WEBHOOK_SECRET = os.getenv("PAY_GATEWAY_WEBHOOK_SECRET", "")
+PAY_GATEWAY_GAME_ID = os.getenv("PAY_GATEWAY_GAME_ID", "dragons")
+USE_PAY_GATEWAY = os.getenv("USE_PAY_GATEWAY", "").strip().lower() in ("1", "true", "yes")
+PAY_GATEWAY_TIMEOUT_SECONDS = _env_int("PAY_GATEWAY_TIMEOUT_SECONDS", 10)
+PAY_GATEWAY_RECOVERY_AFTER_MINUTES = _env_int("PAY_GATEWAY_RECOVERY_AFTER_MINUTES", 10)
+PAY_GATEWAY_POLL_INTERVAL_SECONDS = _env_int("PAY_GATEWAY_POLL_INTERVAL_SECONDS", 60)
+
 
 def moneta_is_test() -> bool:
     return str(MONETA_TEST_MODE).strip() == "1"

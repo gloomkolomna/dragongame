@@ -12,6 +12,7 @@ import Nest from './pages/Nest';
 import Treasures from './pages/Treasures';
 import Library from './pages/Library';
 import Shop from './pages/Shop';
+import PaymentStatus from './pages/PaymentStatus';
 
 import Dashboard from './pages/admin/Dashboard';
 import FamiliesList from './pages/admin/FamiliesList';
@@ -117,6 +118,9 @@ function App() {
         <Route path="/nest" element={<Navigate to="/cave/nest" replace />} />
         <Route path="/library" element={<Navigate to="/cave/library" replace />} />
         <Route path="/shop" element={<Navigate to="/cave/shop" replace />} />
+
+        {/* Публичная страница статуса оплаты (возврат с формы MONETA через шлюз) */}
+        <Route path="/payment/status" element={<PaymentStatus />} />
 
         {/* Admin — защищённые страницы */}
         <Route path="/admin/login" element={<Login />} />

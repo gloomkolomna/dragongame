@@ -1,18 +1,16 @@
 import json
 import hashlib
+import hmac
 import html as html_mod
 from datetime import datetime, timedelta, timezone
 from urllib.parse import urlencode, quote_plus
-from fastapi import APIRouter, Depends, Request, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, Request, HTTPException
 from fastapi.responses import PlainTextResponse, RedirectResponse, HTMLResponse
 from sqlalchemy.orm import Session
 import config
 from db import get_db
-from models import DragonSet, PaymentOrder, User, PaymentLog
-from services.payment_service import (
-    is_donor, calc_set_price, count_available, select_dragons,
-    get_active_provider, is_payment_blocked_for,
-)
+from models import Dragon, DragonSet, PaymentOrder, User, PaymentLog
+from services.payment_service import select_dragons
 
 router = APIRouter(prefix="/api/payment", tags=["payment"])
 
@@ -174,7 +172,7 @@ def _send_pins(vk_id: int, dragons: list, db=None, receipt_email: str = None) ->
                 vk_user_id=vk_id,
                 dragon_id=d.id,
                 is_activated=False,
-                notes="Покупка через Robokassa",
+                notes="Покупка (онлайн-оплата)",
                 created_at=now_str,
                 updated_at=now_str,
             )
@@ -224,85 +222,211 @@ def _send_pins(vk_id: int, dragons: list, db=None, receipt_email: str = None) ->
 
 
 @router.post("/create-order")
-async def create_order(request: Request, db: Session = Depends(get_db)):
+async def create_order(request: Request):
+    if not config.USE_PAY_GATEWAY:
+        raise HTTPException(status_code=503, detail="pay gateway disabled")
     try:
         body = await request.json()
     except Exception:
         body = {}
-    vk_id = body.get("vk_id")
-    set_id = body.get("set_id")
-    accept_partial = bool(body.get("accept_partial", False))
-    if vk_id is None or set_id is None:
-        raise HTTPException(status_code=400, detail="vk_id and set_id required")
-    vk_id = int(vk_id)
-    set_id = int(set_id)
+    try:
+        vk_id = int(body.get("vk_id") or 0)
+        amount_kop = int(body.get("amount_kop") or 0)
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=400, detail="vk_id and amount_kop must be integers")
+    description = str(body.get("description") or "").strip()
+    receipt_email = body.get("receipt_email")
+    if vk_id <= 0 or amount_kop <= 0 or not description:
+        raise HTTPException(status_code=400, detail="vk_id, amount_kop, description required")
 
-    if is_payment_blocked_for(vk_id, db):
+    from services.pay_gateway_client import create_order as gateway_create_order
+    from services.pay_gateway_client import PayGatewayBlocked, PayGatewayError
+    try:
+        info = gateway_create_order(vk_id=vk_id, amount_kop=amount_kop,
+                                    description=description,
+                                    receipt_email=receipt_email)
+    except PayGatewayBlocked:
         return {"error": "unavailable"}
-
-    _cancel_expired_orders(db, vk_id)
-
-    pending = db.query(PaymentOrder).filter(
-        PaymentOrder.vk_id == vk_id,
-        PaymentOrder.status == "pending",
-    ).first()
-    if pending:
-        if _is_order_expired(pending):
-            pending.status = "cancelled"
-            db.commit()
-        else:
-            return {"error": "pending", "order_id": pending.id}
-
-    dset = db.query(DragonSet).filter(
-        DragonSet.id == set_id, DragonSet.is_active == True
-    ).first()
-    if not dset:
-        raise HTTPException(status_code=404, detail="Set not found")
-
-    donor = is_donor(vk_id, db)
-    total, price_per_pin = calc_set_price(dset, donor, vk_id, db)
-
-    available = count_available(vk_id, db)
-    if available <= 0:
-        return {"error": "no_dragons"}
-
-    quantity = dset.quantity
-    amount = total
-    if available < dset.quantity:
-        if not accept_partial:
-            return {
-                "error": "partial",
-                "available": available,
-                "partial_price": available * price_per_pin,
-                "price_per_pin": price_per_pin,
-            }
-        quantity = available
-        amount = available * price_per_pin
-
-    provider = get_active_provider(db)
-    order = PaymentOrder(
-        vk_id=vk_id,
-        set_id=set_id,
-        amount_rub=amount,
-        quantity=quantity,
-        price_per_pin=price_per_pin,
-        provider=provider,
-        status="pending",
-        dragon_ids="[]",
-        created_at=_now(),
-    )
-    db.add(order)
-    db.commit()
-    db.refresh(order)
-
-    url = f"{config.SITE_URL}/api/payment/pay/{order.id}?vk_id={vk_id}"
+    except PayGatewayError as exc:
+        raise HTTPException(status_code=502, detail=f"gateway error: {exc}")
     return {
-        "payment_url": url,
-        "order_id": order.id,
-        "amount_rub": amount,
-        "quantity": quantity,
-        "provider": provider,
+        "transaction_id": info.get("transaction_id"),
+        "payment_url": info.get("payment_url"),
+        "amount_kop": info.get("amount_kop", amount_kop),
+        "expires_at": info.get("expires_at"),
     }
+
+
+def _verify_gateway_signature(body: bytes, signature: str) -> bool:
+    secret = config.PAY_GATEWAY_WEBHOOK_SECRET
+    if not secret or not signature:
+        return False
+    expected = hmac.new(secret.encode("utf-8"), body, hashlib.sha256).hexdigest()
+    return hmac.compare_digest(expected, signature.strip().lower())
+
+
+def _claim_for_success(db: Session, order: PaymentOrder) -> bool:
+    updated = (
+        db.query(PaymentOrder)
+        .filter(
+            PaymentOrder.id == order.id,
+            PaymentOrder.status.in_(("pending", "cancelled")),
+        )
+        .update({"status": "success", "completed_at": _now()},
+                synchronize_session=False)
+    )
+    db.commit()
+    if updated:
+        db.refresh(order)
+    return bool(updated)
+
+
+def _fulfill_gateway_order(db: Session, order: PaymentOrder, source: str,
+                           operation_id: str = "") -> list:
+    dragons = select_dragons(order.vk_id, order.quantity, db)
+    order.dragon_ids = json.dumps([d.id for d in dragons])
+    db.commit()
+    _log_payment(order.vk_id, order.id, f"gateway_success_{source}", "",
+                 f"{order.amount_rub / 100:.2f}", order.gateway_txn_id or "",
+                 False, "", order.dragon_ids,
+                 f"dragons={order.dragon_ids} moneta_operation_id={operation_id}", db)
+    return dragons
+
+
+def _deliver_pins_task(order_id: int, vk_id: int, dragon_ids: list):
+    from db import SessionLocal
+    db = SessionLocal()
+    try:
+        dragons = db.query(Dragon).filter(Dragon.id.in_(dragon_ids)).all()
+        order = db.query(PaymentOrder).filter(PaymentOrder.id == order_id).first()
+        ok = _send_pins(vk_id, dragons, db=db,
+                        receipt_email=order.receipt_email if order else None)
+        if order:
+            order.notified = ok
+            db.commit()
+    finally:
+        db.close()
+
+
+@router.post("/webhook")
+async def payment_webhook(request: Request, background_tasks: BackgroundTasks,
+                          db: Session = Depends(get_db)):
+    raw = await request.body()
+    signature = request.headers.get("x-pay-signature", "")
+    if not config.PAY_GATEWAY_WEBHOOK_SECRET:
+        _log_payment(0, 0, "gateway_webhook_not_configured", "", "", "",
+                     False, signature, "", "secret empty", db=db)
+        raise HTTPException(status_code=503, detail="webhook secret not configured")
+    if not _verify_gateway_signature(raw, signature):
+        _log_payment(0, 0, "gateway_webhook_bad_sig", "", "", "",
+                     False, signature, raw[:200].decode("utf-8", "replace"), "", db=db)
+        raise HTTPException(status_code=401, detail="bad signature")
+    try:
+        payload = json.loads(raw)
+    except (ValueError, UnicodeDecodeError):
+        raise HTTPException(status_code=400, detail="bad payload")
+
+    txn = str(payload.get("transaction_id") or "")
+    game_id = payload.get("game_id")
+    vk_id = payload.get("vk_id")
+    amount_kop = payload.get("amount_kop")
+    if not txn:
+        raise HTTPException(status_code=400, detail="missing transaction_id")
+    if game_id != config.PAY_GATEWAY_GAME_ID:
+        _log_payment(0, 0, "gateway_webhook_game_mismatch", "", "", txn,
+                     False, signature, "", f"got={game_id}", db=db)
+        raise HTTPException(status_code=400, detail="game mismatch")
+
+    order = db.query(PaymentOrder).filter(PaymentOrder.gateway_txn_id == txn).first()
+    if not order:
+        _log_payment(0, 0, "gateway_webhook_not_found", "", "", txn,
+                     False, signature, "", "no local order for txn", db=db)
+        raise HTTPException(status_code=404, detail="order not found")
+
+    if order.status == "success":
+        return {"ok": True}
+
+    try:
+        got_vk = int(vk_id)
+    except (TypeError, ValueError):
+        got_vk = None
+    if got_vk is not None and got_vk != order.vk_id:
+        _log_payment(order.vk_id, order.id, "gateway_webhook_vk_mismatch", "", "", txn,
+                     False, signature, "", f"expected={order.vk_id} got={vk_id}", db)
+        raise HTTPException(status_code=400, detail="vk_id mismatch")
+    try:
+        paid = int(amount_kop)
+    except (TypeError, ValueError):
+        paid = -1
+    if paid != order.amount_rub:
+        _log_payment(order.vk_id, order.id, "gateway_amount_mismatch", "",
+                     str(amount_kop), txn, False, signature, "",
+                     f"expected={order.amount_rub} got={amount_kop}", db)
+        raise HTTPException(status_code=400, detail="amount mismatch")
+
+    recovered = order.status == "cancelled"
+    if order.status not in ("pending", "cancelled"):
+        _log_payment(order.vk_id, order.id, "gateway_webhook_fail_skipped", "", "", txn,
+                     False, signature, "", f"local status={order.status}", db)
+        return {"ok": True}
+
+    if not _claim_for_success(db, order):
+        return {"ok": True}
+
+    dragons = _fulfill_gateway_order(db, order, "webhook",
+                                     str(payload.get("moneta_operation_id") or ""))
+    if recovered:
+        _log_payment(order.vk_id, order.id, "gateway_recovered_cancelled", "", "", txn,
+                     False, signature, "", "order was cancelled before paid webhook", db)
+    background_tasks.add_task(_deliver_pins_task, order.id, order.vk_id,
+                              [d.id for d in dragons])
+    return {"ok": True}
+
+
+def recover_pending_gateway_orders(db: Session) -> list:
+    if not config.USE_PAY_GATEWAY or not config.PAY_GATEWAY_API_KEY:
+        return []
+    from services.pay_gateway_client import get_order, PayGatewayError
+    threshold = (datetime.now() - timedelta(minutes=config.PAY_GATEWAY_RECOVERY_AFTER_MINUTES)
+                 ).strftime("%Y-%m-%dT%H:%M:%S")
+    orders = (
+        db.query(PaymentOrder)
+        .filter(
+            PaymentOrder.status == "pending",
+            PaymentOrder.gateway_txn_id.isnot(None),
+            PaymentOrder.created_at <= threshold,
+        )
+        .all()
+    )
+    recovered = []
+    for order in orders:
+        try:
+            info = get_order(order.gateway_txn_id)
+        except PayGatewayError as exc:
+            _log_payment(order.vk_id, order.id, "gateway_poll_error", "", "",
+                         order.gateway_txn_id, False, "", "", str(exc)[:300], db)
+            continue
+        if info.get("status") != "success":
+            continue
+        if int(info.get("amount_kop") or -1) != order.amount_rub:
+            _log_payment(order.vk_id, order.id, "gateway_amount_mismatch", "", "",
+                         order.gateway_txn_id, False, "", "",
+                         f"expected={order.amount_rub} got={info.get('amount_kop')}", db)
+            continue
+        if not _claim_for_success(db, order):
+            continue
+        dragons = _fulfill_gateway_order(db, order, "poller")
+        _log_payment(order.vk_id, order.id, "gateway_recovered_by_poller", "", "",
+                     order.gateway_txn_id, False, "", order.dragon_ids,
+                     f"dragons={order.dragon_ids}", db)
+        try:
+            order.notified = _send_pins(order.vk_id, dragons, db=db,
+                                        receipt_email=order.receipt_email)
+            db.commit()
+        except Exception:
+            pass
+        recovered.append(order)
+    return recovered
 
 
 @router.api_route("/result", methods=["GET", "POST"])

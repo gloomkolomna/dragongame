@@ -16,8 +16,8 @@ init_db()
 
 @asynccontextmanager
 async def lifespan(app):
-    from services.payment_scheduler import start_payment_scheduler
-    start_payment_scheduler(SessionLocal, interval=300)
+    from services.payment_recovery import start_payment_recovery
+    start_payment_recovery(SessionLocal, interval=60)
     yield
 
 

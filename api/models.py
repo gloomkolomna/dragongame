@@ -471,6 +471,7 @@ class PaymentOrder(Base):
     price_per_pin = Column(Integer, default=0)
     provider = Column(String, default="robokassa")
     robokassa_inv_id = Column(Integer, nullable=True)
+    gateway_txn_id = Column(String(32), nullable=True, index=True, unique=True)
     receipt_email = Column(String(128), nullable=True)
     status = Column(String(20), default="pending")
     dragon_ids = Column(Text, default="[]")
