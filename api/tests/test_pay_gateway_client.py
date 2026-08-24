@@ -61,7 +61,7 @@ def test_create_order_signs_raw_body(monkeypatch):
     assert info["transaction_id"] == "20260824-000001"
     call = calls[0]
     assert call["method"] == "POST"
-    assert call["url"] == "https://gw.example/pay/pay/orders"
+    assert call["url"] == "https://gw.example/pay/orders"
     assert call["timeout"] == 5
     body = call["content"]
     sent = json.loads(body)
@@ -98,7 +98,7 @@ def test_get_order_signs_empty_body(monkeypatch):
     assert info["status"] == "success"
     call = calls[0]
     assert call["method"] == "GET"
-    assert call["url"] == "https://gw.example/pay/pay/orders/20260824-000001"
+    assert call["url"] == "https://gw.example/pay/orders/20260824-000001"
     assert call["content"] == b""
     expected = hmac.new(b"gamekey", b"", hashlib.sha256).hexdigest()
     assert call["headers"]["X-Game-Signature"] == expected

@@ -1,5 +1,6 @@
-"""Клиент pay-gateway: подписанные запросы POST /pay/orders и GET /pay/orders/{txn}
-(HMAC-SHA256 от raw body + X-Timestamp), приём 403 test_blocked."""
+"""Клиент pay-gateway: подписанные запросы создания заказа и получения статуса
+(HMAC-SHA256 от raw body + X-Timestamp), приём 403 test_blocked.
+PAY_GATEWAY_URL — база шлюза ВКЛЮЧАЯ /pay (напр., https://belovolovhome.ru/pay)."""
 
 import hashlib
 import hmac
@@ -66,8 +67,8 @@ def create_order(vk_id: int, amount_kop: int, description: str,
     if receipt_email:
         payload["receipt_email"] = receipt_email.strip().lower()
     body = json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
-    return _request("POST", "/pay/orders", body)
+    return _request("POST", "/orders", body)
 
 
 def get_order(transaction_id: str) -> dict:
-    return _request("GET", f"/pay/orders/{transaction_id}")
+    return _request("GET", f"/orders/{transaction_id}")
