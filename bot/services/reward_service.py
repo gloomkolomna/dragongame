@@ -59,7 +59,7 @@ def run_reward_scheduler(session_factory, vk, interval_hours=24):
 
 def _process_rewards(db, vk, logger):
     from datetime import datetime, timedelta
-    from models import RewardConfig, User, UserRewardPin, UserDragon, Dragon, DonorCache, DragonReservation
+    from models import RewardConfig, User, UserRewardPin, UserDragon, Dragon, DonorEventLog, DragonReservation
     from services.payment_service import is_donor
 
     configs = db.query(RewardConfig).filter(RewardConfig.is_active == True).all()
@@ -96,11 +96,27 @@ def _process_rewards(db, vk, logger):
                 live_is_don = sync_user(db, user.vk_id, logger)
                 if live_is_don is False:
                     continue
-                donor_row = db.query(DonorCache).filter(DonorCache.vk_id == user.vk_id).first()
-                if not donor_row or not donor_row.first_don_since:
+                events = db.query(DonorEventLog).filter(
+                    DonorEventLog.vk_id == user.vk_id,
+                ).order_by(DonorEventLog.created_at).all()
+                last_create = None
+                cancelled_after_create = False
+                any_cancelled = False
+                for ev in events:
+                    if ev.event_type == "donut_subscription_create":
+                        last_create = ev.created_at
+                        cancelled_after_create = False
+                    elif ev.event_type == "donut_subscription_cancelled":
+                        any_cancelled = True
+                        if last_create is not None:
+                            cancelled_after_create = True
+                if cancelled_after_create or (last_create is None and any_cancelled):
                     continue
                 try:
-                    anchor_dt = datetime.fromisoformat(donor_row.first_don_since)
+                    if last_create is not None:
+                        anchor_dt = datetime.fromisoformat(last_create)
+                    else:
+                        anchor_dt = datetime.fromisoformat(user.registered_at)
                     if anchor_dt.tzinfo is not None:
                         anchor_dt = anchor_dt.replace(tzinfo=None)
                     if user.registered_at:
