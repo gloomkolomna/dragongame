@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 from db import get_db
+from auth import require_launch_sign
 from models import CollectionGrid, UserDragon, UserProgress, Dragon, Family, User, DragonSet, PricingConfig
 
 router = APIRouter(prefix="/api", tags=["collection"])
@@ -30,7 +31,7 @@ def get_public_pricing(db: Session = Depends(get_db)):
     }
 
 
-@router.get("/collection/{vk_id}/balance")
+@router.get("/collection/{vk_id}/balance", dependencies=[Depends(require_launch_sign)])
 def get_balance(vk_id: int, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.vk_id == vk_id).first()
     if user:
@@ -41,7 +42,7 @@ def get_balance(vk_id: int, db: Session = Depends(get_db)):
     return {"stitches_balance": 0, "stitches_earned": 0}
 
 
-@router.get("/collection/{vk_id}/shop")
+@router.get("/collection/{vk_id}/shop", dependencies=[Depends(require_launch_sign)])
 def get_shop(vk_id: int, db: Session = Depends(get_db)):
     from services.shop_service import get_current_stage_key, get_stage_items, get_inventory
     stage_key = get_current_stage_key(db, vk_id)
@@ -65,7 +66,7 @@ def get_shop(vk_id: int, db: Session = Depends(get_db)):
     }
 
 
-@router.get("/collection/{vk_id}/inventory")
+@router.get("/collection/{vk_id}/inventory", dependencies=[Depends(require_launch_sign)])
 def get_inventory_route(vk_id: int, db: Session = Depends(get_db)):
     from services.shop_service import get_inventory
     return [
@@ -81,7 +82,7 @@ def get_inventory_route(vk_id: int, db: Session = Depends(get_db)):
     ]
 
 
-@router.get("/collection/{vk_id}/legend/{dragon_id}")
+@router.get("/collection/{vk_id}/legend/{dragon_id}", dependencies=[Depends(require_launch_sign)])
 def get_legend_view(vk_id: int, dragon_id: int, db: Session = Depends(get_db)):
     from models import DragonStep, UserLegendProgress
     dragon = db.query(Dragon).filter(Dragon.id == dragon_id).first()
@@ -126,7 +127,7 @@ def get_legend_view(vk_id: int, dragon_id: int, db: Session = Depends(get_db)):
     }
 
 
-@router.get("/collection/{vk_id}/treasures")
+@router.get("/collection/{vk_id}/treasures", dependencies=[Depends(require_launch_sign)])
 def get_treasures(vk_id: int, db: Session = Depends(get_db)):
     from models import Treasure, UserTreasure, Dragon
     treasures = db.query(Treasure).filter(Treasure.is_active == True).order_by(Treasure.id).all()
@@ -180,7 +181,7 @@ def get_treasures(vk_id: int, db: Session = Depends(get_db)):
     }
 
 
-@router.get("/collection/{vk_id}/legends")
+@router.get("/collection/{vk_id}/legends", dependencies=[Depends(require_launch_sign)])
 def get_legends(vk_id: int, db: Session = Depends(get_db)):
     from models import DragonStep, UserLegendProgress
     completed_dragon_ids = {
@@ -220,7 +221,7 @@ def get_legends(vk_id: int, db: Session = Depends(get_db)):
     return result
 
 
-@router.get("/collection/{vk_id}/epic")
+@router.get("/collection/{vk_id}/epic", dependencies=[Depends(require_launch_sign)])
 def get_epic_view(vk_id: int, db: Session = Depends(get_db)):
     from services import epic_service
     from services.character_service import character_summary
@@ -332,7 +333,7 @@ def get_epic_view(vk_id: int, db: Session = Depends(get_db)):
     return base
 
 
-@router.get("/collection/{vk_id}/epic/completed")
+@router.get("/collection/{vk_id}/epic/completed", dependencies=[Depends(require_launch_sign)])
 def get_completed_epics(vk_id: int, db: Session = Depends(get_db)):
     from services import epic_service
     from services.character_service import character_summary
@@ -416,7 +417,7 @@ def get_completed_epics(vk_id: int, db: Session = Depends(get_db)):
     return result
 
 
-@router.get("/collection/{vk_id}/families")
+@router.get("/collection/{vk_id}/families", dependencies=[Depends(require_launch_sign)])
 def get_collection_families(vk_id: int, db: Session = Depends(get_db)):
     families = db.query(Family).order_by(Family.sort_order, Family.id).all()
     result = []
@@ -439,7 +440,7 @@ def get_collection_families(vk_id: int, db: Session = Depends(get_db)):
     return result
 
 
-@router.get("/collection/{vk_id}")
+@router.get("/collection/{vk_id}", dependencies=[Depends(require_launch_sign)])
 def get_collection(vk_id: int, family_id: int = Query(...), db: Session = Depends(get_db)):
     grid = db.query(CollectionGrid).filter(CollectionGrid.family_id == family_id).order_by(CollectionGrid.cell_y, CollectionGrid.cell_x).all()
 
@@ -518,7 +519,7 @@ def get_collection(vk_id: int, family_id: int = Query(...), db: Session = Depend
     }
 
 
-@router.get("/dragon/{dragon_id}")
+@router.get("/dragon/{dragon_id}", dependencies=[Depends(require_launch_sign)])
 def get_dragon(
     dragon_id: int,
     vk_id: int = Query(...),

@@ -8,10 +8,22 @@ const client = axios.create({
   timeout: 15000,
 });
 
+let vkSignParams: Record<string, string> = {};
+
+export function setVkLaunchParams(params: Record<string, string>) {
+  vkSignParams = Object.fromEntries(
+    Object.entries(params).filter(([k]) => k.startsWith('vk_') || k === 'sign'),
+  );
+}
+
 client.interceptors.request.use((config) => {
   const token = localStorage.getItem('token');
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
+  }
+  const url = config.url || '';
+  if (url.startsWith('/collection/') || url.startsWith('/dragon/')) {
+    config.params = { ...vkSignParams, ...(config.params || {}) };
   }
   return config;
 });

@@ -32,6 +32,21 @@ def test_api_request_log_captures_query_params(client):
         s.close()
 
 
+def test_api_request_log_masks_oauth_code(client):
+    resp = client.get("/api/payment/pay/99999", params={"vk_id": "77", "code": "vk2.a.SECRETVALUE", "state": "abc"})
+    assert resp.status_code == 404
+
+    s = SessionLocal()
+    try:
+        log = s.query(ApiRequestLog).order_by(ApiRequestLog.id.desc()).first()
+        assert log is not None
+        assert "code=***" in log.query_params
+        assert "SECRETVALUE" not in log.query_params
+        assert "state=abc" in log.query_params
+    finally:
+        s.close()
+
+
 def test_api_request_log_captures_form_body(client):
     resp = client.post("/api/payment/result", data={"OutSum": "10", "InvId": "5"})
     assert resp.status_code == 400

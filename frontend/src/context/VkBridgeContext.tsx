@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import bridge, { parseURLSearchParamsForGetLaunchParams } from '@vkontakte/vk-bridge';
+import { setVkLaunchParams } from '../api/client';
 
 interface VkContextType {
   vkUserId: number | null;
@@ -142,6 +143,7 @@ export function VkBridgeProvider({ children }: { children: ReactNode }) {
         setIsVkWebView(true);
         setVkUserId(id);
         setLaunchParams(params);
+        setVkLaunchParams(params);
         const cur = getComputedStyle(document.documentElement)
           .getPropertyValue('--vk-inset-top').trim();
         if (!cur || cur === '0px') {

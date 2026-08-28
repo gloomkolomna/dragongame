@@ -9,6 +9,7 @@ if os.path.exists(_TEST_DB_PATH):
         pass
 os.environ["DATABASE_URL"] = f"sqlite:///{_TEST_DB_PATH}"
 os.environ["TESTING"] = "1"
+os.environ["APP_ENV"] = "dev"
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../.."))

@@ -28,6 +28,7 @@ VK_REDIRECT_URI = os.getenv("VK_REDIRECT_URI", "")
 # ── VK Mini App ──
 VK_APP_ID = _env_int("VK_APP_ID", 0)
 VK_APP_SECRET = os.getenv("VK_APP_SECRET", "")
+REQUIRE_VK_SIGN = os.getenv("REQUIRE_VK_SIGN", "true").strip().lower() not in ("0", "false", "no", "off")
 
 # ── VK Bot ──
 VK_GROUP_TOKEN = os.getenv("VK_GROUP_TOKEN", "")

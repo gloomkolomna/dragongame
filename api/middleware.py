@@ -1,5 +1,6 @@
 import os
 import json
+import re
 from datetime import datetime, timezone, timedelta
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
@@ -82,7 +83,7 @@ async def log_failed_requests(request: Request, call_next):
                 path=str(request.url.path),
                 status_code=response.status_code,
                 client_ip=request.client.host if request.client else "",
-                query_params=query_params[:2000],
+                query_params=re.sub(r"(code=)[^&]+", r"\1***", query_params)[:2000],
                 request_body=request_body[:2000],
                 response_detail=detail[:1000],
                 created_at=datetime.now(MSK).isoformat(),

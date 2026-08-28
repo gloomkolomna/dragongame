@@ -16,6 +16,9 @@ init_db()
 
 @asynccontextmanager
 async def lifespan(app):
+    from config import APP_ENV, VK_APP_SECRET
+    if APP_ENV != "dev" and not VK_APP_SECRET:
+        print("WARNING: VK_APP_SECRET не задан, все запросы /api/collection/* будут отклоняться (403)")
     from services.payment_recovery import start_payment_recovery
     start_payment_recovery(SessionLocal, interval=60)
     yield

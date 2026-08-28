@@ -16,7 +16,7 @@ from config import (
     SECRET_KEY, ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES,
     VK_CLIENT_ID, VK_CLIENT_SECRET, VK_REDIRECT_URI,
     VK_APP_SECRET,
-    get_allowed_vk_ids,
+    get_allowed_vk_ids, APP_ENV, REQUIRE_VK_SIGN,
 )
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
@@ -180,7 +180,7 @@ def verify_launch_params(query_params: dict) -> int | None:
     if not sign:
         return None
 
-    vk_params = {k: v for k, v in query_params.items() if k.startswith("vk_")}
+    vk_params = {k: v for k, v in query_params.items() if k.startswith("vk_") and k != "vk_id"}
     if not vk_params:
         return None
 
@@ -197,6 +197,20 @@ def verify_launch_params(query_params: dict) -> int | None:
     computed = base64.urlsafe_b64encode(digest).rstrip(b"=").decode("utf-8")
 
     if hmac.compare_digest(computed, sign):
-        return int(vk_params["vk_user_id"])
+        user_id = vk_params.get("vk_user_id")
+        if not user_id:
+            return None
+        try:
+            return int(user_id)
+        except (TypeError, ValueError):
+            return None
 
     return None
+
+
+def require_launch_sign(request: Request, vk_id: int) -> None:
+    if APP_ENV == "dev" or not REQUIRE_VK_SIGN:
+        return
+    signed_vk_id = verify_launch_params(dict(request.query_params))
+    if signed_vk_id is None or signed_vk_id != vk_id:
+        raise HTTPException(status_code=403, detail="Доступ запрещён")
