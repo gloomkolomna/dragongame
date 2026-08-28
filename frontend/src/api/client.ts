@@ -40,7 +40,7 @@ client.interceptors.response.use(
     return response;
   },
   (error) => {
-    if (error.response?.status === 401) {
+    if (error.response?.status === 401 && window.location.pathname.startsWith('/dragons/admin')) {
       localStorage.removeItem('token');
       window.location.href = '/dragons/admin/login';
     }
