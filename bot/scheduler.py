@@ -107,6 +107,7 @@ def _check_expired(db, vk, logger, session_factory=None):
     from datetime import datetime
     from models import UserDragon, User, Dragon, UserProgress
     from bot.services.grow_service import get_dragon_step, get_total_steps, rarity_name, rarity_stars
+    from bot.fsm import is_growing
     from bot.handlers.grow import format_step
 
     now_str = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
@@ -218,7 +219,7 @@ def _check_expired(db, vk, logger, session_factory=None):
         db.commit()
 
         is_active = (user.current_dragon_id == ud.dragon_id)
-        same_dragon = is_active and user.current_step == next_step_num
+        same_dragon = is_active and user.current_step == next_step_num and is_growing(user.state)
 
         if same_dragon:
             step_def = get_dragon_step(db, ud.dragon_id, next_step_num)

@@ -106,6 +106,25 @@ def test_check_expired_sends_button_for_other_dragon(db):
            "Перейти к выращиванию" in call_kwargs.get("keyboard", "")
 
 
+def test_check_expired_does_not_show_modes_when_user_in_other_flow(db):
+    from bot.scheduler import _check_expired
+
+    d, u = _setup(db)
+    # User is on this dragon BUT in the epic care flow (e.g. epic_care_2_x2)
+    u.state = "epic_care_2_x2"
+    db.commit()
+
+    vk_mock = MagicMock()
+    _check_expired(db, vk_mock, logging.getLogger("test"))
+
+    assert vk_mock.messages.send.called
+    msg = vk_mock.messages.send.call_args[1].get("message", "")
+    kb = vk_mock.messages.send.call_args[1].get("keyboard", "")
+    assert "Норма" not in msg
+    assert "Штраф" not in kb
+    assert "Перейти к выращиванию" in kb
+
+
 def test_check_expired_fires_after_time_passes(db):
     from bot.scheduler import _check_expired
     import time
