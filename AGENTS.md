@@ -170,7 +170,7 @@ api\venv\Scripts\python.exe -m pytest api/tests bot/tests -v --tb=short
 
 Если тесты не проходят — исправить до завершения задачи.
 
-**_622 теста (Python)._**
+**_642 теста (Python)._**
 
 ## Конвенции кода
 

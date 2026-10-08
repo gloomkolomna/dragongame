@@ -158,7 +158,7 @@ def test_cancelled_after_create_no_egg(db):
     assert vk.messages.sent == []
 
 
-def test_cancelled_without_create_no_egg(db):
+def test_prolonged_after_cancelled_without_create_gets_egg(db):
     now = datetime.now()
     _setup(
         db,
@@ -171,8 +171,60 @@ def test_cancelled_without_create_no_egg(db):
 
     vk = _run(db)
 
+    assert db.query(UserRewardPin).filter(UserRewardPin.user_id == 111).count() == 1
+    assert len(vk.messages.sent) == 1
+
+
+def test_cancelled_last_event_without_create_no_egg(db):
+    now = datetime.now()
+    _setup(
+        db,
+        registered_at=(now - timedelta(days=45)).isoformat(),
+        events=[
+            ("donut_subscription_prolonged", (now - timedelta(days=40)).isoformat()),
+            ("donut_subscription_cancelled", (now - timedelta(days=5)).isoformat()),
+        ],
+    )
+
+    vk = _run(db)
+
     assert db.query(UserRewardPin).filter(UserRewardPin.user_id == 111).count() == 0
     assert vk.messages.sent == []
+
+
+def test_backfill_add_after_cancelled_without_create_gets_egg(db):
+    now = datetime.now()
+    _setup(
+        db,
+        registered_at=(now - timedelta(days=45)).isoformat(),
+        events=[
+            ("donut_subscription_cancelled", (now - timedelta(days=28)).isoformat()),
+            ("backfill_add", (now - timedelta(days=24)).isoformat()),
+        ],
+    )
+
+    vk = _run(db)
+
+    assert db.query(UserRewardPin).filter(UserRewardPin.user_id == 111).count() == 1
+    assert len(vk.messages.sent) == 1
+
+
+def test_prolonged_after_cancelled_with_create_gets_egg(db):
+    now = datetime.now()
+    _setup(
+        db,
+        registered_at=(now - timedelta(days=45)).isoformat(),
+        events=[
+            ("donut_subscription_create", (now - timedelta(days=40)).isoformat()),
+            ("donut_subscription_cancelled", (now - timedelta(days=10)).isoformat()),
+            ("donut_subscription_prolonged", (now - timedelta(days=5)).isoformat()),
+        ],
+    )
+
+    vk = _run(db)
+
+    assert db.query(UserRewardPin).filter(UserRewardPin.user_id == 111).count() == 1
+    assert len(vk.messages.sent) == 1
 
 
 def test_create_after_cancelled_dates_from_new_create(db):

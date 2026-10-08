@@ -106,6 +106,9 @@ def _process_rewards(db, vk, logger):
                     if ev.event_type == "donut_subscription_create":
                         last_create = ev.created_at
                         cancelled_after_create = False
+                    elif ev.event_type in ("donut_subscription_prolonged", "backfill_add"):
+                        cancelled_after_create = False
+                        any_cancelled = False
                     elif ev.event_type == "donut_subscription_cancelled":
                         any_cancelled = True
                         if last_create is not None:
