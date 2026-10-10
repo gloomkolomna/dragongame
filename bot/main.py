@@ -28,6 +28,7 @@ from bot.handlers.epic import handle_epic_command, handle_epic_egg_mode, handle_
 from bot.handlers.rules import handle_rules, handle_rules_section, handle_rules_pick, cancel_rules
 from bot.handlers.intro import handle_intro_next, handle_intro_chat, start_intro
 from bot.services.user_service import get_or_create_user
+from bot.services import upload_cache
 from bot.scheduler import run_timeout_checker
 from bot.services.donor_sync import run_donor_sync
 from bot.services.reward_service import run_reward_scheduler
@@ -229,6 +230,9 @@ def main():
     print("Weekly post scheduler started")
 
     def upload_image(filepath: str, log_error=None, peer_id=0) -> str:
+        cached = upload_cache.get(filepath)
+        if cached:
+            return cached
         last_error = None
         last_tb = ""
         backoff = [0, 3, 7]
@@ -251,7 +255,9 @@ def main():
                         f"status={resp.status_code}, server={data.get('server')}, body={resp.text[:500]})"
                     )
                 saved = vk.photos.saveMessagesPhoto(photo=data["photo"], server=data["server"], hash=data["hash"])[0]
-                return f"photo{saved['owner_id']}_{saved['id']}"
+                attachment = f"photo{saved['owner_id']}_{saved['id']}"
+                upload_cache.store(filepath, attachment)
+                return attachment
             except Exception as e:
                 last_error = e
                 last_tb = traceback.format_exc()
@@ -319,6 +325,18 @@ def main():
                     except Exception as send_err:
                         last_err = send_err
                 else:
+                    failed_att = kwargs.get("attachment", "")
+                    refreshed = upload_cache.invalidate_by_attachment(failed_att) if failed_att else None
+                    if refreshed:
+                        new_att = upload_image(refreshed, peer_id=user_id)
+                        if new_att:
+                            kwargs["attachment"] = new_att
+                            kwargs["random_id"] = random.randint(1, 2**31 - 1)
+                            try:
+                                vk.messages.send(**kwargs)
+                                return
+                            except Exception as send_err:
+                                last_err = send_err
                     raise last_err
 
             cmd = extract_cmd(text, payload_str)

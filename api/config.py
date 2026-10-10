@@ -32,6 +32,7 @@ REQUIRE_VK_SIGN = os.getenv("REQUIRE_VK_SIGN", "true").strip().lower() not in ("
 
 # ── VK Bot ──
 VK_GROUP_TOKEN = os.getenv("VK_GROUP_TOKEN", "")
+UPLOAD_CACHE_ENABLED = os.getenv("UPLOAD_CACHE_ENABLED", "true").strip().lower() not in ("0", "false", "no", "off")
 VK_GROUP_ID = _env_int("VK_GROUP_ID", 0)
 ADMIN_VK_ID = _env_int("ADMIN_VK_ID", 0)
 PAYMENTS_TEST_VK_ID = _env_int("PAYMENTS_TEST_VK_ID", 400977)

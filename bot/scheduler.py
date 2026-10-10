@@ -11,11 +11,16 @@ _root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, _root)
 sys.path.insert(0, os.path.join(_root, "api"))
 
+from bot.services import upload_cache
+
 
 _IMAGES = os.path.join(_root, "images", "dragons")
 
 
 def _upload_image(vk, filepath: str, peer_id=0, session_factory=None, user_id=None) -> str:
+    cached = upload_cache.get(filepath)
+    if cached:
+        return cached
     last_error = None
     last_tb = ""
     for attempt in range(3):
@@ -29,7 +34,9 @@ def _upload_image(vk, filepath: str, peer_id=0, session_factory=None, user_id=No
             resp.raise_for_status()
             data = resp.json()
             saved = vk.photos.saveMessagesPhoto(photo=data["photo"], server=data["server"], hash=data["hash"])[0]
-            return f"photo{saved['owner_id']}_{saved['id']}"
+            attachment = f"photo{saved['owner_id']}_{saved['id']}"
+            upload_cache.store(filepath, attachment)
+            return attachment
         except Exception as e:
             last_error = e
             import traceback
@@ -330,6 +337,17 @@ def _send(vk, user_id, message, keyboard, logger, attachment="", session_factory
             kwargs["attachment"] = attachment
         vk.messages.send(**kwargs)
     except Exception as e:
+        refreshed = upload_cache.invalidate_by_attachment(attachment) if attachment else None
+        if refreshed:
+            try:
+                new_att = _upload_image(vk, refreshed, peer_id=user_id, session_factory=session_factory, user_id=user_id)
+                if new_att:
+                    kwargs["attachment"] = new_att
+                    kwargs["random_id"] = random.randint(1, 2**31 - 1)
+                    vk.messages.send(**kwargs)
+                    return
+            except Exception as retry_err:
+                e = retry_err
         import traceback
         logger.error(f"Failed to send notification to {user_id}: {e}\n{traceback.format_exc()}")
         if session_factory:
