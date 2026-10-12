@@ -9,6 +9,8 @@ venv/
 *.db.bak.*
 __pycache__/
 *.pyc
+.pytest_cache/
+pytest-of-*/
 .idea/
 .vscode/
 /.kilo

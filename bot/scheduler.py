@@ -18,34 +18,11 @@ _IMAGES = os.path.join(_root, "images", "dragons")
 
 
 def _upload_image(vk, filepath: str, peer_id=0, session_factory=None, user_id=None) -> str:
-    cached = upload_cache.get(filepath)
-    if cached:
-        return cached
-    last_error = None
-    last_tb = ""
-    for attempt in range(3):
-        try:
-            if not os.path.isfile(filepath):
-                return ""
-            upload_url = vk.photos.getMessagesUploadServer(peer_id=peer_id)["upload_url"]
-            import requests
-            with open(filepath, "rb") as f:
-                resp = requests.post(upload_url, files={"photo": ("image.jpg", f, "image/jpeg")}, timeout=30)
-            resp.raise_for_status()
-            data = resp.json()
-            saved = vk.photos.saveMessagesPhoto(photo=data["photo"], server=data["server"], hash=data["hash"])[0]
-            attachment = f"photo{saved['owner_id']}_{saved['id']}"
-            upload_cache.store(filepath, attachment)
-            return attachment
-        except Exception as e:
-            last_error = e
-            import traceback
-            last_tb = traceback.format_exc()
-            if attempt < 2:
-                time.sleep(1)
-    logger = logging.getLogger("timeout_scheduler")
-    logger.error(f"Upload failed after 3 retries: {last_error}\n{last_tb}")
-    if session_factory:
+    from services import vk_upload
+
+    def log_err(msg, tb=""):
+        if not session_factory:
+            return
         from bot.services.grow_service import log_to_db
         db = None
         try:
@@ -53,15 +30,16 @@ def _upload_image(vk, filepath: str, peer_id=0, session_factory=None, user_id=No
             log_to_db(
                 source="scheduler",
                 error_type="UPLOAD",
-                message=f"Upload failed after 3 retries: {last_error}",
-                traceback_text=last_tb,
+                message=msg,
+                traceback_text=tb,
                 user_id=user_id,
                 db=db,
             )
         finally:
             if db:
                 db.close()
-    return ""
+
+    return vk_upload.upload_message_photo(vk, filepath, peer_id=peer_id, background=True, log_error=log_err)
 
 
 def run_timeout_checker(session_factory, vk, interval=30):
@@ -337,7 +315,7 @@ def _send(vk, user_id, message, keyboard, logger, attachment="", session_factory
             kwargs["attachment"] = attachment
         vk.messages.send(**kwargs)
     except Exception as e:
-        refreshed = upload_cache.invalidate_by_attachment(attachment) if attachment else None
+        refreshed = upload_cache.invalidate_by_attachment(attachment) if attachment and upload_cache.attachment_rejected(e) else None
         if refreshed:
             try:
                 new_att = _upload_image(vk, refreshed, peer_id=user_id, session_factory=session_factory, user_id=user_id)

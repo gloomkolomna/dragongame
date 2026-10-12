@@ -12,27 +12,9 @@ sys.path.insert(0, os.path.join(_root, "api"))
 _IMAGES = os.path.join(_root, "images", "dragons")
 
 
-def _upload_image(vk, filepath: str) -> str:
-    last_error = None
-    for attempt in range(3):
-        try:
-            if not os.path.isfile(filepath):
-                return ""
-            upload_url = vk.photos.getMessagesUploadServer(peer_id=0)["upload_url"]
-            import requests
-            with open(filepath, "rb") as f:
-                resp = requests.post(upload_url, files={"photo": ("image.jpg", f, "image/jpeg")}, timeout=30)
-            resp.raise_for_status()
-            data = resp.json()
-            saved = vk.photos.saveMessagesPhoto(photo=data["photo"], server=data["server"], hash=data["hash"])[0]
-            return f"photo{saved['owner_id']}_{saved['id']}"
-        except Exception as e:
-            last_error = e
-            if attempt < 2:
-                time.sleep(1)
-    logger = logging.getLogger("reward_scheduler")
-    logger.error(f"Reward upload failed after 3 retries: {last_error}")
-    return ""
+def _upload_image(vk, filepath: str, peer_id: int = 0) -> str:
+    from services import vk_upload
+    return vk_upload.upload_message_photo(vk, filepath, peer_id=peer_id, background=True)
 
 
 def run_reward_scheduler(session_factory, vk, interval_hours=24):
@@ -235,7 +217,7 @@ def _process_rewards(db, vk, logger):
                 if dragon.egg_path:
                     filepath = os.path.join(_IMAGES, os.path.basename(dragon.egg_path))
                     if os.path.isfile(filepath):
-                        attachment = _upload_image(vk, filepath)
+                        attachment = _upload_image(vk, filepath, peer_id=reservation.vk_id)
 
                 msg = (
                     f"🎁 В твоей коллекции пополнение!\n\n"

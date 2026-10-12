@@ -230,42 +230,8 @@ def main():
     print("Weekly post scheduler started")
 
     def upload_image(filepath: str, log_error=None, peer_id=0) -> str:
-        cached = upload_cache.get(filepath)
-        if cached:
-            return cached
-        last_error = None
-        last_tb = ""
-        backoff = [0, 3, 7]
-        for attempt in range(3):
-            try:
-                if attempt > 0:
-                    time.sleep(backoff[attempt])
-                if not os.path.isfile(filepath):
-                    return ""
-                file_size = os.path.getsize(filepath)
-                upload_url = vk.photos.getMessagesUploadServer(peer_id=peer_id)["upload_url"]
-                import requests
-                with open(filepath, "rb") as f:
-                    resp = requests.post(upload_url, files={"photo": ("image.jpg", f, "image/jpeg")}, timeout=30)
-                resp.raise_for_status()
-                data = resp.json()
-                if not data.get("photo"):
-                    raise RuntimeError(
-                        f"VK upload returned empty photo (peer_id={peer_id}, size={file_size}, "
-                        f"status={resp.status_code}, server={data.get('server')}, body={resp.text[:500]})"
-                    )
-                saved = vk.photos.saveMessagesPhoto(photo=data["photo"], server=data["server"], hash=data["hash"])[0]
-                attachment = f"photo{saved['owner_id']}_{saved['id']}"
-                upload_cache.store(filepath, attachment)
-                return attachment
-            except Exception as e:
-                last_error = e
-                last_tb = traceback.format_exc()
-        msg = f"Image upload failed after 3 retries: {last_error}"
-        print(msg)
-        if log_error:
-            log_error(str(last_error), last_tb)
-        return ""
+        from services import vk_upload
+        return vk_upload.upload_message_photo(vk, filepath, peer_id=peer_id, background=False, log_error=log_error)
 
     for event in longpoll.listen():
         if event.type != VkBotEventType.MESSAGE_NEW:
@@ -326,17 +292,18 @@ def main():
                         last_err = send_err
                 else:
                     failed_att = kwargs.get("attachment", "")
-                    refreshed = upload_cache.invalidate_by_attachment(failed_att) if failed_att else None
-                    if refreshed:
-                        new_att = upload_image(refreshed, peer_id=user_id)
-                        if new_att:
-                            kwargs["attachment"] = new_att
-                            kwargs["random_id"] = random.randint(1, 2**31 - 1)
-                            try:
-                                vk.messages.send(**kwargs)
-                                return
-                            except Exception as send_err:
-                                last_err = send_err
+                    if failed_att and upload_cache.attachment_rejected(last_err):
+                        refreshed = upload_cache.invalidate_by_attachment(failed_att)
+                        if refreshed:
+                            new_att = upload_image(refreshed, peer_id=user_id)
+                            if new_att:
+                                kwargs["attachment"] = new_att
+                                kwargs["random_id"] = random.randint(1, 2**31 - 1)
+                                try:
+                                    vk.messages.send(**kwargs)
+                                    return
+                                except Exception as send_err:
+                                    last_err = send_err
                     raise last_err
 
             cmd = extract_cmd(text, payload_str)

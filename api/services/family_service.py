@@ -3,19 +3,9 @@ from time import time
 from sqlalchemy.orm import Session
 from fastapi import UploadFile
 from models import Family
+from services.image_store import save_upload as _save_upload
 
 IMAGES_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "images", "families")
-
-
-def _save_upload(file: UploadFile, folder: str, prefix: str) -> str:
-    os.makedirs(folder, exist_ok=True)
-    ext = os.path.splitext(file.filename or ".png")[1].lower() or ".png"
-    ts = int(time())
-    filename = f"{prefix}_{ts}{ext}"
-    path = os.path.join(folder, filename)
-    with open(path, "wb") as f:
-        f.write(file.file.read())
-    return filename
 
 
 def _cleanup_old(folder: str, old_path: str):

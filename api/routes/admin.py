@@ -1302,22 +1302,9 @@ def _upload_vk_image(filepath: str, peer_id: int = 0) -> str:
     if not config.VK_GROUP_TOKEN or not filepath or not os.path.isfile(filepath):
         return ""
     import vk_api
-    import requests
+    from services.vk_upload import upload_message_photo
     vk = vk_api.VkApi(token=config.VK_GROUP_TOKEN, api_version="5.199").get_api()
-    for attempt in range(3):
-        try:
-            upload_url = vk.photos.getMessagesUploadServer(peer_id=peer_id)["upload_url"]
-            with open(filepath, "rb") as f:
-                resp = requests.post(upload_url, files={"photo": ("image.jpg", f, "image/jpeg")}, timeout=30)
-            resp.raise_for_status()
-            data = resp.json()
-            saved = vk.photos.saveMessagesPhoto(photo=data["photo"], server=data["server"], hash=data["hash"])[0]
-            return f"photo{saved['owner_id']}_{saved['id']}"
-        except Exception:
-            if attempt < 2:
-                import time
-                time.sleep(1)
-    return ""
+    return upload_message_photo(vk, filepath, peer_id=peer_id, background=True)
 
 
 def _format_step_text(step_def, step_num: int, total: int) -> str:

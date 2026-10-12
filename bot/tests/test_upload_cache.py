@@ -5,10 +5,12 @@ import pytest
 
 
 @pytest.fixture(autouse=True)
-def _cache_state(monkeypatch):
+def _cache_state(monkeypatch, tmp_path):
     import config
+    from services import vk_upload
     from bot.services import upload_cache
     monkeypatch.setattr(config, "UPLOAD_CACHE_ENABLED", True)
+    monkeypatch.setattr(vk_upload, "DISK_CACHE_PATH", str(tmp_path / "upload_cache.json"))
     upload_cache.clear()
     yield
     upload_cache.clear()
@@ -101,8 +103,8 @@ def test_disabled_flag_disables_cache(tmp_path, monkeypatch):
 
 def test_scheduler_upload_uses_cache(tmp_path, monkeypatch):
     from bot import scheduler
-    import requests
-    monkeypatch.setattr(requests, "post", lambda *a, **k: _FakeUploadResponse())
+    from services import vk_upload
+    monkeypatch.setattr(vk_upload, "_http_post", lambda url, fp, timeout: _FakeUploadResponse())
     f = tmp_path / "d.jpg"
     f.write_bytes(b"x" * 100)
     vk = _make_vk()
@@ -116,9 +118,9 @@ def test_scheduler_upload_uses_cache(tmp_path, monkeypatch):
 def test_scheduler_upload_ignores_cache_when_disabled(tmp_path, monkeypatch):
     import config
     from bot import scheduler
-    import requests
+    from services import vk_upload
     monkeypatch.setattr(config, "UPLOAD_CACHE_ENABLED", False)
-    monkeypatch.setattr(requests, "post", lambda *a, **k: _FakeUploadResponse())
+    monkeypatch.setattr(vk_upload, "_http_post", lambda url, fp, timeout: _FakeUploadResponse())
     f = tmp_path / "d.jpg"
     f.write_bytes(b"x" * 100)
     vk = _make_vk()
@@ -132,12 +134,12 @@ def test_scheduler_upload_ignores_cache_when_disabled(tmp_path, monkeypatch):
 def test_scheduler_failed_upload_not_cached(tmp_path, monkeypatch):
     from bot import scheduler
     from bot.services import upload_cache
-    import requests
+    from services import vk_upload
 
-    def _fail(*a, **k):
+    def _fail(url, fp, timeout):
         raise RuntimeError("boom")
 
-    monkeypatch.setattr(requests, "post", _fail)
+    monkeypatch.setattr(vk_upload, "_http_post", _fail)
     f = tmp_path / "d.jpg"
     f.write_bytes(b"x" * 100)
     vk = _make_vk()
@@ -148,8 +150,8 @@ def test_scheduler_failed_upload_not_cached(tmp_path, monkeypatch):
 def test_scheduler_reupload_after_invalidation(tmp_path, monkeypatch):
     from bot import scheduler
     from bot.services import upload_cache
-    import requests
-    monkeypatch.setattr(requests, "post", lambda *a, **k: _FakeUploadResponse())
+    from services import vk_upload
+    monkeypatch.setattr(vk_upload, "_http_post", lambda url, fp, timeout: _FakeUploadResponse())
     f = tmp_path / "d.jpg"
     f.write_bytes(b"x" * 100)
     vk = _make_vk()
