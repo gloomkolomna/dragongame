@@ -282,6 +282,37 @@ def test_recent_pin_blocks_new_egg(db):
     assert vk.messages.sent == []
 
 
+def test_egg_image_uploads_with_user_peer_id(db, monkeypatch, tmp_path):
+    now = datetime.now()
+    _setup(
+        db,
+        registered_at=(now - timedelta(days=45)).isoformat(),
+        events=[("donut_subscription_create", (now - timedelta(days=40)).isoformat())],
+    )
+    dragon = db.query(Dragon).filter(Dragon.name == "Дракон").first()
+    (tmp_path / "egg.png").write_bytes(b"png")
+    dragon.egg_path = "egg.png"
+    db.commit()
+
+    from bot.services import reward_service
+    monkeypatch.setattr(reward_service, "_IMAGES", str(tmp_path))
+
+    uploads = []
+
+    def fake_upload(vk, filepath, peer_id=0):
+        uploads.append(peer_id)
+        return "photo1_1"
+
+    monkeypatch.setattr(reward_service, "_upload_image", fake_upload)
+
+    vk = _run(db)
+
+    assert uploads == [111]
+    assert db.query(UserRewardPin).filter(UserRewardPin.user_id == 111).count() == 1
+    assert len(vk.messages.sent) == 1
+    assert vk.messages.sent[0]["attachment"] == "photo1_1"
+
+
 def test_old_pin_allows_new_egg(db):
     now = datetime.now()
     _setup(

@@ -217,7 +217,7 @@ def _process_rewards(db, vk, logger):
                 if dragon.egg_path:
                     filepath = os.path.join(_IMAGES, os.path.basename(dragon.egg_path))
                     if os.path.isfile(filepath):
-                        attachment = _upload_image(vk, filepath, peer_id=reservation.vk_id)
+                        attachment = _upload_image(vk, filepath, peer_id=user.vk_id)
 
                 msg = (
                     f"🎁 В твоей коллекции пополнение!\n\n"
