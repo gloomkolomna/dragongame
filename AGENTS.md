@@ -104,6 +104,12 @@ This project has a graphify knowledge graph at graphify-out/.
 - **error_logs** — логи ошибок бота/API (source, error_type, message, traceback_text)
 - **api_request_logs** — логи ошибочных запросов (method, path, status_code, client_ip, created_at MSK)
 - **service_heartbeats** — пульс сервисов (service_name, last_seen, status)
+- **dragon_reservations / user_reward_pins** — брони и наградные PIN;
+  поля `source`, `external_reward_id`, у брони `revoked_at` связывают
+  награду с «Улицей праздников» и запрещают дубли. Внутренние endpoints
+  `POST /api/internal/rewards/dragon-egg` и `/dragon-egg/revoke`
+  защищены `HOLIDAYS_INTEGRATION_KEY`. Будущий игрок получает PIN при
+  первом входе через бота или мини-апп. Миграция `c4e5f6a7b8c9`.
 
 ## Таймауты (механика)
 
@@ -171,7 +177,7 @@ api\venv\Scripts\python.exe -m pytest api/tests bot/tests -v --tb=short
 
 Если тесты не проходят — исправить до завершения задачи.
 
-**_642 теста (Python)._**
+**_678 тестов (Python)._**
 
 ## Конвенции кода
 
