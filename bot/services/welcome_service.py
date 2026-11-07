@@ -33,6 +33,7 @@ def ensure_donor_welcome_pin(db, vk_id: int) -> bool:
         row[0] for row in db.query(DragonReservation.dragon_id).filter(
             DragonReservation.vk_user_id == vk_id,
             DragonReservation.is_activated == False,
+            DragonReservation.revoked_at.is_(None),
         ).all()
     )
     excluded = owned_ids | own_reserved_ids

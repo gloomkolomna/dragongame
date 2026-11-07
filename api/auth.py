@@ -126,6 +126,8 @@ def get_or_create_user(db: Session, vk_id: int, first_name: str, last_name: str)
     db.add(user)
     db.commit()
     db.refresh(user)
+    from services.external_rewards import ensure_external_reward_pins
+    ensure_external_reward_pins(db, int(vk_id))
     return user
 
 
@@ -208,9 +210,9 @@ def verify_launch_params(query_params: dict) -> int | None:
     return None
 
 
-def require_launch_sign(request: Request, vk_id: int) -> None:
-    if APP_ENV == "dev" or not REQUIRE_VK_SIGN:
-        return
-    signed_vk_id = verify_launch_params(dict(request.query_params))
-    if signed_vk_id is None or signed_vk_id != vk_id:
-        raise HTTPException(status_code=403, detail="Доступ запрещён")
+def require_launch_sign(request: Request, vk_id: int, db: Session = Depends(get_db)) -> None:
+    if APP_ENV != "dev" and REQUIRE_VK_SIGN:
+        signed_vk_id = verify_launch_params(dict(request.query_params))
+        if signed_vk_id is None or signed_vk_id != vk_id:
+            raise HTTPException(status_code=403, detail="Доступ запрещён")
+    get_or_create_user(db, vk_id, "", "")

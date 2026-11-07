@@ -3503,6 +3503,9 @@ def _reservation_dict(db, r: DragonReservation) -> dict:
         "pin_code": dragon.pin_code if dragon else "",
         "is_activated": r.is_activated,
         "activated_at": r.activated_at,
+        "revoked_at": r.revoked_at,
+        "source": r.source,
+        "external_reward_id": r.external_reward_id,
         "notes": r.notes,
         "created_at": r.created_at,
         "updated_at": r.updated_at,
@@ -3544,6 +3547,7 @@ async def create_reservation(request: Request, db: Session = Depends(get_db)):
     existing = db.query(DragonReservation).filter(
         DragonReservation.dragon_id == dragon_id,
         DragonReservation.is_activated == False,
+        DragonReservation.revoked_at.is_(None),
         ((DragonReservation.vk_user_id == vk_user_id) if vk_user_id else (DragonReservation.vk_url == vk_url)),
     ).first()
     if existing:
@@ -3646,6 +3650,7 @@ async def update_reservation(reservation_id: int, request: Request, db: Session 
         existing_q = db.query(DragonReservation).filter(
             DragonReservation.dragon_id == dragon_id,
             DragonReservation.is_activated == False,
+        DragonReservation.revoked_at.is_(None),
             DragonReservation.id != reservation_id,
         )
         if buyer_id:
@@ -3676,32 +3681,8 @@ def delete_reservation(reservation_id: int, db: Session = Depends(get_db)):
 
 
 def _available_reservation_dragons(db, vk_user_id) -> list:
-    reserved_ids = set()
-    if vk_user_id:
-        reserved_ids = {
-            row[0] for row in db.query(DragonReservation.dragon_id).filter(
-                DragonReservation.vk_user_id == vk_user_id,
-            ).all()
-        }
-        from models import UserDragon
-        owned_ids = {
-            row[0] for row in db.query(UserDragon.dragon_id).filter(
-                UserDragon.user_id == vk_user_id,
-            ).all()
-        }
-        reserved_ids |= owned_ids
-
-    return (
-        db.query(Dragon)
-        .filter(
-            Dragon.is_active == True,
-            Dragon.is_epic == False,
-            Dragon.pin_code.isnot(None),
-            Dragon.pin_code != "",
-            ~Dragon.id.in_(reserved_ids) if reserved_ids else True,
-        )
-        .all()
-    )
+    from services.external_rewards import available_reservation_dragons
+    return available_reservation_dragons(db, vk_user_id)
 
 
 @router.get("/reservations/available-dragons")

@@ -32,4 +32,9 @@ def get_or_create_user(db, vk_id: int):
             ensure_donor_welcome_pin(db, vk_id)
         except Exception:
             pass
+        try:
+            from services.external_rewards import ensure_external_reward_pins
+            ensure_external_reward_pins(db, vk_id)
+        except Exception:
+            pass
     return user

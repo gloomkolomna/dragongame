@@ -9,12 +9,14 @@ def _update_reservation_on_activation(db, vk_id: int, dragon_id: int):
         DragonReservation.dragon_id == dragon_id,
         DragonReservation.vk_user_id == vk_id,
         DragonReservation.is_activated == False,
+        DragonReservation.revoked_at.is_(None),
     ).first()
     if not reservation:
         reservation = db.query(DragonReservation).filter(
             DragonReservation.dragon_id == dragon_id,
             DragonReservation.vk_user_id == None,
             DragonReservation.is_activated == False,
+        DragonReservation.revoked_at.is_(None),
         ).first()
     if reservation:
         reservation.is_activated = True
@@ -95,6 +97,7 @@ def activate_all_reservations(db, vk_id: int):
         .filter(
             DragonReservation.vk_user_id == vk_id,
             DragonReservation.is_activated == False,
+        DragonReservation.revoked_at.is_(None),
         )
         .order_by(DragonReservation.created_at.desc())
         .all()

@@ -73,6 +73,7 @@ def _available_dragons(vk_id: int, db) -> list:
     reserved = {
         r[0] for r in db.query(DragonReservation.dragon_id).filter(
             DragonReservation.is_activated == False,
+            DragonReservation.revoked_at.is_(None),
             ((DragonReservation.vk_user_id == vk_id) | (DragonReservation.vk_user_id == None)),
         ).all()
     }

@@ -165,6 +165,7 @@ def _send_pins(vk_id: int, dragons: list, db=None, receipt_email: str = None) ->
             DragonReservation.dragon_id == d.id,
             DragonReservation.vk_user_id == vk_id,
             DragonReservation.is_activated == False,
+            DragonReservation.revoked_at.is_(None),
         ).first() if db else None
         if not existing and db:
             reservation = DragonReservation(

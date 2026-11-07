@@ -44,6 +44,7 @@ def handle_my_pins(user, db, send_message):
         .filter(
             DragonReservation.vk_user_id == user.vk_id,
             DragonReservation.is_activated == False,
+            DragonReservation.revoked_at.is_(None),
         )
         .order_by(DragonReservation.created_at.desc())
         .all()
@@ -103,6 +104,7 @@ def handle_pin_entry(user, text, db, send_message, upload_image=None):
             DragonReservation.dragon_id == dragon.id,
             DragonReservation.vk_user_id == user.vk_id,
             DragonReservation.is_activated == False,
+            DragonReservation.revoked_at.is_(None),
         ).first()
 
         if not reservation:
@@ -167,6 +169,7 @@ def handle_activate_all(user, db, send_message):
         .filter(
             DragonReservation.vk_user_id == user.vk_id,
             DragonReservation.is_activated == False,
+            DragonReservation.revoked_at.is_(None),
         )
         .all()
     )
