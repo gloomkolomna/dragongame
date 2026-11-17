@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
-import bridge, { parseURLSearchParamsForGetLaunchParams } from '@vkontakte/vk-bridge';
+import bridge from '@vkontakte/vk-bridge';
 import { setVkLaunchParams } from '../api/client';
+import { parseVkLaunchParams } from '../api/vkLaunchParams';
 
 interface VkContextType {
   vkUserId: number | null;
@@ -29,27 +30,6 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
       setTimeout(() => reject(new Error('vk-bridge timeout')), ms),
     ),
   ]);
-}
-
-// Разбор launch params из URL — работает и для query (?vk_user_id=...),
-// и для hash (#vk_user_id=...). VK на разных платформах передаёт по-разному.
-function parseVkParamsFromUrl(): { vkUserId: number | null; params: Record<string, string> } {
-  const sources = [window.location.search, window.location.hash];
-  const params: Record<string, string> = {};
-  let vkUserId: number | null = null;
-
-  for (const src of sources) {
-    const qs = src.startsWith('?') || src.startsWith('#') ? src.substring(1) : src;
-    qs.split('&').forEach((p) => {
-      const [k, v] = p.split('=');
-      if (!k) return;
-      const val = decodeURIComponent(v || '');
-      params[k] = val;
-      if (k === 'vk_user_id') vkUserId = Number(val);
-    });
-  }
-
-  return { vkUserId, params };
 }
 
 export function VkBridgeProvider({ children }: { children: ReactNode }) {
@@ -87,48 +67,23 @@ export function VkBridgeProvider({ children }: { children: ReactNode }) {
     async function init() {
       let id: number | null = null;
       let params: Record<string, string> = {};
-      let inVk = false;
 
-      // 1. МГНОВЕННЫЙ способ — разбор URL (query + hash). На мобайле ВК всегда
-      //    передаёт vk_user_id в URL, это не требует сети и не таймаутит.
-      //    Делаем ПЕРВЫМ, чтобы интерфейс появлялся мгновенно даже на слабом LTE.
-      try {
-        const lp = parseURLSearchParamsForGetLaunchParams(
-          window.location.search + window.location.hash,
-        );
-        if (lp && (lp as any).vk_user_id) {
-          inVk = true;
-          id = Number((lp as any).vk_user_id);
-          params = Object.fromEntries(
-            Object.entries(lp).map(([k, v]) => [k, String(v)])
-          );
-        }
-      } catch {
-        // игнорируем
+      const parsed = parseVkLaunchParams(window.location.search, window.location.hash);
+      if (parsed.vkUserId) {
+        id = parsed.vkUserId;
+        params = parsed.params;
       }
 
-      // 2. Запасной raw-разбор URL (всякие edge-cases передачи параметров).
-      if (!id) {
-        const fallback = parseVkParamsFromUrl();
-        if (fallback.vkUserId) {
-          inVk = true;
-          id = fallback.vkUserId;
-          params = fallback.params;
-        }
-      }
-
-      // 3. ОБЯЗАТЕЛЬНЫЙ запуск приложения в VK (fire-and-forget, не блокируем
-      //    рендер). Без VKWebAppInit VK считает приложение «не инициализированным».
+      // Обязательный запуск приложения в VK (fire-and-forget, не блокируем
+      // рендер). Без VKWebAppInit VK считает приложение «не инициализированным».
       bridge.send('VKWebAppInit').catch(() => {});
 
-      // 4. Дополнительный запрос launch params через VK Bridge — НЕ блокирующий,
-      //    используется только если URL-разбор ничего не дал (прямые переходы,
-      //    десктоп-веб). На мобайле обычно уже есть id из шага 1.
+      // Дополнительный запрос launch params через VK Bridge — не блокирующий,
+      // используется только если URL-разбор ничего не дал.
       if (!id) {
         try {
           const lp = await withTimeout(bridge.send('VKWebAppGetLaunchParams'), 3000);
           if (lp && lp.vk_user_id) {
-            inVk = true;
             id = Number(lp.vk_user_id);
             params = Object.fromEntries(
               Object.entries(lp).map(([k, v]) => [k, String(v)])
